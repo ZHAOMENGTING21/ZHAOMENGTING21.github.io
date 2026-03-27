@@ -1,0 +1,3029 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>财经政法学院活动管理系统</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+        }
+        
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        /* 头部样式 */
+        header {
+            background: linear-gradient(135deg, #1a5fb4 0%, #1c71d8 100%);
+            color: white;
+            padding: 25px 30px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+        }
+        
+        .header-left p {
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        
+        .header-right {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        /* 用户登录区域 */
+        .user-auth {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 25px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+        }
+        
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #1c71d8 0%, #1a5fb4 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .user-details h4 {
+            margin-bottom: 4px;
+            color: #1e293b;
+        }
+        
+        .user-details p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .login-form {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .login-form input {
+            padding: 8px 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            width: 150px;
+        }
+        
+        /* 导航栏 */
+        .nav-tabs {
+            display: flex;
+            background: white;
+            border-radius: 10px;
+            padding: 0;
+            margin-bottom: 25px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+        }
+        
+        .tab {
+            flex: 1;
+            text-align: center;
+            padding: 16px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+        
+        .tab:hover {
+            background-color: #f1f5f9;
+        }
+        
+        .tab.active {
+            color: #1c71d8;
+            border-bottom: 3px solid #1c71d8;
+            background-color: #f0f7ff;
+        }
+        
+        .tab i {
+            margin-right: 8px;
+        }
+        
+        /* 内容区域 */
+        .content-section {
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        
+        .content-section.active {
+            display: block;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* 统计卡片 */
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 22px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            display: flex;
+            align-items: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-3px);
+        }
+        
+        .stat-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 22px;
+        }
+        
+        .stat-info h3 {
+            font-size: 26px;
+            margin-bottom: 5px;
+        }
+        
+        .stat-info p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        /* 卡片区域 */
+        .card-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.06);
+            transition: all 0.3s;
+        }
+        
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+        
+        .card-header {
+            padding: 18px 20px;
+            background: #f0f7ff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        
+        .card-status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-upcoming {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-ongoing {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .status-completed {
+            background-color: #e0e7ff;
+            color: #3730a3;
+        }
+        
+        .card-body {
+            padding: 20px;
+        }
+        
+        .card-item {
+            margin-bottom: 15px;
+            display: flex;
+        }
+        
+        .card-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .card-label {
+            color: #64748b;
+            width: 100px;
+            font-size: 14px;
+            flex-shrink: 0;
+        }
+        
+        .card-value {
+            color: #1e293b;
+            font-weight: 500;
+        }
+        
+        .card-footer {
+            padding: 15px 20px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        /* 按钮样式 */
+        .btn {
+            padding: 8px 16px;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .btn i {
+            margin-right: 6px;
+        }
+        
+        .btn-primary {
+            background-color: #1c71d8;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #1a5fb4;
+        }
+        
+        .btn-secondary {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #cbd5e1;
+        }
+        
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #0da271;
+        }
+        
+        .btn-warning {
+            background-color: #f59e0b;
+            color: white;
+        }
+        
+        .btn-warning:hover {
+            background-color: #d97706;
+        }
+        
+        .btn-danger {
+            background-color: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        
+        .btn-small {
+            padding: 5px 10px;
+            font-size: 13px;
+        }
+        
+        /* 表格样式 */
+        .table-container {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background-color: #f1f5f9;
+            padding: 16px 20px;
+            text-align: left;
+            font-weight: 600;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        td {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        tr:last-child td {
+            border-bottom: none;
+        }
+        
+        tr:hover {
+            background-color: #f8fafc;
+        }
+        
+        /* 表单样式 */
+        .form-container {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        
+        .form-title {
+            font-size: 20px;
+            margin-bottom: 20px;
+            color: #1e293b;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .form-group {
+            flex: 1;
+            min-width: 300px;
+            margin-right: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .form-group:last-child {
+            margin-right: 0;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #475569;
+        }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 10px 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 15px;
+            transition: border 0.3s;
+        }
+        
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #1c71d8;
+            box-shadow: 0 0 0 3px rgba(28, 113, 216, 0.1);
+        }
+        
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+        
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        /* 搜索框 */
+        .search-box {
+            display: flex;
+            margin-bottom: 25px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px 0 0 8px;
+            font-size: 15px;
+        }
+        
+        .search-btn {
+            padding: 0 25px;
+            background-color: #1c71d8;
+            color: white;
+            border: none;
+            border-radius: 0 8px 8px 0;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        /* 批量导入区域 */
+        .import-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        
+        .upload-area {
+            border: 2px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            border-color: #1c71d8;
+            background-color: #f8fafc;
+        }
+        
+        .upload-area i {
+            font-size: 48px;
+            color: #94a3b8;
+            margin-bottom: 15px;
+        }
+        
+        .upload-area p {
+            color: #64748b;
+            margin-bottom: 10px;
+        }
+        
+        .upload-area small {
+            color: #94a3b8;
+        }
+        
+        .download-template {
+            margin-top: 15px;
+            display: inline-block;
+            color: #1c71d8;
+            text-decoration: none;
+        }
+        
+        .download-template:hover {
+            text-decoration: underline;
+        }
+        
+        /* 活动标签 */
+        .activity-tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-right: 6px;
+            margin-bottom: 6px;
+        }
+        
+        .tag-academic {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .tag-sports {
+            background-color: #fce7f3;
+            color: #9d174d;
+        }
+        
+        .tag-cultural {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        .tag-volunteer {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .tag-other {
+            background-color: #ede9fe;
+            color: #5b21b6;
+        }
+        
+        /* 综测类型标签 */
+        .score-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .score-moral {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        
+        .score-art {
+            background-color: #fce7f3;
+            color: #9d174d;
+        }
+        
+        .score-academic {
+            background-color: #dbeafe;
+            color: #1e40af;
+        }
+        
+        .score-ability {
+            background-color: #fef3c7;
+            color: #92400e;
+        }
+        
+        /* 综测分数输入 */
+        .score-input {
+            width: 80px;
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            text-align: center;
+        }
+        
+        .score-input:focus {
+            outline: none;
+            border-color: #1c71d8;
+            box-shadow: 0 0 0 2px rgba(28, 113, 216, 0.1);
+        }
+        
+        /* 批量操作栏 */
+        .batch-actions {
+            background: #f0f9ff;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .batch-actions label {
+            margin-bottom: 0;
+            margin-right: 10px;
+        }
+        
+        /* 批量删除提示 */
+        .delete-confirm {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 15px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+        }
+        
+        .delete-confirm.show {
+            display: flex;
+        }
+        
+        .delete-confirm p {
+            color: #7f1d1d;
+            font-weight: 500;
+        }
+        
+        /* 空状态提示 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #64748b;
+        }
+        
+        .empty-state i {
+            font-size: 48px;
+            margin-bottom: 15px;
+            color: #cbd5e1;
+        }
+        
+        /* 学生统计样式 */
+        .student-stats-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        
+        .student-stats-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .student-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .student-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .student-item:last-child {
+            border-bottom: none;
+        }
+        
+        .student-name {
+            font-weight: 500;
+            color: #1e293b;
+        }
+        
+        .student-activity-count {
+            background-color: #e0f2fe;
+            color: #0369a1;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        /* 响应式调整 */
+        @media (max-width: 768px) {
+            .card-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-left h1 {
+                font-size: 22px;
+            }
+            
+            .header-right {
+                display: none;
+            }
+            
+            .nav-tabs {
+                flex-direction: column;
+            }
+            
+            .form-group {
+                min-width: 100%;
+                margin-right: 0;
+            }
+            
+            .login-form {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .login-form input {
+                width: 100%;
+            }
+            
+            .user-auth {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .batch-actions, .delete-confirm {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+        }
+
+        /* 备份功能样式 */
+        .backup-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.06);
+            margin-bottom: 30px;
+        }
+        
+        .backup-actions {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .backup-status {
+            margin-top: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            display: none;
+        }
+        
+        .backup-status.success {
+            background-color: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+            display: block;
+        }
+        
+        .backup-status.error {
+            background-color: #fef2f2;
+            color: #7f1d1d;
+            border: 1px solid #fecaca;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-left">
+                <h1><i class="fas fa-university"></i> 财经政法学院活动管理系统</h1>
+                <p>教师协作版 - 活动组织与参与统计平台</p>
+            </div>
+            <div class="header-right" id="current-term">
+                <!-- 学期将通过JavaScript动态生成 -->
+            </div>
+        </header>
+        
+        <!-- 用户登录区域 -->
+        <div class="user-auth">
+            <div class="user-info" id="user-info" style="display: none;">
+                <div class="user-avatar" id="user-avatar">赵</div>
+                <div class="user-details">
+                    <h4 id="user-name">赵梦婷</h4>
+                    <p id="user-role">管理员</p>
+                </div>
+            </div>
+            
+            <div class="login-form" id="login-form">
+                <input type="text" id="teacher-name" placeholder="教师姓名" value="赵梦婷" readonly>
+                <select id="teacher-role" disabled>
+                    <option value="管理员" selected>管理员</option>
+                </select>
+                <button class="btn btn-primary" id="login-btn"><i class="fas fa-sign-in-alt"></i> 登录系统</button>
+                <button class="btn btn-secondary" id="clear-data-btn"><i class="fas fa-trash"></i> 清除数据</button>
+                <button class="btn btn-success" id="backup-btn"><i class="fas fa-database"></i> 数据备份</button>
+                <button class="btn btn-warning" id="export-all-btn"><i class="fas fa-file-export"></i> 导出全部</button>
+            </div>
+        </div>
+        
+        <div class="nav-tabs">
+            <div class="tab active" data-target="dashboard">
+                <i class="fas fa-tachometer-alt"></i> 控制面板
+            </div>
+            <div class="tab" data-target="activities">
+                <i class="fas fa-calendar-check"></i> 活动管理
+            </div>
+            <div class="tab" data-target="participants">
+                <i class="fas fa-users"></i> 参与名单
+            </div>
+            <div class="tab" data-target="add-activity">
+                <i class="fas fa-plus-circle"></i> 新增活动
+            </div>
+            <div class="tab" data-target="import">
+                <i class="fas fa-file-import"></i> 批量导入
+            </div>
+            <div class="tab" data-target="student-stats">
+                <i class="fas fa-chart-bar"></i> 学生统计
+            </div>
+            <div class="tab" data-target="backup">
+                <i class="fas fa-database"></i> 数据管理
+            </div>
+        </div>
+        
+        <!-- 控制面板 -->
+        <section id="dashboard" class="content-section active">
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: #e0f2fe; color: #0369a1;">
+                        <i class="fas fa-calendar-day"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-activities">0</h3>
+                        <p>本学期活动总数</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: #f0f9ff; color: #0c4a6e;">
+                        <i class="fas fa-user-check"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="total-participants">0</h3>
+                        <p>活动参与总人次</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: #fef3c7; color: #92400e;">
+                        <i class="fas fa-running"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="ongoing-activities">0</h3>
+                        <p>进行中活动</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: #f1f5f9; color: #475569;">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="teachers-count">1</h3>
+                        <p>协作教师数</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon" style="background-color: #dbeafe; color: #1e40af;">
+                        <i class="fas fa-user-graduate"></i>
+                    </div>
+                    <div class="stat-info">
+                        <h3 id="unique-students">0</h3>
+                        <p>参与学生数</p>
+                    </div>
+                </div>
+            </div>
+            
+            <h2 style="margin-bottom: 20px; color: #1e293b;">近期活动</h2>
+            <div class="card-container">
+                <!-- 活动卡片将通过JavaScript动态生成 -->
+            </div>
+        </section>
+        
+        <!-- 活动管理 -->
+        <section id="activities" class="content-section">
+            <div class="search-box">
+                <input type="text" class="search-input" id="activity-search" placeholder="搜索活动名称、类型...">
+                <button class="search-btn" id="search-btn"><i class="fas fa-search"></i> 搜索</button>
+            </div>
+            
+            <!-- 批量删除提示 -->
+            <div class="delete-confirm" id="delete-confirm">
+                <p>已选择 <span id="selected-count">0</span> 个活动，确定要删除吗？</p>
+                <div>
+                    <button class="btn btn-secondary" id="cancel-delete">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                    <button class="btn btn-danger" id="confirm-delete">
+                        <i class="fas fa-trash"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" id="select-all-activities">
+                            </th>
+                            <th>活动名称</th>
+                            <th>类型</th>
+                            <th>活动时间</th>
+                            <th>参与人数</th>
+                            <th>状态</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="activities-table">
+                        <!-- 活动数据将通过JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+        <!-- 参与名单 -->
+        <section id="participants" class="content-section">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>选择活动</label>
+                    <select id="activity-select">
+                        <option value="">请选择活动...</option>
+                        <!-- 活动选项将通过JavaScript动态生成 -->
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>搜索姓名/学号</label>
+                    <input type="text" id="participant-search" placeholder="输入姓名或学号...">
+                </div>
+            </div>
+            
+            <!-- 批量操作栏 -->
+            <div class="batch-actions" id="batch-actions" style="display: none;">
+                <span style="font-weight: 500; color: #1e293b;">批量操作：</span>
+                <select id="batch-score-type">
+                    <option value="">选择综测类型</option>
+                    <option value="moral">品德表现</option>
+                    <option value="art">文体表现</option>
+                    <option value="academic">学业表现</option>
+                    <option value="ability">能力表现</option>
+                </select>
+                <input type="number" id="batch-score-value" placeholder="综测分数" min="0" max="10" step="0.5" class="score-input">
+                <button class="btn btn-warning" id="apply-batch-score">
+                    <i class="fas fa-check-double"></i> 批量设置
+                </button>
+                <button class="btn btn-danger" id="batch-delete-participants">
+                    <i class="fas fa-trash"></i> 批量删除
+                </button>
+                <button class="btn btn-secondary" id="cancel-batch">
+                    <i class="fas fa-times"></i> 取消
+                </button>
+            </div>
+            
+            <!-- 批量删除提示 -->
+            <div class="delete-confirm" id="delete-participants-confirm">
+                <p>已选择 <span id="selected-participants-count">0</span> 名学生，确定要删除吗？</p>
+                <div>
+                    <button class="btn btn-secondary" id="cancel-participants-delete">
+                        <i class="fas fa-times"></i> 取消
+                    </button>
+                    <button class="btn btn-danger" id="confirm-participants-delete">
+                        <i class="fas fa-trash"></i> 确认删除
+                    </button>
+                </div>
+            </div>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th width="50">
+                                <input type="checkbox" id="select-all-participants">
+                            </th>
+                            <th>序号</th>
+                            <th>学号</th>
+                            <th>姓名</th>
+                            <th>专业班级</th>
+                            <th>联系方式</th>
+                            <th>签到时间</th>
+                            <th>参与活动</th>
+                            <th>综测类型</th>
+                            <th>综测分数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="participants-table">
+                        <!-- 参与名单数据将通过JavaScript动态生成 -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button class="btn btn-primary" id="import-participants-btn">
+                    <i class="fas fa-file-import"></i> 批量导入学生名单
+                </button>
+                <button class="btn btn-success" id="export-participants-btn">
+                    <i class="fas fa-file-export"></i> 导出名单
+                </button>
+            </div>
+        </section>
+        
+        <!-- 新增活动 -->
+        <section id="add-activity" class="content-section">
+            <div class="form-container">
+                <div class="form-title"><i class="fas fa-plus-circle"></i> 新增活动信息</div>
+                <form id="activity-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="activity-name">活动名称 *</label>
+                            <input type="text" id="activity-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="activity-type">活动类型 *</label>
+                            <select id="activity-type" required>
+                                <option value="">请选择类型</option>
+                                <option value="lecture">讲座报告</option>
+                                <option value="essay">征文演讲</option>
+                                <option value="performance">文艺表演</option>
+                                <option value="visit">参观走访</option>
+                                <option value="volunteer">志愿服务</option>
+                                <option value="social">社会实践</option>
+                                <option value="exchange">分享交流</option>
+                                <option value="other">其他</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="activity-date">活动日期 *</label>
+                            <input type="date" id="activity-date" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="activity-time">活动时间 *</label>
+                            <input type="time" id="activity-time" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="activity-location">活动地点 *</label>
+                            <input type="text" id="activity-location" placeholder="例如：学术报告厅" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="capacity">活动容量（选填）</label>
+                            <input type="number" id="capacity" placeholder="可容纳人数，留空表示不限">
+                        </div>
+                        <div class="form-group">
+                            <label for="activity-score">默认综测分数（选填）</label>
+                            <input type="number" id="activity-score" placeholder="选填，如0.5、1、2等" min="0" max="10" step="0.5">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="activity-description">活动描述（选填）</label>
+                            <textarea id="activity-description" placeholder="请输入活动详细描述..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- 新增：活动创建时导入名单 -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>导入学生名单（可选）</label>
+                            <div class="upload-area" id="participant-upload-area">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>点击选择Excel文件</p>
+                                <small>仅支持.xlsx和.xls格式，文件大小不超过10MB</small>
+                            </div>
+                            <div style="text-align: center; margin-top: 10px;">
+                                <a href="#" class="download-template" id="download-participant-template-2">
+                                    <i class="fas fa-file-excel"></i> 下载学生名单模板
+                                </a>
+                            </div>
+                            <div id="uploaded-file-info" style="margin-top: 10px; display: none;">
+                                <p style="color: #10b981; font-size: 14px;">
+                                    <i class="fas fa-check-circle"></i> 
+                                    已选择文件: <span id="uploaded-file-name"></span>
+                                    (<span id="uploaded-student-count">0</span> 名学生)
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="reset-form">
+                            <i class="fas fa-redo"></i> 重置
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-save"></i> 保存活动并导入名单
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+        
+        <!-- 批量导入 -->
+        <section id="import" class="content-section">
+            <div class="import-section">
+                <div class="form-title"><i class="fas fa-file-import"></i> 批量导入数据</div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>选择导入类型</label>
+                        <select id="import-type">
+                            <option value="activities">导入活动数据</option>
+                            <option value="participants">导入学生名单</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>选择活动（导入名单时需要）</label>
+                        <select id="import-activity-select">
+                            <option value="">请选择活动...</option>
+                            <!-- 活动选项将通过JavaScript动态生成 -->
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="upload-area" id="upload-area">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>点击选择Excel文件</p>
+                    <small>仅支持.xlsx和.xls格式，文件大小不超过10MB</small>
+                </div>
+                
+                <div style="text-align: center;">
+                    <a href="#" class="download-template" id="download-activity-template">
+                        <i class="fas fa-file-excel"></i> 下载活动模板
+                    </a>
+                    <span style="margin: 0 10px; color: #cbd5e1;">|</span>
+                    <a href="#" class="download-template" id="download-participant-template">
+                        <i class="fas fa-file-excel"></i> 下载学生名单模板
+                    </a>
+                </div>
+            </div>
+        </section>
+        
+        <!-- 学生统计 -->
+        <section id="student-stats" class="content-section">
+            <div class="student-stats-card">
+                <div class="student-stats-header">
+                    <span>学生参与活动统计</span>
+                    <button class="btn btn-primary" id="refresh-stats">
+                        <i class="fas fa-sync-alt"></i> 刷新统计
+                    </button>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>按专业班级筛选</label>
+                        <select id="major-filter">
+                            <option value="">全部专业班级</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>按参与次数筛选</label>
+                        <select id="count-filter">
+                            <option value="">全部学生</option>
+                            <option value="1">参与1次</option>
+                            <option value="2">参与2次以上</option>
+                            <option value="5">参与5次以上</option>
+                            <option value="10">参与10次以上</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="student-list" id="student-list">
+                    <!-- 学生统计数据将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <h3 style="margin-bottom: 20px; color: #1e293b;">详细统计</h3>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>学号</th>
+                            <th>姓名</th>
+                            <th>专业班级</th>
+                            <th>参与活动数</th>
+                            <th>活动列表</th>
+                            <th>总综测分数</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-stats-table">
+                        <!-- 学生详细统计数据 -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+        
+        <!-- 数据管理（备份） -->
+        <section id="backup" class="content-section">
+            <div class="backup-section">
+                <div class="form-title"><i class="fas fa-database"></i> 数据管理</div>
+                
+                <div class="backup-actions">
+                    <button class="btn btn-success" id="create-backup-btn">
+                        <i class="fas fa-file-export"></i> 创建数据备份
+                    </button>
+                    <button class="btn btn-warning" id="restore-backup-btn">
+                        <i class="fas fa-file-import"></i> 恢复数据备份
+                    </button>
+                    <button class="btn btn-primary" id="export-all-data-btn">
+                        <i class="fas fa-file-excel"></i> 导出完整数据
+                    </button>
+                </div>
+                
+                <div class="backup-status" id="backup-status"></div>
+                
+                <div style="margin-top: 30px;">
+                    <h4 style="color: #475569; margin-bottom: 15px;">数据统计</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>活动数据总数</label>
+                            <div style="font-size: 24px; font-weight: bold; color: #1c71d8;" id="backup-activities-count">0</div>
+                        </div>
+                        <div class="form-group">
+                            <label>参与记录总数</label>
+                            <div style="font-size: 24px; font-weight: bold; color: #10b981;" id="backup-participants-count">0</div>
+                        </div>
+                        <div class="form-group">
+                            <label>数据备份时间</label>
+                            <div style="font-size: 16px; color: #64748b;" id="backup-time">暂无备份</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        // 数据存储键名
+        const STORAGE_KEYS = {
+            ACTIVITIES: 'college_activity_system_activities',
+            PARTICIPANTS: 'college_activity_system_participants',
+            CURRENT_USER: 'college_activity_system_current_user',
+            BACKUP: 'college_activity_system_backup'
+        };
+
+        // 默认初始数据
+        const DEFAULT_DATA = {
+            activities: [],
+            participants: []
+        };
+
+        // 全局变量
+        let activities = [];
+        let participants = [];
+        let currentUser = null;
+        let selectedActivityIds = [];
+        let selectedParticipantIds = [];
+        let uploadedParticipantsForNewActivity = [];
+
+        // Excel文件读取函数
+        function readExcelFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                        
+                        // 处理Excel数据
+                        const processedData = processExcelData(jsonData);
+                        resolve(processedData);
+                    } catch (error) {
+                        reject(new Error('读取Excel文件失败: ' + error.message));
+                    }
+                };
+                
+                reader.onerror = function() {
+                    reject(new Error('读取文件失败'));
+                };
+                
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        // 处理Excel数据
+        function processExcelData(data) {
+            if (data.length < 2) {
+                throw new Error('Excel文件至少需要包含标题行和数据行');
+            }
+            
+            const headers = data[0];
+            const rows = data.slice(1);
+            const result = [];
+            
+            rows.forEach((row, rowIndex) => {
+                // 跳过空行
+                if (!row || row.every(cell => !cell)) return;
+                
+                const rowData = {};
+                headers.forEach((header, colIndex) => {
+                    if (header && row[colIndex] !== undefined) {
+                        rowData[header] = row[colIndex];
+                    }
+                });
+                
+                if (Object.keys(rowData).length > 0) {
+                    result.push(rowData);
+                }
+            });
+            
+            return result;
+        }
+
+        // 自动计算当前学期
+        function getCurrentTerm() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = now.getMonth() + 1;
+            
+            let term, academicYear;
+            
+            if (month >= 9 || month <= 1) {
+                term = "第一学期";
+                if (month >= 9) {
+                    academicYear = `${year}-${year + 1}`;
+                } else {
+                    academicYear = `${year - 1}-${year}`;
+                }
+            } else if (month >= 3 && month <= 7) {
+                term = "第二学期";
+                academicYear = `${year - 1}-${year}`;
+            } else {
+                term = "第二学期";
+                academicYear = `${year - 1}-${year}`;
+            }
+            
+            return `${academicYear}学年${term}`;
+        }
+
+        // 数据持久化函数
+        function saveToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEYS.ACTIVITIES, JSON.stringify(activities));
+                localStorage.setItem(STORAGE_KEYS.PARTICIPANTS, JSON.stringify(participants));
+                if (currentUser) {
+                    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(currentUser));
+                }
+                console.log('数据已保存到本地存储');
+            } catch (error) {
+                console.error('保存数据到本地存储失败:', error);
+            }
+        }
+
+        function loadFromStorage() {
+            try {
+                const savedActivities = localStorage.getItem(STORAGE_KEYS.ACTIVITIES);
+                const savedParticipants = localStorage.getItem(STORAGE_KEYS.PARTICIPANTS);
+                const savedUser = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+                
+                activities = savedActivities ? JSON.parse(savedActivities) : DEFAULT_DATA.activities;
+                participants = savedParticipants ? JSON.parse(savedParticipants) : DEFAULT_DATA.participants;
+                currentUser = savedUser ? JSON.parse(savedUser) : null;
+                
+                console.log('从本地存储加载数据成功');
+            } catch (error) {
+                console.error('从本地存储加载数据失败:', error);
+                activities = [...DEFAULT_DATA.activities];
+                participants = [...DEFAULT_DATA.participants];
+                currentUser = null;
+            }
+        }
+
+        // 创建数据备份
+        function createBackup() {
+            try {
+                const backupData = {
+                    timestamp: new Date().toISOString(),
+                    activities: activities,
+                    participants: participants,
+                    currentUser: currentUser,
+                    totalActivities: activities.length,
+                    totalParticipants: participants.length
+                };
+                
+                localStorage.setItem(STORAGE_KEYS.BACKUP, JSON.stringify(backupData));
+                
+                showBackupStatus('数据备份创建成功！', 'success');
+                updateBackupInfo();
+                
+                // 提供下载备份文件
+                const backupStr = JSON.stringify(backupData, null, 2);
+                const blob = new Blob([backupStr], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `财经政法学院活动系统备份_${new Date().toISOString().slice(0, 10)}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+            } catch (error) {
+                showBackupStatus('备份失败: ' + error.message, 'error');
+            }
+        }
+
+        // 恢复数据备份
+        function restoreBackup() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json';
+            
+            fileInput.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const backupData = JSON.parse(e.target.result);
+                        
+                        if (!backupData.activities || !backupData.participants) {
+                            throw new Error('备份文件格式不正确');
+                        }
+                        
+                        if (confirm(`确定要恢复此备份吗？\n备份时间：${backupData.timestamp}\n活动数：${backupData.totalActivities}\n参与记录：${backupData.totalParticipants}\n\n当前数据将被覆盖！`)) {
+                            activities = backupData.activities;
+                            participants = backupData.participants;
+                            currentUser = backupData.currentUser;
+                            
+                            saveToStorage();
+                            initPage();
+                            
+                            showBackupStatus('数据恢复成功！', 'success');
+                            alert('数据恢复完成！');
+                        }
+                    } catch (error) {
+                        showBackupStatus('恢复失败: ' + error.message, 'error');
+                    }
+                };
+                
+                reader.readAsText(file);
+            };
+            
+            fileInput.click();
+        }
+
+        // 显示备份状态
+        function showBackupStatus(message, type) {
+            const statusDiv = document.getElementById('backup-status');
+            statusDiv.textContent = message;
+            statusDiv.className = 'backup-status ' + type;
+            
+            setTimeout(() => {
+                statusDiv.textContent = '';
+                statusDiv.className = 'backup-status';
+            }, 5000);
+        }
+
+        // 更新备份信息
+        function updateBackupInfo() {
+            document.getElementById('backup-activities-count').textContent = activities.length;
+            document.getElementById('backup-participants-count').textContent = participants.length;
+            
+            const backupData = localStorage.getItem(STORAGE_KEYS.BACKUP);
+            if (backupData) {
+                try {
+                    const backup = JSON.parse(backupData);
+                    const date = new Date(backup.timestamp);
+                    document.getElementById('backup-time').textContent = date.toLocaleString();
+                } catch (error) {
+                    document.getElementById('backup-time').textContent = '未知时间';
+                }
+            } else {
+                document.getElementById('backup-time').textContent = '暂无备份';
+            }
+        }
+
+        // 导出完整数据（所有活动及对应学生名单）
+        function exportAllData() {
+            try {
+                // 创建工作簿
+                const wb = XLSX.utils.book_new();
+                
+                // 创建活动数据工作表
+                const activitiesData = activities.map(activity => {
+                    let statusText = '';
+                    switch(activity.status) {
+                        case 'upcoming': statusText = '即将开始'; break;
+                        case 'ongoing': statusText = '进行中'; break;
+                        case 'completed': statusText = '已结束'; break;
+                    }
+                    
+                    let typeText = '';
+                    switch(activity.type) {
+                        case 'lecture': typeText = '讲座报告'; break;
+                        case 'essay': typeText = '征文演讲'; break;
+                        case 'performance': typeText = '文艺表演'; break;
+                        case 'visit': typeText = '参观走访'; break;
+                        case 'volunteer': typeText = '志愿服务'; break;
+                        case 'social': typeText = '社会实践'; break;
+                        case 'exchange': typeText = '分享交流'; break;
+                        case 'other': typeText = '其他活动'; break;
+                    }
+                    
+                    return {
+                        '活动ID': activity.id,
+                        '活动名称': activity.name,
+                        '活动类型': typeText,
+                        '活动日期': activity.date,
+                        '活动时间': activity.time,
+                        '活动地点': activity.location,
+                        '创建人': activity.createdBy,
+                        '教师角色': activity.teacherRole,
+                        '活动容量': activity.capacity === 0 ? '不限' : activity.capacity,
+                        '参与人数': activity.participants,
+                        '默认综测分数': activity.defaultScore || '未设置',
+                        '活动状态': statusText,
+                        '活动描述': activity.description || ''
+                    };
+                });
+                
+                const activitiesWs = XLSX.utils.json_to_sheet(activitiesData);
+                XLSX.utils.book_append_sheet(wb, activitiesWs, '活动列表');
+                
+                // 为每个活动创建单独的学生名单工作表
+                activities.forEach((activity, index) => {
+                    const activityParticipants = participants.filter(p => p.activityId === activity.id);
+                    
+                    if (activityParticipants.length > 0) {
+                        const participantData = activityParticipants.map((participant, idx) => {
+                            let scoreTypeText = '';
+                            switch(participant.scoreType) {
+                                case 'moral': scoreTypeText = '品德表现'; break;
+                                case 'art': scoreTypeText = '文体表现'; break;
+                                case 'academic': scoreTypeText = '学业表现'; break;
+                                case 'ability': scoreTypeText = '能力表现'; break;
+                            }
+                            
+                            return {
+                                '序号': idx + 1,
+                                '学号': participant.studentId,
+                                '姓名': participant.name,
+                                '专业班级': participant.major,
+                                '联系方式': participant.phone,
+                                '签到时间': participant.checkinTime,
+                                '综测类型': scoreTypeText,
+                                '综测分数': participant.score || ''
+                            };
+                        });
+                        
+                        // 工作表名称限制在31个字符内
+                        const sheetName = activity.name.length > 28 ? 
+                            activity.name.substring(0, 28) + '...' : 
+                            activity.name;
+                        
+                        const participantWs = XLSX.utils.json_to_sheet(participantData);
+                        XLSX.utils.book_append_sheet(wb, participantWs, `活动${index + 1}_${sheetName}`);
+                    }
+                });
+                
+                // 创建汇总统计工作表
+                const studentActivities = {};
+                participants.forEach(participant => {
+                    const key = `${participant.studentId}_${participant.name}_${participant.major}`;
+                    if (!studentActivities[key]) {
+                        studentActivities[key] = {
+                            studentId: participant.studentId,
+                            name: participant.name,
+                            major: participant.major,
+                            activities: [],
+                            activitiesCount: 0,
+                            totalScore: 0
+                        };
+                    }
+                    
+                    const activity = activities.find(a => a.id === participant.activityId);
+                    if (activity) {
+                        studentActivities[key].activities.push(activity.name);
+                        studentActivities[key].activitiesCount++;
+                        
+                        if (participant.score) {
+                            studentActivities[key].totalScore += parseFloat(participant.score) || 0;
+                        }
+                    }
+                });
+                
+                const summaryData = Object.values(studentActivities).map(student => ({
+                    '学号': student.studentId,
+                    '姓名': student.name,
+                    '专业班级': student.major,
+                    '参与活动数': student.activitiesCount,
+                    '参与活动列表': student.activities.join('、'),
+                    '总综测分数': student.totalScore.toFixed(1)
+                }));
+                
+                const summaryWs = XLSX.utils.json_to_sheet(summaryData);
+                XLSX.utils.book_append_sheet(wb, summaryWs, '学生汇总统计');
+                
+                // 导出文件
+                const fileName = `财经政法学院活动系统完整数据_${new Date().toISOString().slice(0, 10)}.xlsx`;
+                XLSX.writeFile(wb, fileName);
+                
+                showBackupStatus(`完整数据导出成功！包含${activities.length}个活动和${participants.length}条参与记录`, 'success');
+                
+            } catch (error) {
+                showBackupStatus('导出失败: ' + error.message, 'error');
+            }
+        }
+
+        // 清除所有数据
+        function clearAllData() {
+            if (confirm('确定要清除所有数据吗？此操作不可恢复！')) {
+                localStorage.clear();
+                activities = [...DEFAULT_DATA.activities];
+                participants = [...DEFAULT_DATA.participants];
+                currentUser = null;
+                
+                initPage();
+                alert('所有数据已清除');
+            }
+        }
+
+        // 初始化页面
+        function initPage() {
+            loadFromStorage();
+            
+            const currentTerm = getCurrentTerm();
+            document.getElementById('current-term').innerHTML = `<i class="far fa-calendar-alt"></i> 当前学期：${currentTerm}`;
+            
+            initLogin();
+            initTabs();
+            renderActivityCards();
+            renderActivitiesTable();
+            initActivitySelect();
+            initForm();
+            initSearch();
+            initImport();
+            initBatchOperations();
+            initStudentStats();
+            initBackup();
+            setCurrentDate();
+            updateBackupInfo();
+            
+            // 自动以赵梦婷身份登录
+            simulateLogin("赵梦婷", "管理员");
+        }
+
+        // 初始化登录功能
+        function initLogin() {
+            const loginBtn = document.getElementById('login-btn');
+            const clearDataBtn = document.getElementById('clear-data-btn');
+            const backupBtn = document.getElementById('backup-btn');
+            const exportAllBtn = document.getElementById('export-all-btn');
+            
+            loginBtn.addEventListener('click', function() {
+                simulateLogin("赵梦婷", "管理员");
+            });
+            
+            clearDataBtn.addEventListener('click', clearAllData);
+            
+            backupBtn.addEventListener('click', function() {
+                document.querySelector('[data-target="backup"]').click();
+            });
+            
+            exportAllBtn.addEventListener('click', exportAllData);
+        }
+
+        // 初始化备份功能
+        function initBackup() {
+            document.getElementById('create-backup-btn').addEventListener('click', createBackup);
+            document.getElementById('restore-backup-btn').addEventListener('click', restoreBackup);
+            document.getElementById('export-all-data-btn').addEventListener('click', exportAllData);
+        }
+
+        // 模拟登录
+        function simulateLogin(name, role) {
+            currentUser = { name: name, role: role };
+            saveToStorage();
+            
+            document.getElementById('user-name').textContent = name;
+            document.getElementById('user-role').textContent = role;
+            document.getElementById('user-avatar').textContent = name.charAt(0);
+            
+            document.getElementById('user-info').style.display = 'flex';
+            document.getElementById('login-form').style.display = 'none';
+            
+            updateStats();
+            
+            alert(`欢迎回来，${role}${name}！`);
+        }
+
+        // 初始化标签页切换
+        function initTabs() {
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    const targetId = this.getAttribute('data-target');
+                    
+                    tabs.forEach(t => t.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    const sections = document.querySelectorAll('.content-section');
+                    sections.forEach(section => {
+                        section.classList.remove('active');
+                    });
+                    document.getElementById(targetId).classList.add('active');
+                    
+                    if (targetId === 'student-stats') {
+                        renderStudentStats();
+                    }
+                    
+                    selectedActivityIds = [];
+                    selectedParticipantIds = [];
+                    document.getElementById('delete-confirm').classList.remove('show');
+                    document.getElementById('delete-participants-confirm').classList.remove('show');
+                });
+            });
+        }
+
+        // 渲染活动卡片
+        function renderActivityCards() {
+            const container = document.querySelector('.card-container');
+            container.innerHTML = '';
+            
+            const recentActivities = activities.slice(0, 4);
+            
+            if (recentActivities.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <p>暂无活动数据</p>
+                        <p style="font-size: 14px; margin-top: 10px;">请先创建活动或导入活动数据</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            recentActivities.forEach(activity => {
+                let statusText, statusClass;
+                switch(activity.status) {
+                    case 'upcoming': 
+                        statusText = '即将开始'; 
+                        statusClass = 'status-upcoming'; 
+                        break;
+                    case 'ongoing': 
+                        statusText = '进行中'; 
+                        statusClass = 'status-ongoing'; 
+                        break;
+                    case 'completed': 
+                        statusText = '已结束'; 
+                        statusClass = 'status-completed'; 
+                        break;
+                }
+                
+                let typeText;
+                switch(activity.type) {
+                    case 'lecture': typeText = '讲座报告'; break;
+                    case 'essay': typeText = '征文演讲'; break;
+                    case 'performance': typeText = '文艺表演'; break;
+                    case 'visit': typeText = '参观走访'; break;
+                    case 'volunteer': typeText = '志愿服务'; break;
+                    case 'social': typeText = '社会实践'; break;
+                    case 'exchange': typeText = '分享交流'; break;
+                    case 'other': typeText = '其他活动'; break;
+                }
+                
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="card-title">${activity.name}</div>
+                        <div class="card-status ${statusClass}">${statusText}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-item">
+                            <div class="card-label">活动类型</div>
+                            <div class="card-value">${typeText}</div>
+                        </div>
+                        <div class="card-item">
+                            <div class="card-label">活动时间</div>
+                            <div class="card-value">${activity.date} ${activity.time}</div>
+                        </div>
+                        <div class="card-item">
+                            <div class="card-label">活动地点</div>
+                            <div class="card-value">${activity.location}</div>
+                        </div>
+                        <div class="card-item">
+                            <div class="card-label">参与人数</div>
+                            <div class="card-value">${activity.participants} / ${activity.capacity === 0 ? '不限' : activity.capacity}</div>
+                        </div>
+                        <div class="card-item">
+                            <div class="card-label">综测分数</div>
+                            <div class="card-value">${activity.defaultScore || '未设置'}</div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <button class="btn btn-secondary view-details" data-id="${activity.id}">
+                            <i class="fas fa-eye"></i> 查看详情
+                        </button>
+                        <button class="btn btn-primary manage-participants" data-id="${activity.id}">
+                            <i class="fas fa-user-edit"></i> 管理名单
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+            });
+            
+            document.querySelectorAll('.view-details').forEach(button => {
+                button.addEventListener('click', function() {
+                    const activityId = this.getAttribute('data-id');
+                    const activity = activities.find(a => a.id === activityId);
+                    alert(`活动详情:\n\n活动名称: ${activity.name}\n默认综测分: ${activity.defaultScore || '未设置'}\n活动描述: ${activity.description || '无'}`);
+                });
+            });
+            
+            document.querySelectorAll('.manage-participants').forEach(button => {
+                button.addEventListener('click', function() {
+                    const activityId = this.getAttribute('data-id');
+                    document.querySelector('[data-target="participants"]').click();
+                    document.getElementById('activity-select').value = activityId;
+                    renderParticipantsTable();
+                });
+            });
+        }
+
+        // 渲染活动表格
+        function renderActivitiesTable(filterText = '') {
+            const tableBody = document.getElementById('activities-table');
+            tableBody.innerHTML = '';
+            
+            const filteredActivities = activities.filter(activity => {
+                if (!filterText) return true;
+                
+                const searchText = filterText.toLowerCase();
+                return activity.name.toLowerCase().includes(searchText) ||
+                       activity.type.toLowerCase().includes(searchText);
+            });
+            
+            if (filteredActivities.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="7" style="text-align: center; color: #64748b; padding: 40px;">暂无活动记录</td>`;
+                tableBody.appendChild(row);
+                document.getElementById('delete-confirm').classList.remove('show');
+                return;
+            }
+            
+            filteredActivities.forEach(activity => {
+                let statusText, statusClass;
+                switch(activity.status) {
+                    case 'upcoming': 
+                        statusText = '即将开始'; 
+                        statusClass = 'status-upcoming'; 
+                        break;
+                    case 'ongoing': 
+                        statusText = '进行中'; 
+                        statusClass = 'status-ongoing'; 
+                        break;
+                    case 'completed': 
+                        statusText = '已结束'; 
+                        statusClass = 'status-completed'; 
+                        break;
+                }
+                
+                let typeText;
+                switch(activity.type) {
+                    case 'lecture': typeText = '讲座报告'; break;
+                    case 'essay': typeText = '征文演讲'; break;
+                    case 'performance': typeText = '文艺表演'; break;
+                    case 'visit': typeText = '参观走访'; break;
+                    case 'volunteer': typeText = '志愿服务'; break;
+                    case 'social': typeText = '社会实践'; break;
+                    case 'exchange': typeText = '分享交流'; break;
+                    case 'other': typeText = '其他活动'; break;
+                }
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="activity-checkbox" data-id="${activity.id}">
+                    </td>
+                    <td>${activity.name}</td>
+                    <td>${typeText}</td>
+                    <td>${activity.date} ${activity.time}</td>
+                    <td>${activity.participants}</td>
+                    <td><span class="activity-tag ${statusClass}">${statusText}</span></td>
+                    <td>
+                        <button class="btn btn-primary btn-small view-participants" data-id="${activity.id}">
+                            <i class="fas fa-users"></i>
+                        </button>
+                        <button class="btn btn-success btn-small import-to-activity" data-id="${activity.id}">
+                            <i class="fas fa-user-plus"></i>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            updateStats();
+            
+            document.querySelectorAll('.activity-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const activityId = this.getAttribute('data-id');
+                    if (this.checked) {
+                        if (!selectedActivityIds.includes(activityId)) {
+                            selectedActivityIds.push(activityId);
+                        }
+                    } else {
+                        selectedActivityIds = selectedActivityIds.filter(id => id !== activityId);
+                    }
+                    
+                    const allChecked = selectedActivityIds.length === filteredActivities.length;
+                    document.getElementById('select-all-activities').checked = allChecked;
+                    
+                    if (selectedActivityIds.length > 0) {
+                        document.getElementById('selected-count').textContent = selectedActivityIds.length;
+                        document.getElementById('delete-confirm').classList.add('show');
+                    } else {
+                        document.getElementById('delete-confirm').classList.remove('show');
+                    }
+                });
+            });
+            
+            document.querySelectorAll('.view-participants').forEach(button => {
+                button.addEventListener('click', function() {
+                    const activityId = this.getAttribute('data-id');
+                    document.querySelector('[data-target="participants"]').click();
+                    document.getElementById('activity-select').value = activityId;
+                    renderParticipantsTable();
+                });
+            });
+            
+            document.querySelectorAll('.import-to-activity').forEach(button => {
+                button.addEventListener('click', function() {
+                    const activityId = this.getAttribute('data-id');
+                    document.querySelector('[data-target="import"]').click();
+                    document.getElementById('import-type').value = 'participants';
+                    document.getElementById('import-activity-select').value = activityId;
+                });
+            });
+        }
+
+        // 初始化活动选择下拉框
+        function initActivitySelect() {
+            const select = document.getElementById('activity-select');
+            const importSelect = document.getElementById('import-activity-select');
+            
+            select.innerHTML = '<option value="">请选择活动...</option>';
+            importSelect.innerHTML = '<option value="">请选择活动...</option>';
+            
+            activities.forEach(activity => {
+                const option = document.createElement('option');
+                option.value = activity.id;
+                option.textContent = `${activity.name} (${activity.date})`;
+                select.appendChild(option.cloneNode(true));
+                importSelect.appendChild(option.cloneNode(true));
+            });
+            
+            select.addEventListener('change', renderParticipantsTable);
+            
+            document.getElementById('import-type').addEventListener('change', function() {
+                const importType = this.value;
+                const importActivitySelect = document.getElementById('import-activity-select');
+                const importActivityLabel = importActivitySelect.previousElementSibling;
+                
+                if (importType === 'participants') {
+                    importActivitySelect.style.display = 'block';
+                    importActivityLabel.style.display = 'block';
+                } else {
+                    importActivitySelect.style.display = 'none';
+                    importActivityLabel.style.display = 'none';
+                }
+            });
+        }
+
+        // 渲染参与名单表格
+        function renderParticipantsTable() {
+            const tableBody = document.getElementById('participants-table');
+            const activityId = document.getElementById('activity-select').value;
+            const searchText = document.getElementById('participant-search').value.toLowerCase();
+            
+            tableBody.innerHTML = '';
+            selectedParticipantIds = [];
+            
+            let filteredParticipants = participants;
+            
+            if (activityId) {
+                filteredParticipants = filteredParticipants.filter(p => p.activityId === activityId);
+            }
+            
+            if (searchText) {
+                filteredParticipants = filteredParticipants.filter(p => 
+                    p.name.toLowerCase().includes(searchText) || 
+                    p.studentId.includes(searchText)
+                );
+            }
+            
+            if (filteredParticipants.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="10" style="text-align: center; color: #64748b; padding: 40px;">暂无参与记录</td>`;
+                tableBody.appendChild(row);
+                document.getElementById('batch-actions').style.display = 'none';
+                document.getElementById('delete-participants-confirm').classList.remove('show');
+                return;
+            }
+            
+            filteredParticipants.forEach((participant, index) => {
+                let scoreTypeText = '', scoreTypeClass = '';
+                switch(participant.scoreType) {
+                    case 'moral': 
+                        scoreTypeText = '品德表现'; 
+                        scoreTypeClass = 'score-moral'; 
+                        break;
+                    case 'art': 
+                        scoreTypeText = '文体表现'; 
+                        scoreTypeClass = 'score-art'; 
+                        break;
+                    case 'academic': 
+                        scoreTypeText = '学业表现'; 
+                        scoreTypeClass = 'score-academic'; 
+                        break;
+                    case 'ability': 
+                        scoreTypeText = '能力表现'; 
+                        scoreTypeClass = 'score-ability'; 
+                        break;
+                }
+                
+                const activity = activities.find(a => a.id === participant.activityId);
+                const activityName = activity ? activity.name : '未知活动';
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <input type="checkbox" class="participant-checkbox" data-id="${participant.id}">
+                    </td>
+                    <td>${index + 1}</td>
+                    <td>${participant.studentId}</td>
+                    <td>${participant.name}</td>
+                    <td>${participant.major}</td>
+                    <td>${participant.phone}</td>
+                    <td>${participant.checkinTime}</td>
+                    <td>${activityName}</td>
+                    <td>
+                        <select class="score-type-select" data-id="${participant.id}">
+                            <option value="">选择类型</option>
+                            <option value="moral" ${participant.scoreType === 'moral' ? 'selected' : ''}>品德表现</option>
+                            <option value="art" ${participant.scoreType === 'art' ? 'selected' : ''}>文体表现</option>
+                            <option value="academic" ${participant.scoreType === 'academic' ? 'selected' : ''}>学业表现</option>
+                            <option value="ability" ${participant.scoreType === 'ability' ? 'selected' : ''}>能力表现</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" class="score-input" data-id="${participant.id}" value="${participant.score || ''}" placeholder="分数" min="0" max="10" step="0.5">
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+            
+            document.getElementById('batch-actions').style.display = 'flex';
+            document.getElementById('delete-participants-confirm').classList.remove('show');
+            
+            document.querySelectorAll('.score-type-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    const participantId = parseInt(this.getAttribute('data-id'));
+                    const scoreType = this.value;
+                    updateParticipantScore(participantId, null, scoreType);
+                });
+            });
+            
+            document.querySelectorAll('.score-input').forEach(input => {
+                input.addEventListener('change', function() {
+                    const participantId = parseInt(this.getAttribute('data-id'));
+                    const score = this.value ? parseFloat(this.value) : '';
+                    updateParticipantScore(participantId, score);
+                });
+            });
+            
+            document.querySelectorAll('.participant-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const participantId = parseInt(this.getAttribute('data-id'));
+                    if (this.checked) {
+                        selectedParticipantIds.push(participantId);
+                    } else {
+                        selectedParticipantIds = selectedParticipantIds.filter(id => id !== participantId);
+                    }
+                    
+                    const allChecked = selectedParticipantIds.length === filteredParticipants.length;
+                    document.getElementById('select-all-participants').checked = allChecked;
+                    
+                    if (selectedParticipantIds.length > 0) {
+                        document.getElementById('selected-participants-count').textContent = selectedParticipantIds.length;
+                        document.getElementById('delete-participants-confirm').classList.add('show');
+                    } else {
+                        document.getElementById('delete-participants-confirm').classList.remove('show');
+                    }
+                });
+            });
+        }
+
+        // 更新参与者分数
+        function updateParticipantScore(participantId, score, scoreType) {
+            const participant = participants.find(p => p.id === participantId);
+            if (!participant) return;
+            
+            if (score !== null) {
+                participant.score = score;
+            }
+            
+            if (scoreType) {
+                participant.scoreType = scoreType;
+            }
+            
+            saveToStorage();
+        }
+
+        // 初始化批量操作
+        function initBatchOperations() {
+            document.getElementById('select-all-activities').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.activity-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                    const activityId = checkbox.getAttribute('data-id');
+                    
+                    if (this.checked && !selectedActivityIds.includes(activityId)) {
+                        selectedActivityIds.push(activityId);
+                    } else if (!this.checked) {
+                        selectedActivityIds = [];
+                    }
+                });
+                
+                if (this.checked && checkboxes.length > 0) {
+                    document.getElementById('selected-count').textContent = checkboxes.length;
+                    document.getElementById('delete-confirm').classList.add('show');
+                } else {
+                    document.getElementById('delete-confirm').classList.remove('show');
+                }
+            });
+            
+            document.getElementById('confirm-delete').addEventListener('click', function() {
+                if (selectedActivityIds.length === 0) {
+                    alert('请先选择要删除的活动');
+                    return;
+                }
+                
+                if (!confirm(`确定要删除选中的 ${selectedActivityIds.length} 个活动吗？\n此操作不可恢复！`)) {
+                    return;
+                }
+                
+                activities = activities.filter(activity => !selectedActivityIds.includes(activity.id));
+                participants = participants.filter(participant => !selectedActivityIds.includes(participant.activityId));
+                
+                selectedActivityIds = [];
+                document.getElementById('delete-confirm').classList.remove('show');
+                
+                saveToStorage();
+                
+                renderActivityCards();
+                renderActivitiesTable();
+                initActivitySelect();
+                updateStats();
+                
+                alert(`成功删除 ${selectedActivityIds.length} 个活动`);
+            });
+            
+            document.getElementById('cancel-delete').addEventListener('click', function() {
+                selectedActivityIds = [];
+                document.querySelectorAll('.activity-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                document.getElementById('select-all-activities').checked = false;
+                document.getElementById('delete-confirm').classList.remove('show');
+            });
+            
+            document.getElementById('select-all-participants').addEventListener('change', function() {
+                const checkboxes = document.querySelectorAll('.participant-checkbox');
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                    const participantId = parseInt(checkbox.getAttribute('data-id'));
+                    
+                    if (this.checked && !selectedParticipantIds.includes(participantId)) {
+                        selectedParticipantIds.push(participantId);
+                    } else if (!this.checked) {
+                        selectedParticipantIds = [];
+                    }
+                });
+                
+                if (this.checked && checkboxes.length > 0) {
+                    document.getElementById('selected-participants-count').textContent = checkboxes.length;
+                    document.getElementById('delete-participants-confirm').classList.add('show');
+                } else {
+                    document.getElementById('delete-participants-confirm').classList.remove('show');
+                }
+            });
+            
+            document.getElementById('apply-batch-score').addEventListener('click', function() {
+                const scoreType = document.getElementById('batch-score-type').value;
+                const scoreValue = document.getElementById('batch-score-value').value;
+                
+                if (!scoreType && !scoreValue) {
+                    alert('请至少设置一项（类型或分数）');
+                    return;
+                }
+                
+                if (selectedParticipantIds.length === 0) {
+                    alert('请先选择要设置的学生');
+                    return;
+                }
+                
+                selectedParticipantIds.forEach(participantId => {
+                    const participant = participants.find(p => p.id === participantId);
+                    if (participant) {
+                        if (scoreType) {
+                            participant.scoreType = scoreType;
+                        }
+                        if (scoreValue) {
+                            participant.score = parseFloat(scoreValue);
+                        }
+                    }
+                });
+                
+                saveToStorage();
+                
+                renderParticipantsTable();
+                alert(`已为${selectedParticipantIds.length}名学生设置综测信息`);
+                
+                document.getElementById('batch-score-type').value = '';
+                document.getElementById('batch-score-value').value = '';
+                document.getElementById('select-all-participants').checked = false;
+                selectedParticipantIds = [];
+                document.getElementById('delete-participants-confirm').classList.remove('show');
+            });
+            
+            document.getElementById('batch-delete-participants').addEventListener('click', function() {
+                if (selectedParticipantIds.length === 0) {
+                    alert('请先选择要删除的学生');
+                    return;
+                }
+                
+                document.getElementById('selected-participants-count').textContent = selectedParticipantIds.length;
+                document.getElementById('delete-participants-confirm').classList.add('show');
+            });
+            
+            document.getElementById('confirm-participants-delete').addEventListener('click', function() {
+                if (selectedParticipantIds.length === 0) {
+                    return;
+                }
+                
+                const activityId = document.getElementById('activity-select').value;
+                
+                participants = participants.filter(participant => !selectedParticipantIds.includes(participant.id));
+                
+                if (activityId) {
+                    const activity = activities.find(a => a.id === activityId);
+                    if (activity) {
+                        const remainingParticipants = participants.filter(p => p.activityId === activityId).length;
+                        activity.participants = remainingParticipants;
+                    }
+                }
+                
+                selectedParticipantIds = [];
+                document.getElementById('delete-participants-confirm').classList.remove('show');
+                
+                saveToStorage();
+                
+                renderParticipantsTable();
+                updateStats();
+                
+                alert(`成功删除 ${selectedParticipantIds.length} 名学生`);
+            });
+            
+            document.getElementById('cancel-participants-delete').addEventListener('click', function() {
+                selectedParticipantIds = [];
+                document.querySelectorAll('.participant-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                document.getElementById('select-all-participants').checked = false;
+                document.getElementById('delete-participants-confirm').classList.remove('show');
+            });
+            
+            document.getElementById('cancel-batch').addEventListener('click', function() {
+                selectedParticipantIds = [];
+                document.querySelectorAll('.participant-checkbox').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                document.getElementById('select-all-participants').checked = false;
+                document.getElementById('batch-score-type').value = '';
+                document.getElementById('batch-score-value').value = '';
+                document.getElementById('delete-participants-confirm').classList.remove('show');
+            });
+            
+            document.getElementById('import-participants-btn').addEventListener('click', function() {
+                document.querySelector('[data-target="import"]').click();
+                document.getElementById('import-type').value = 'participants';
+            });
+            
+            document.getElementById('export-participants-btn').addEventListener('click', function() {
+                const activityId = document.getElementById('activity-select').value;
+                let exportParticipants = participants;
+                
+                if (activityId) {
+                    exportParticipants = exportParticipants.filter(p => p.activityId === activityId);
+                }
+                
+                if (exportParticipants.length === 0) {
+                    alert('没有可导出的数据');
+                    return;
+                }
+                
+                let csvContent = "学号,姓名,专业班级,联系方式,签到时间,参与活动,综测类型,综测分数\n";
+                
+                exportParticipants.forEach(participant => {
+                    const activity = activities.find(a => a.id === participant.activityId);
+                    const activityName = activity ? activity.name : '未知活动';
+                    
+                    let scoreTypeText = '';
+                    switch(participant.scoreType) {
+                        case 'moral': scoreTypeText = '品德表现'; break;
+                        case 'art': scoreTypeText = '文体表现'; break;
+                        case 'academic': scoreTypeText = '学业表现'; break;
+                        case 'ability': scoreTypeText = '能力表现'; break;
+                    }
+                    
+                    csvContent += `${participant.studentId},${participant.name},${participant.major},${participant.phone},${participant.checkinTime},${activityName},${scoreTypeText},${participant.score || ''}\n`;
+                });
+                
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                
+                const activityName = activityId ? activities.find(a => a.id === activityId)?.name : '所有活动';
+                link.download = `财经政法学院_${activityName}_参与名单.csv`;
+                link.click();
+                URL.revokeObjectURL(url);
+                
+                alert(`已导出${exportParticipants.length}条记录`);
+            });
+        }
+
+        // 初始化表单
+        function initForm() {
+            const form = document.getElementById('activity-form');
+            const resetBtn = document.getElementById('reset-form');
+            const participantUploadArea = document.getElementById('participant-upload-area');
+            
+            participantUploadArea.addEventListener('click', function() {
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.xlsx,.xls,.csv';
+                
+                fileInput.onchange = async function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+                        alert('请选择Excel或CSV文件（.xlsx、.xls或.csv格式）');
+                        return;
+                    }
+                    
+                    participantUploadArea.innerHTML = `
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>正在处理文件: ${file.name}</p>
+                        <small>请稍候...</small>
+                    `;
+                    
+                    try {
+                        const excelData = await readExcelFile(file);
+                        
+                        // 处理导入的学生数据
+                        uploadedParticipantsForNewActivity = excelData.map((row, index) => {
+                            // 根据Excel列名映射数据
+                            const studentId = row['学号'] || row['studentId'] || `TEMP_${Date.now()}_${index}`;
+                            const name = row['姓名'] || row['name'] || '';
+                            const major = row['专业班级'] || row['major'] || row['专业'] || '';
+                            const phone = row['联系方式'] || row['phone'] || row['联系电话'] || '';
+                            const checkinTime = row['签到时间'] || row['checkinTime'] || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                            const scoreType = mapScoreType(row['综测类型'] || row['scoreType'] || '');
+                            const score = row['综测分数'] || row['score'] || '';
+                            
+                            return {
+                                id: 0, // 暂时为0，保存时会生成新ID
+                                activityId: '',
+                                studentId: String(studentId).trim(),
+                                name: String(name).trim(),
+                                major: String(major).trim(),
+                                phone: String(phone).trim(),
+                                checkinTime: String(checkinTime).trim(),
+                                scoreType: scoreType,
+                                score: score ? parseFloat(score) : ''
+                            };
+                        }).filter(student => student.name && student.studentId);
+                        
+                        if (uploadedParticipantsForNewActivity.length === 0) {
+                            throw new Error('没有找到有效的学生数据');
+                        }
+                        
+                        participantUploadArea.innerHTML = `
+                            <i class="fas fa-check-circle"></i>
+                            <p>文件处理完成</p>
+                            <small>${uploadedParticipantsForNewActivity.length}名学生数据已准备就绪</small>
+                        `;
+                        
+                        document.getElementById('uploaded-file-info').style.display = 'block';
+                        document.getElementById('uploaded-file-name').textContent = file.name;
+                        document.getElementById('uploaded-student-count').textContent = uploadedParticipantsForNewActivity.length;
+                        
+                    } catch (error) {
+                        alert('导入失败: ' + error.message);
+                        participantUploadArea.innerHTML = `
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <p>点击选择Excel文件</p>
+                            <small>仅支持.xlsx和.xls格式，文件大小不超过10MB</small>
+                        `;
+                        uploadedParticipantsForNewActivity = [];
+                    }
+                };
+                
+                fileInput.click();
+            });
+            
+            // 映射综测类型
+            function mapScoreType(typeText) {
+                const typeMap = {
+                    '品德表现': 'moral',
+                    '文体表现': 'art',
+                    '学业表现': 'academic',
+                    '能力表现': 'ability',
+                    'moral': 'moral',
+                    'art': 'art',
+                    'academic': 'academic',
+                    'ability': 'ability'
+                };
+                return typeMap[typeText] || '';
+            }
+            
+            document.getElementById('download-participant-template-2').addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const templateContent = `学号,姓名,专业班级,联系方式,签到时间,综测类型,综测分数
+202501001,张,金融学1班,13800138001,14:15,学业表现,1.0
+202501002,赵,金融学2班,13800138002,14:20,,
+202502003,宁,法学1班,13800138003,14:25,能力表现,1.5`;
+                
+                const blob = new Blob([templateContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '财经政法学院学生名单模板.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert('学生名单模板下载完成！');
+            });
+            
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const activityName = document.getElementById('activity-name').value;
+                const activityType = document.getElementById('activity-type').value;
+                const activityDate = document.getElementById('activity-date').value;
+                const activityTime = document.getElementById('activity-time').value;
+                const activityLocation = document.getElementById('activity-location').value;
+                const capacity = document.getElementById('capacity').value;
+                const activityScore = document.getElementById('activity-score').value;
+                const description = document.getElementById('activity-description').value;
+                
+                const activityId = Date.now().toString();
+                
+                const activityDateObj = new Date(activityDate);
+                const today = new Date();
+                let status = 'upcoming';
+                if (activityDateObj < today) status = 'completed';
+                else if (activityDateObj.toDateString() === today.toDateString()) status = 'ongoing';
+                
+                const newActivity = {
+                    id: activityId,
+                    name: activityName,
+                    type: activityType,
+                    date: activityDate,
+                    time: activityTime,
+                    location: activityLocation,
+                    createdBy: "赵梦婷",
+                    teacherRole: "管理员",
+                    capacity: capacity ? parseInt(capacity) : 0,
+                    participants: 0,
+                    defaultScore: activityScore || '',
+                    status: status,
+                    description: description
+                };
+                
+                activities.unshift(newActivity);
+                
+                if (uploadedParticipantsForNewActivity.length > 0) {
+                    const maxId = participants.length > 0 ? Math.max(...participants.map(p => p.id)) : 0;
+                    
+                    uploadedParticipantsForNewActivity.forEach((participant, index) => {
+                        participant.activityId = activityId;
+                        participant.id = maxId + index + 1;
+                        participants.push(participant);
+                    });
+                    
+                    newActivity.participants = uploadedParticipantsForNewActivity.length;
+                    
+                    uploadedParticipantsForNewActivity = [];
+                }
+                
+                saveToStorage();
+                
+                renderActivityCards();
+                renderActivitiesTable();
+                initActivitySelect();
+                
+                alert(`活动 "${activityName}" 已成功添加！${newActivity.participants > 0 ? `\n成功导入${newActivity.participants}名学生名单。` : ''}`);
+                
+                form.reset();
+                setCurrentDate();
+                document.getElementById('uploaded-file-info').style.display = 'none';
+                uploadedParticipantsForNewActivity = [];
+                
+                participantUploadArea.innerHTML = `
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>点击选择Excel文件</p>
+                    <small>仅支持.xlsx和.xls格式，文件大小不超过10MB</small>
+                `;
+                
+                document.querySelector('[data-target="activities"]').click();
+            });
+            
+            resetBtn.addEventListener('click', function() {
+                form.reset();
+                setCurrentDate();
+                document.getElementById('uploaded-file-info').style.display = 'none';
+                uploadedParticipantsForNewActivity = [];
+                
+                participantUploadArea.innerHTML = `
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <p>点击选择Excel文件</p>
+                    <small>仅支持.xlsx和.xls格式，文件大小不超过10MB</small>
+                `;
+            });
+        }
+
+        // 初始化搜索功能
+        function initSearch() {
+            const searchBtn = document.getElementById('search-btn');
+            const activitySearch = document.getElementById('activity-search');
+            const participantSearch = document.getElementById('participant-search');
+            
+            searchBtn.addEventListener('click', function() {
+                renderActivitiesTable(activitySearch.value);
+            });
+            
+            activitySearch.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    renderActivitiesTable(activitySearch.value);
+                }
+            });
+            
+            participantSearch.addEventListener('keyup', renderParticipantsTable);
+        }
+
+        // 初始化导入功能
+        function initImport() {
+            const uploadArea = document.getElementById('upload-area');
+            const downloadActivityTemplate = document.getElementById('download-activity-template');
+            const downloadParticipantTemplate = document.getElementById('download-participant-template');
+            
+            uploadArea.addEventListener('click', async function() {
+                const importType = document.getElementById('import-type').value;
+                const activityId = document.getElementById('import-activity-select').value;
+                
+                if (importType === 'participants' && !activityId) {
+                    alert('导入学生名单前请先选择活动');
+                    return;
+                }
+                
+                const fileInput = document.createElement('input');
+                fileInput.type = 'file';
+                fileInput.accept = '.xlsx,.xls,.csv';
+                
+                fileInput.onchange = async function(e) {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    if (!file.name.match(/\.(xlsx|xls|csv)$/i)) {
+                        alert('请选择Excel或CSV文件（.xlsx、.xls或.csv格式）');
+                        return;
+                    }
+                    
+                    uploadArea.innerHTML = `
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>正在处理文件: ${file.name}</p>
+                        <small>请稍候...</small>
+                    `;
+                    
+                    try {
+                        const excelData = await readExcelFile(file);
+                        
+                        if (excelData.length === 0) {
+                            throw new Error('Excel文件中没有有效数据');
+                        }
+                        
+                        if (importType === 'participants') {
+                            // 导入学生名单
+                            const newParticipants = [];
+                            const maxId = participants.length > 0 ? Math.max(...participants.map(p => p.id)) : 0;
+                            
+                            excelData.forEach((row, index) => {
+                                // 根据Excel列名映射数据
+                                const studentId = row['学号'] || row['studentId'] || `IMPORT_${Date.now()}_${index}`;
+                                const name = row['姓名'] || row['name'] || '';
+                                const major = row['专业班级'] || row['major'] || row['专业'] || '';
+                                const phone = row['联系方式'] || row['phone'] || row['联系电话'] || '';
+                                const checkinTime = row['签到时间'] || row['checkinTime'] || new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                                const scoreType = mapScoreType(row['综测类型'] || row['scoreType'] || '');
+                                const score = row['综测分数'] || row['score'] || '';
+                                
+                                if (name && studentId) {
+                                    newParticipants.push({
+                                        id: maxId + index + 1,
+                                        activityId: activityId,
+                                        studentId: String(studentId).trim(),
+                                        name: String(name).trim(),
+                                        major: String(major).trim(),
+                                        phone: String(phone).trim(),
+                                        checkinTime: String(checkinTime).trim(),
+                                        scoreType: scoreType,
+                                        score: score ? parseFloat(score) : ''
+                                    });
+                                }
+                            });
+                            
+                            if (newParticipants.length === 0) {
+                                throw new Error('没有找到有效的学生数据');
+                            }
+                            
+                            participants.push(...newParticipants);
+                            
+                            const activity = activities.find(a => a.id === activityId);
+                            if (activity) {
+                                activity.participants += newParticipants.length;
+                            }
+                            
+                            uploadArea.innerHTML = `
+                                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                                <p>学生名单导入成功！</p>
+                                <small>成功导入${newParticipants.length}名学生数据</small>
+                            `;
+                            
+                            saveToStorage();
+                            
+                            setTimeout(() => {
+                                document.querySelector('[data-target="participants"]').click();
+                                document.getElementById('activity-select').value = activityId;
+                                renderParticipantsTable();
+                            }, 1000);
+                        } else {
+                            // 导入活动数据
+                            const newActivities = [];
+                            
+                            excelData.forEach((row, index) => {
+                                const activityName = row['活动名称'] || row['name'] || '';
+                                const activityType = row['活动类型'] || row['type'] || 'other';
+                                const activityDate = row['活动日期'] || row['date'] || new Date().toISOString().split('T')[0];
+                                const activityTime = row['活动时间'] || row['time'] || '14:00';
+                                const activityLocation = row['活动地点'] || row['location'] || '待定';
+                                const capacity = row['活动容量'] || row['capacity'] || 0;
+                                const defaultScore = row['默认综测分数'] || row['score'] || '';
+                                const description = row['活动描述'] || row['description'] || '';
+                                
+                                if (activityName) {
+                                    const activityDateObj = new Date(activityDate);
+                                    const today = new Date();
+                                    let status = 'upcoming';
+                                    if (activityDateObj < today) status = 'completed';
+                                    else if (activityDateObj.toDateString() === today.toDateString()) status = 'ongoing';
+                                    
+                                    newActivities.push({
+                                        id: Date.now().toString() + index,
+                                        name: activityName,
+                                        type: activityType,
+                                        date: activityDate,
+                                        time: activityTime,
+                                        location: activityLocation,
+                                        createdBy: "赵梦婷",
+                                        teacherRole: "管理员",
+                                        capacity: capacity ? parseInt(capacity) : 0,
+                                        participants: 0,
+                                        defaultScore: defaultScore,
+                                        status: status,
+                                        description: description
+                                    });
+                                }
+                            });
+                            
+                            if (newActivities.length === 0) {
+                                throw new Error('没有找到有效的活动数据');
+                            }
+                            
+                            activities.push(...newActivities);
+                            
+                            uploadArea.innerHTML = `
+                                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                                <p>活动数据导入成功！</p>
+                                <small>成功导入${newActivities.length}个活动数据</small>
+                            `;
+                            
+                            saveToStorage();
+                        }
+                        
+                        renderActivityCards();
+                        renderActivitiesTable();
+                        initActivitySelect();
+                        updateStats();
+                        
+                    } catch (error) {
+                        alert('导入失败: ' + error.message);
+                    } finally {
+                        setTimeout(() => {
+                            uploadArea.innerHTML = `
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>点击选择Excel文件</p>
+                                <small>仅支持.xlsx和.xls格式，文件大小不超过10MB</small>
+                            `;
+                        }, 3000);
+                    }
+                };
+                
+                fileInput.click();
+            });
+            
+            // 映射综测类型
+            function mapScoreType(typeText) {
+                const typeMap = {
+                    '品德表现': 'moral',
+                    '文体表现': 'art',
+                    '学业表现': 'academic',
+                    '能力表现': 'ability',
+                    'moral': 'moral',
+                    'art': 'art',
+                    'academic': 'academic',
+                    'ability': 'ability'
+                };
+                return typeMap[typeText] || '';
+            }
+            
+            downloadActivityTemplate.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const templateContent = `活动名称,活动类型,活动日期,活动时间,活动地点,活动容量,默认综测分数,活动描述
+金融科技讲座,lecture,2025-06-01,14:30,学术报告厅,200,1.0,邀请专家分享金融科技发展趋势
+篮球比赛,other,2025-06-05,16:00,体育馆,0,1.5,学院篮球友谊赛
+文艺晚会,performance,2025-06-10,19:00,学生活动中心,300,1.0,年度文艺汇演`;
+                
+                const blob = new Blob([templateContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '财经政法学院活动模板.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert('活动模板下载完成！');
+            });
+            
+            downloadParticipantTemplate.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const templateContent = `学号,姓名,专业班级,联系方式,签到时间,综测类型,综测分数
+202501001,张,金融学1班,13800138001,14:15,学业表现,1.0
+202501002,赵,金融学2班,13800138002,14:20,,
+202502003,宁,法学1班,13800138003,14:25,能力表现,1.5`;
+                
+                const blob = new Blob([templateContent], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = '财经政法学院学生名单模板.csv';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                alert('学生名单模板下载完成！');
+            });
+        }
+
+        // 初始化学生统计
+        function initStudentStats() {
+            const refreshBtn = document.getElementById('refresh-stats');
+            refreshBtn.addEventListener('click', renderStudentStats);
+            
+            const majorFilter = document.getElementById('major-filter');
+            const countFilter = document.getElementById('count-filter');
+            
+            majorFilter.addEventListener('change', renderStudentStats);
+            countFilter.addEventListener('change', renderStudentStats);
+        }
+
+        // 渲染学生统计
+        function renderStudentStats() {
+            const studentActivities = {};
+            
+            participants.forEach(participant => {
+                const key = `${participant.studentId}_${participant.name}_${participant.major}`;
+                if (!studentActivities[key]) {
+                    studentActivities[key] = {
+                        studentId: participant.studentId,
+                        name: participant.name,
+                        major: participant.major,
+                        activities: [],
+                        activitiesCount: 0,
+                        totalScore: 0
+                    };
+                }
+                
+                const activity = activities.find(a => a.id === participant.activityId);
+                if (activity) {
+                    studentActivities[key].activities.push(activity.name);
+                    studentActivities[key].activitiesCount++;
+                    
+                    if (participant.score) {
+                        studentActivities[key].totalScore += parseFloat(participant.score) || 0;
+                    }
+                }
+            });
+            
+            let studentStats = Object.values(studentActivities).map(student => ({
+                ...student,
+                activityCount: student.activitiesCount
+            }));
+            
+            studentStats.sort((a, b) => b.activitiesCount - a.activitiesCount);
+            
+            const majorFilter = document.getElementById('major-filter').value;
+            const countFilter = document.getElementById('count-filter').value;
+            
+            if (majorFilter) {
+                studentStats = studentStats.filter(student => student.major === majorFilter);
+            }
+            
+            if (countFilter) {
+                const minCount = parseInt(countFilter);
+                studentStats = studentStats.filter(student => student.activitiesCount >= minCount);
+            }
+            
+            updateMajorFilterOptions(studentStats);
+            renderStudentList(studentStats);
+            renderStudentStatsTable(studentStats);
+            updateUniqueStudentsCount(Object.keys(studentActivities).length);
+        }
+
+        // 更新专业班级筛选选项
+        function updateMajorFilterOptions(studentStats) {
+            const majorFilter = document.getElementById('major-filter');
+            const currentValue = majorFilter.value;
+            
+            const majors = [...new Set(studentStats.map(student => student.major))].sort();
+            
+            majorFilter.innerHTML = '<option value="">全部专业班级</option>';
+            majors.forEach(major => {
+                const option = document.createElement('option');
+                option.value = major;
+                option.textContent = major;
+                majorFilter.appendChild(option);
+            });
+            
+            if (majors.includes(currentValue)) {
+                majorFilter.value = currentValue;
+            }
+        }
+
+        // 渲染学生列表
+        function renderStudentList(studentStats) {
+            const studentList = document.getElementById('student-list');
+            studentList.innerHTML = '';
+            
+            if (studentStats.length === 0) {
+                studentList.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-user-graduate"></i>
+                        <p>暂无学生数据</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            const displayStats = studentStats.slice(0, 20);
+            
+            displayStats.forEach(student => {
+                const studentItem = document.createElement('div');
+                studentItem.className = 'student-item';
+                studentItem.innerHTML = `
+                    <div>
+                        <div class="student-name">${student.name} (${student.studentId})</div>
+                        <div style="font-size: 14px; color: #64748b; margin-top: 4px;">
+                            ${student.major} - 参与${student.activitiesCount}个活动
+                        </div>
+                        <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
+                            活动: ${student.activities.slice(0, 3).join('、')}${student.activities.length > 3 ? '...' : ''}
+                        </div>
+                    </div>
+                    <div class="student-activity-count">${student.activitiesCount}次</div>
+                `;
+                studentList.appendChild(studentItem);
+            });
+            
+            if (studentStats.length > 20) {
+                const moreItem = document.createElement('div');
+                moreItem.className = 'student-item';
+                moreItem.style.justifyContent = 'center';
+                moreItem.innerHTML = `<span style="color: #64748b;">...还有${studentStats.length - 20}名学生</span>`;
+                studentList.appendChild(moreItem);
+            }
+        }
+
+        // 渲染学生详细统计表格
+        function renderStudentStatsTable(studentStats) {
+            const tableBody = document.getElementById('student-stats-table');
+            tableBody.innerHTML = '';
+            
+            if (studentStats.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td colspan="6" style="text-align: center; color: #64748b; padding: 40px;">暂无学生统计信息</td>`;
+                tableBody.appendChild(row);
+                return;
+            }
+            
+            studentStats.forEach(student => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${student.studentId}</td>
+                    <td>${student.name}</td>
+                    <td>${student.major}</td>
+                    <td>${student.activitiesCount}</td>
+                    <td>${student.activities.join('、')}</td>
+                    <td>${student.totalScore.toFixed(1)}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 更新统计数字
+        function updateStats() {
+            document.getElementById('total-activities').textContent = activities.length;
+            
+            const totalParticipants = activities.reduce((sum, activity) => sum + activity.participants, 0);
+            document.getElementById('total-participants').textContent = totalParticipants;
+            
+            const ongoingActivities = activities.filter(activity => activity.status === 'ongoing').length;
+            document.getElementById('ongoing-activities').textContent = ongoingActivities;
+            
+            updateUniqueStudentsCount();
+        }
+
+        // 更新参与学生数
+        function updateUniqueStudentsCount() {
+            const uniqueStudents = new Set();
+            participants.forEach(participant => {
+                uniqueStudents.add(`${participant.studentId}_${participant.name}`);
+            });
+            
+            document.getElementById('unique-students').textContent = uniqueStudents.size;
+        }
+
+        // 设置当前日期
+        function setCurrentDate() {
+            const today = new Date();
+            const formattedDate = today.toISOString().split('T')[0];
+            document.getElementById('activity-date').value = formattedDate;
+            
+            const nextHour = new Date(today.getTime() + 60 * 60 * 1000);
+            const formattedTime = nextHour.toTimeString().substring(0, 5);
+            document.getElementById('activity-time').value = formattedTime;
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', initPage);
+    </script>
+</body>
+</html>
