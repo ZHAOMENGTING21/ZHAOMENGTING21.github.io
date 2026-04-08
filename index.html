@@ -2028,10 +2028,10 @@ position: relative;
     <textarea id="talkPoints" class="form-control"></textarea>
 </div>
 
-                            <div class="form-group">
-                                <label class="form-label">谈话反馈 *</label>
-                                <textarea id="talkFeedback" class="form-control" required></textarea>
-                            </div>
+                    <div class="form-group">
+    <label class="form-label">谈话反馈</label>
+    <textarea id="talkFeedback" class="form-control"></textarea>
+</div>
 
                             <div class="form-group">
                                 <label class="form-label">分级建议 *</label>
@@ -7392,10 +7392,11 @@ updateAnalysisData();  // 新增：更新分析数据
                 <th width="21%">辅导员签名</th>
                 <td width="30%">${record.counselorSignature || ''}</td>
             </tr>
-            <tr>
+                        <tr>
                 <th rowspan="3" width="15%">谈<br>话<br>反<br>馈</th>
                 <td colspan="3" width="85%">
-                    ${record.talkFeedback.replace(/\n/g, '<br>')}
+                    <strong>问题分析：</strong><br>
+                    ${record.talkFeedback ? record.talkFeedback.replace(/\n/g, '<br>') : '无'}
                 </td>
             </tr>
             <tr>
@@ -7513,7 +7514,10 @@ function exportToWord() {
         });
         
         // 使用FileSaver保存文件，使用新的命名方式
-        const fileName = `${studentName}_${className}_谈心谈话记录.doc`;
+const now = new Date();
+const month = String(now.getMonth() + 1).padStart(2, '0');
+const day = String(now.getDate()).padStart(2, '0');
+const fileName = `${studentName}_${className}_谈话记录_${month}${day}.doc`;
         saveAs(blob, fileName);
         
         showMessage('Word文档导出成功！', 'success');
@@ -10152,6 +10156,167 @@ document.addEventListener('DOMContentLoaded', function() {
     window.backupAllData = backupAllData;
     window.restoreFromBackup = restoreFromBackup;
 });
+// ==================== 简单学院自定义功能 ====================
+(function() {
+    // 从本地存储读取保存的学院名称，默认为空（不显示第二行）
+    let savedCollege = localStorage.getItem('customCollegeName') || '';
+    
+    // 在系统设置页面添加学院输入框
+    function addCollegeInput() {
+        const settingsTab = document.getElementById('settingsTab');
+        if (!settingsTab) return;
+        
+        const checkInterval = setInterval(() => {
+            const settingsGrid = document.querySelector('#settingsTab .system-settings-grid');
+            if (settingsGrid && !document.getElementById('simpleCollegeInput')) {
+                const collegeCard = document.createElement('div');
+                collegeCard.className = 'settings-card';
+                collegeCard.innerHTML = `
+                    <h3>🏛️ 导出学院设置</h3>
+                    <div class="settings-item">
+                        <div class="settings-label">学院名称</div>
+                        <div class="settings-value">
+                            <input type="text" id="simpleCollegeInput" class="form-control" 
+                                   placeholder="例如：计算机学院" value="${savedCollege}" style="width: 100%;">
+                        </div>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-label"></div>
+                        <button class="btn btn-primary" onclick="saveSimpleCollege()">保存设置</button>
+                    </div>
+                    <div class="settings-item">
+                        <div class="settings-label">说明</div>
+                        <div class="settings-value" style="font-size: 12px; color: #666;">
+                            ${savedCollege ? '当前导出表头会显示：广东工商职业技术大学 ' + savedCollege : '未设置学院，导出时只显示学校名称'}
+                        </div>
+                    </div>
+                `;
+                settingsGrid.appendChild(collegeCard);
+                clearInterval(checkInterval);
+            }
+        }, 500);
+    }
+    
+    // 保存学院名称
+    window.saveSimpleCollege = function() {
+        const input = document.getElementById('simpleCollegeInput');
+        if (input) {
+            savedCollege = input.value.trim();
+            localStorage.setItem('customCollegeName', savedCollege);
+            showMessage(savedCollege ? `学院已设置为：${savedCollege}` : '已清除学院设置', 'success');
+            
+            // 更新说明文字
+            const settingsCard = document.querySelector('#settingsTab .system-settings-grid .settings-card:last-child .settings-item:last-child .settings-value');
+            if (settingsCard) {
+                settingsCard.innerHTML = savedCollege ? '当前导出表头会显示：广东工商职业技术大学 ' + savedCollege : '未设置学院，导出时只显示学校名称';
+            }
+        }
+    };
+    
+    // 获取当前学院名称
+    window.getExportCollege = function() {
+        return localStorage.getItem('customCollegeName') || '';
+    };
+    
+    // 修改导出HTML生成函数
+    const originalGenerate = window.generateDocHtml;
+    if (originalGenerate) {
+        window.generateDocHtml = function(record) {
+            const collegeName = getExportCollege();
+            const formatDate = (dateString) => {
+                try {
+                    const date = new Date(dateString);
+                    return `${date.getFullYear()}年${String(date.getMonth()+1).padStart(2,'0')}月${String(date.getDate()).padStart(2,'0')}日 ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+                } catch(e) { return dateString; }
+            };
+            
+            const getRiskLevelText = (riskLevel) => {
+                switch(riskLevel) {
+                    case 'red': return '红色预警';
+                    case 'yellow': return '黄色关注';
+                    case 'green': return '绿色正常';
+                    default: return '未分级';
+                }
+            };
+            
+            const riskLevelStyle = (riskLevel) => {
+                switch(riskLevel) {
+                    case 'red': return 'color: #c62828; font-weight: bold;';
+                    case 'yellow': return 'color: #f57f17; font-weight: bold;';
+                    case 'green': return 'color: #2e7d32; font-weight: bold;';
+                    default: return '';
+                }
+            };
+            
+            // 构建表头：如果有学院名称则显示两行，否则只显示学校名
+            let headerHtml = `<h1>广东工商职业技术大学</h1>`;
+            if (collegeName) {
+                headerHtml += `<h1>${collegeName}</h1>`;
+            }
+            headerHtml += `<h1>辅导员谈心谈话记录表</h1>`;
+            
+            return `
+                <div class="doc-content">
+                    <div class="doc-header">
+                        ${headerHtml}
+                    </div>
+                    
+                    <table class="print-table">
+                        <tr><th width="21%">谈话对象</th><td width="30%">${record.studentName || ''}</td><th width="21%">班级/宿舍</th><td width="30%">${record.className || ''} / ${record.dormitory || ''}</td></tr>
+                        <tr><th width="21%">谈话时间</th><td width="30%">${formatDate(record.talkTime)}</td><th width="21%">谈话地点</th><td width="30%">${record.talkLocation || ''}</td></tr>
+                        <tr><th width="21%">谈话主题</th><td colspan="3">${record.topics ? record.topics.join('、') : ''}</td></tr>
+                        <tr><th rowspan="3" width="15%">谈<br>话<br>要<br>点</th><td colspan="3"><strong>学生背景：</strong><br>${(record.studentBackground || '').replace(/\n/g, '<br>')}</td></tr>
+                        <tr><td colspan="3"><strong>谈话目的：</strong><br>${(record.talkPurpose || '').replace(/\n/g, '<br>')}</td></tr>
+                        <tr><td colspan="3"><strong>学生自述：</strong><br>${(record.studentStatement || '').replace(/\n/g, '<br>')}</td></tr>
+                        <tr><th width="21%">学生签名</th><td width="30%">${record.studentSignature || ''}</td><th width="21%">辅导员签名</th><td width="30%">${record.counselorSignature || ''}</td></tr>
+                        <tr><th rowspan="3" width="15%">谈<br>话<br>反<br>馈</th><td colspan="3">${(record.talkFeedback || '').replace(/\n/g, '<br>')}</td></tr>
+                        <tr><td colspan="3"><strong>后续跟进计划：</strong><br>${record.followUpPlan ? record.followUpPlan.replace(/\n/g, '<br>') : '无'}</td></tr>
+                        <tr><td colspan="3"><strong>分级建议：</strong> <span style="${riskLevelStyle(record.riskLevel)}">${getRiskLevelText(record.riskLevel)}</span><br><strong>备注：</strong> ${record.generalRemark || '无'}</td></tr>
+                    </table>
+                    
+                    <div class="doc-footer">
+                        <p>记录时间：${formatDate(record.createTime)}</p>
+                        <p>辅导员：${record.counselorSignature || (window.currentUser ? window.currentUser.fullname : '辅导员')}</p>
+                    </div>
+                </div>
+            `;
+        };
+    }
+    
+    // 在导航栏添加快速设置入口（可选）
+    function addQuickCollegeMenu() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (navMenu && !document.getElementById('quickCollegeMenuItem')) {
+            const menuItem = document.createElement('div');
+            menuItem.id = 'quickCollegeMenuItem';
+            menuItem.className = 'nav-item';
+            menuItem.innerHTML = '🏛️ 学院设置';
+            menuItem.onclick = function() {
+                switchTab('settings');
+                setTimeout(() => {
+                    const collegeInput = document.getElementById('simpleCollegeInput');
+                    if (collegeInput) collegeInput.focus();
+                }, 100);
+            };
+            navMenu.appendChild(menuItem);
+        }
+    }
+    
+    // 页面加载时初始化
+    const origShowMain = window.showMainSystem;
+    if (origShowMain) {
+        window.showMainSystem = function() {
+            origShowMain();
+            addCollegeInput();
+            addQuickCollegeMenu();
+        };
+    } else {
+        document.addEventListener('DOMContentLoaded', function() {
+            addCollegeInput();
+            addQuickCollegeMenu();
+        });
+    }
+})();
 </script>
 </body>
 </html>
