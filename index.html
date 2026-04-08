@@ -10248,12 +10248,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             };
             
-            // 构建表头：如果有学院名称则显示两行，否则只显示学校名
-            let headerHtml = `<h1>广东工商职业技术大学</h1>`;
-            if (collegeName) {
-                headerHtml += `<h1>${collegeName}</h1>`;
-            }
-            headerHtml += `<h1>辅导员谈心谈话记录表</h1>`;
+        let schoolTitle = '广东工商职业技术大学';
+if (collegeName) {
+    schoolTitle += ` ${collegeName}`;
+}
+let headerHtml = `<h1>${schoolTitle}</h1><h1>辅导员谈心谈话记录表</h1>`;
             
             return `
                 <div class="doc-content">
