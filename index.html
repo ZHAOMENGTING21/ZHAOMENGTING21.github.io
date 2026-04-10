@@ -7304,49 +7304,98 @@ updateAnalysisData();  // 新增：更新分析数据
         }
         
   // 生成DOC格式的HTML
-        function generateDocHtml(record) {
-            // 格式化日期
-            const formatDate = (dateString) => {
-                try {
-                    const date = new Date(dateString);
-                    const year = date.getFullYear();
-                    const month = String(date.getMonth() + 1).padStart(2, '0');
-                    const day = String(date.getDate()).padStart(2, '0');
-                    const hours = String(date.getHours()).padStart(2, '0');
-                    const minutes = String(date.getMinutes()).padStart(2, '0');
-                    return `${year}年${month}月${day}日 ${hours}:${minutes}`;
-                } catch (error) {
-                    return dateString;
-                }
-            };
-            
-            // 风险等级显示
-            const getRiskLevelText = (riskLevel) => {
-                switch(riskLevel) {
-                    case 'red': return '红色预警';
-                    case 'yellow': return '黄色关注';
-                    case 'green': return '绿色正常';
-                    default: return '未分级';
-                }
-            };
-            
-            // 风险等级样式
-            const riskLevelStyle = (riskLevel) => {
-                switch(riskLevel) {
-                    case 'red': return 'color: #c62828; font-weight: bold;';
-                    case 'yellow': return 'color: #f57f17; font-weight: bold;';
-                    case 'green': return 'color: #2e7d32; font-weight: bold;';
-                    default: return '';
-                }
-            };
-            
-            const riskLevelText = getRiskLevelText(record.riskLevel);
-            const riskLevelStyleStr = riskLevelStyle(record.riskLevel);
-            
-           return `
+// 生成DOC格式的HTML
+function generateDocHtml(record) {
+    // 格式化日期
+    const formatDate = (dateString) => {
+        try {
+            const date = new Date(dateString);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}年${month}月${day}日 ${hours}:${minutes}`;
+        } catch (error) {
+            return dateString;
+        }
+    };
+    
+    // 风险等级显示
+    const getRiskLevelText = (riskLevel) => {
+        switch(riskLevel) {
+            case 'red': return '红色预警';
+            case 'yellow': return '黄色关注';
+            case 'green': return '绿色正常';
+            default: return '未分级';
+        }
+    };
+    
+    // 风险等级样式
+    const riskLevelStyle = (riskLevel) => {
+        switch(riskLevel) {
+            case 'red': return 'color: #c62828; font-weight: bold;';
+            case 'yellow': return 'color: #f57f17; font-weight: bold;';
+            case 'green': return 'color: #2e7d32; font-weight: bold;';
+            default: return '';
+        }
+    };
+    
+    const riskLevelText = getRiskLevelText(record.riskLevel);
+    const riskLevelStyleStr = riskLevelStyle(record.riskLevel);
+    
+    // 获取学院设置（如果存在）
+    let schoolTitle = '广东工商职业技术大学';
+    const collegeName = typeof window.getExportCollege === 'function' ? window.getExportCollege() : '';
+    if (collegeName) {
+        schoolTitle += ` ${collegeName}`;
+    }
+    
+    // 解析谈话反馈内容，提取各部分
+    let problemAnalysis = '';
+    let followUpPlan = '';
+    let finalRemark = '';
+    
+    const feedbackText = record.talkFeedback || '';
+    const followUpPlanText = record.followUpPlan || '';
+    const remarkText = record.generalRemark || '';
+    
+    // 智能解析谈话反馈内容（支持"问题分析："、"后续跟进计划："、"分级建议："、"备注："格式）
+    if (feedbackText) {
+        // 尝试匹配"问题分析："开头的内容
+        const problemMatch = feedbackText.match(/问题分析[：:]\s*([\s\S]*?)(?=后续跟进计划[：:]|分级建议[：:]|备注[：:]|$)/i);
+        if (problemMatch) {
+            problemAnalysis = problemMatch[1].trim();
+        } else {
+            // 如果没有匹配到，整个内容作为问题分析
+            problemAnalysis = feedbackText;
+        }
+    }
+    
+    // 如果有单独的后续跟进计划字段，使用它；否则尝试从反馈中提取
+    if (followUpPlanText) {
+        followUpPlan = followUpPlanText;
+    } else if (feedbackText) {
+        const followUpMatch = feedbackText.match(/后续跟进计划[：:]\s*([\s\S]*?)(?=分级建议[：:]|备注[：:]|$)/i);
+        if (followUpMatch) {
+            followUpPlan = followUpMatch[1].trim();
+        }
+    }
+    
+    // 备注信息
+    if (remarkText) {
+        finalRemark = remarkText;
+    } else if (feedbackText) {
+        const remarkMatch = feedbackText.match(/备注[：:]\s*([\s\S]*?)$/i);
+        if (remarkMatch) {
+            finalRemark = remarkMatch[1].trim();
+        }
+    }
+    
+    return `
     <div class="doc-content">
         <div class="doc-header">
-            <h1>广东工商职业技术大学财经政法学院</h1>
+            <h1>${schoolTitle}</h1>
             <h1>辅导员谈心谈话记录表</h1>
         </div>
         
@@ -7365,25 +7414,25 @@ updateAnalysisData();  // 新增：更新分析数据
             </tr>
             <tr>
                 <th width="21%">谈话主题</th>
-                <td colspan="3" width="85%">${record.topics.join('、')}</td>
+                <td colspan="3" width="85%">${record.topics ? record.topics.join('、') : ''}</td>
             </tr>
             <tr>
                 <th rowspan="3" width="15%">谈<br>话<br>要<br>点</th>
                 <td colspan="3" width="85%">
                     <strong>学生背景：</strong><br>
-                    ${record.studentBackground.replace(/\n/g, '<br>')}
+                    ${(record.studentBackground || '').replace(/\n/g, '<br>')}
                 </td>
             </tr>
             <tr>
                 <td colspan="3" width="85%">
                     <strong>谈话目的：</strong><br>
-                    ${record.talkPurpose.replace(/\n/g, '<br>')}
+                    ${(record.talkPurpose || '').replace(/\n/g, '<br>')}
                 </td>
             </tr>
             <tr>
                 <td colspan="3" width="85%">
                     <strong>学生自述：</strong><br>
-                    ${record.studentStatement.replace(/\n/g, '<br>')}
+                    ${(record.studentStatement || '').replace(/\n/g, '<br>')}
                 </td>
             </tr>
             <tr>
@@ -7392,35 +7441,35 @@ updateAnalysisData();  // 新增：更新分析数据
                 <th width="21%">辅导员签名</th>
                 <td width="30%">${record.counselorSignature || ''}</td>
             </tr>
-                        <tr>
+            <tr>
                 <th rowspan="3" width="15%">谈<br>话<br>反<br>馈</th>
-                <td colspan="3" width="85%">
+                <td colspan="3">
                     <strong>问题分析：</strong><br>
-                    ${record.talkFeedback ? record.talkFeedback.replace(/\n/g, '<br>') : '无'}
+                    ${problemAnalysis ? problemAnalysis.replace(/\n/g, '<br>') : '无'}
                 </td>
             </tr>
             <tr>
                 <td colspan="3" width="85%">
                     <strong>后续跟进计划：</strong><br>
-                    ${record.followUpPlan ? record.followUpPlan.replace(/\n/g, '<br>') : '无'}
+                    ${followUpPlan ? followUpPlan.replace(/\n/g, '<br>') : '无'}
                 </td>
             </tr>
             <tr>
                 <td colspan="3" width="85%">
                     <strong>分级建议：</strong> 
                     <span style="${riskLevelStyleStr}">${riskLevelText}</span><br>
-                    <strong>备注：</strong> ${record.generalRemark || '无'}
+                    <strong>备注：</strong> ${finalRemark || '无'}
                 </td>
             </tr>
         </table>
         
         <div class="doc-footer">
             <p>记录时间：${formatDate(record.createTime)}</p>
-            <p>辅导员：${record.counselorSignature || (currentUser ? currentUser.fullname : '辅导员')}</p>
+            <p>辅导员：${record.counselorSignature || (window.currentUser ? window.currentUser.fullname : '辅导员')}</p>
         </div>
     </div>
-`;
-        }
+    `;
+}
             
 
 // 导出为Word文档
@@ -10268,7 +10317,10 @@ let headerHtml = `<h1>${schoolTitle}</h1><h1>辅导员谈心谈话记录表</h1>
                         <tr><td colspan="3"><strong>谈话目的：</strong><br>${(record.talkPurpose || '').replace(/\n/g, '<br>')}</td></tr>
                         <tr><td colspan="3"><strong>学生自述：</strong><br>${(record.studentStatement || '').replace(/\n/g, '<br>')}</td></tr>
                         <tr><th width="21%">学生签名</th><td width="30%">${record.studentSignature || ''}</td><th width="21%">辅导员签名</th><td width="30%">${record.counselorSignature || ''}</td></tr>
-                        <tr><th rowspan="3" width="15%">谈<br>话<br>反<br>馈</th><td colspan="3">${(record.talkFeedback || '').replace(/\n/g, '<br>')}</td></tr>
+                        <tr><th rowspan="3" width="15%">谈<br>话<br>反<br>馈</th><td colspan="3">
+    <strong>问题分析：</strong><br>
+    ${(record.talkFeedback || '无').replace(/\n/g, '<br>')}
+</td></tr>
                         <tr><td colspan="3"><strong>后续跟进计划：</strong><br>${record.followUpPlan ? record.followUpPlan.replace(/\n/g, '<br>') : '无'}</td></tr>
                         <tr><td colspan="3"><strong>分级建议：</strong> <span style="${riskLevelStyle(record.riskLevel)}">${getRiskLevelText(record.riskLevel)}</span><br><strong>备注：</strong> ${record.generalRemark || '无'}</td></tr>
                     </table>
