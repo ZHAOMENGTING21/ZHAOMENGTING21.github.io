@@ -2845,185 +2845,416 @@
             countFilter.addEventListener('change', renderStudentStats);
         }
 
-        // 渲染学生统计
-        function renderStudentStats() {
-            const studentActivities = {};
+       // 渲染学生统计
+function renderStudentStats() {
+    const studentActivities = {};
+    
+    // 先创建一个 activity 映射表，提高查找效率
+    const activityMap = new Map();
+    activities.forEach(activity => {
+        activityMap.set(activity.id, activity);
+    });
+    
+    participants.forEach(participant => {
+        // 使用 班级+姓名 作为唯一标识（学号不可信）
+        // 如果班级为空，则只使用姓名
+        let key;
+        if (participant.major && participant.major.trim() !== '') {
+            key = `${participant.major}_${participant.name}`;
+        } else {
+            key = participant.name;
+        }
+        
+        if (!studentActivities[key]) {
+            studentActivities[key] = {
+                studentId: participant.studentId || '',  // 保留学号用于显示
+                name: participant.name,
+                major: participant.major || '',
+                activities: [],
+                activitiesSet: new Set(),   // 用于去重活动
+                activitiesCount: 0,
+                totalScore: 0
+            };
+        }
+        
+        // 更新学号（如果有更完整的学号信息）
+        if (participant.studentId && participant.studentId !== studentActivities[key].studentId) {
+            studentActivities[key].studentId = participant.studentId;
+        }
+        
+        // 更新专业班级（如果有更完整的信息）
+        if (participant.major && participant.major !== studentActivities[key].major) {
+            studentActivities[key].major = participant.major;
+        }
+        
+        const activity = activityMap.get(participant.activityId);
+        if (activity) {
+            // 使用 Set 避免同一个活动被重复计数
+            if (!studentActivities[key].activitiesSet.has(activity.id)) {
+                studentActivities[key].activitiesSet.add(activity.id);
+                studentActivities[key].activities.push(activity.name);
+                studentActivities[key].activitiesCount++;
+            }
             
-            participants.forEach(participant => {
-                const key = `${participant.studentId}_${participant.name}_${participant.major}`;
-                if (!studentActivities[key]) {
-                    studentActivities[key] = {
-                        studentId: participant.studentId,
-                        name: participant.name,
-                        major: participant.major,
-                        activities: [],
-                        activitiesCount: 0,
-                        totalScore: 0
-                    };
+            // 累加综测分数（每个参与记录单独累加）
+            if (participant.score !== undefined && participant.score !== null && participant.score !== '') {
+                const scoreValue = parseFloat(participant.score);
+                if (!isNaN(scoreValue)) {
+                    studentActivities[key].totalScore += scoreValue;
                 }
-                
-                const activity = activities.find(a => a.id === participant.activityId);
-                if (activity) {
-                    studentActivities[key].activities.push(activity.name);
-                    studentActivities[key].activitiesCount++;
-                    
-                    if (participant.score) {
-                        studentActivities[key].totalScore += parseFloat(participant.score) || 0;
-                    }
+            }
+        } else {
+            console.warn(`未找到活动: ${participant.activityId}，参与记录ID: ${participant.id}`);
+        }
+    });
+    
+    // 转换为数组并移除临时用的 Set
+    let studentStats = Object.values(studentActivities).map(student => {
+        const { activitiesSet, ...rest } = student;
+        return {
+            ...rest,
+            activityCount: rest.activitiesCount
+        };
+    });
+    
+    // 按参与次数降序排序
+    studentStats.sort((a, b) => b.activitiesCount - a.activitiesCount);
+    
+    const majorFilter = document.getElementById('major-filter').value;
+    const countFilter = document.getElementById('count-filter').value;
+    
+    let filteredStats = [...studentStats];
+    
+    if (majorFilter) {
+        filteredStats = filteredStats.filter(student => student.major === majorFilter);
+    }
+    
+    if (countFilter) {
+        const minCount = parseInt(countFilter);
+        filteredStats = filteredStats.filter(student => student.activitiesCount >= minCount);
+    }
+    
+    updateMajorFilterOptions(studentStats, filteredStats);
+    renderStudentList(filteredStats);
+    renderStudentStatsTable(filteredStats);
+    updateUniqueStudentsCount(studentStats.length);
+}
+
+// 更新专业班级筛选选项
+function updateMajorFilterOptions(allStudentStats, filteredStats) {
+    const majorFilter = document.getElementById('major-filter');
+    const currentValue = majorFilter.value;
+    
+    // 从所有学生中获取专业列表（不只是筛选后的）
+    const majors = [...new Set(allStudentStats.map(student => student.major).filter(m => m && m.trim() !== ''))].sort();
+    
+    majorFilter.innerHTML = '<option value="">全部专业班级</option>';
+    majors.forEach(major => {
+        const option = document.createElement('option');
+        option.value = major;
+        option.textContent = major;
+        majorFilter.appendChild(option);
+    });
+    
+    if (majors.includes(currentValue)) {
+        majorFilter.value = currentValue;
+    }
+}
+
+// 渲染学生列表
+function renderStudentList(studentStats) {
+    const studentList = document.getElementById('student-list');
+    studentList.innerHTML = '';
+    
+    if (studentStats.length === 0) {
+        studentList.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-user-graduate"></i>
+                <p>暂无学生数据</p>
+            </div>
+        `;
+        return;
+    }
+    
+    const displayStats = studentStats.slice(0, 20);
+    
+    displayStats.forEach(student => {
+        // 显示名称，如果有学号则显示学号，否则只显示姓名
+        const nameDisplay = student.studentId ? `${student.name} (${student.studentId})` : student.name;
+        // 专业班级显示，如果没有则显示"未填写"
+        const majorDisplay = student.major || '未填写专业';
+        
+        const studentItem = document.createElement('div');
+        studentItem.className = 'student-item';
+        studentItem.innerHTML = `
+            <div>
+                <div class="student-name">${escapeHtml(nameDisplay)}</div>
+                <div style="font-size: 14px; color: #64748b; margin-top: 4px;">
+                    ${escapeHtml(majorDisplay)} - 参与${student.activitiesCount}个活动
+                </div>
+                <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
+                    活动: ${student.activities.slice(0, 3).map(escapeHtml).join('、')}${student.activities.length > 3 ? '...' : ''}
+                </div>
+            </div>
+            <div class="student-activity-count">${student.activitiesCount}次</div>
+        `;
+        studentList.appendChild(studentItem);
+    });
+    
+    if (studentStats.length > 20) {
+        const moreItem = document.createElement('div');
+        moreItem.className = 'student-item';
+        moreItem.style.justifyContent = 'center';
+        moreItem.innerHTML = `<span style="color: #64748b;">...还有${studentStats.length - 20}名学生</span>`;
+        studentList.appendChild(moreItem);
+    }
+}
+
+// 渲染学生详细统计表格
+function renderStudentStatsTable(studentStats) {
+    const tableBody = document.getElementById('student-stats-table');
+    tableBody.innerHTML = '';
+    
+    if (studentStats.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td colspan="6" style="text-align: center; color: #64748b; padding: 40px;">暂无学生统计信息</td>`;
+        tableBody.appendChild(row);
+        return;
+    }
+    
+    studentStats.forEach(student => {
+        const row = document.createElement('tr');
+        // 显示学号，如果没有则显示"--"
+        const studentIdDisplay = student.studentId || '--';
+        // 专业班级显示
+        const majorDisplay = student.major || '--';
+        
+        row.innerHTML = `
+            <td>${escapeHtml(studentIdDisplay)}</td>
+            <td>${escapeHtml(student.name)}</td>
+            <td>${escapeHtml(majorDisplay)}</td>
+            <td>${student.activitiesCount}</td>
+            <td>${student.activities.map(escapeHtml).join('、')}</td>
+            <td>${student.totalScore.toFixed(1)}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+}
+
+// 更新统计数字
+function updateStats() {
+    document.getElementById('total-activities').textContent = activities.length;
+    
+    // 使用 participants 数组计算总参与人次，更准确
+    const totalParticipants = participants.length;
+    document.getElementById('total-participants').textContent = totalParticipants;
+    
+    const ongoingActivities = activities.filter(activity => activity.status === 'ongoing').length;
+    document.getElementById('ongoing-activities').textContent = ongoingActivities;
+    
+    updateUniqueStudentsCount();
+}
+
+// 更新参与学生数（使用班级+姓名作为唯一标识）
+function updateUniqueStudentsCount() {
+    const uniqueStudents = new Set();
+    participants.forEach(participant => {
+        let key;
+        if (participant.major && participant.major.trim() !== '') {
+            key = `${participant.major}_${participant.name}`;
+        } else {
+            key = participant.name;
+        }
+        uniqueStudents.add(key);
+    });
+    
+    document.getElementById('unique-students').textContent = uniqueStudents.size;
+}
+
+// 辅助函数：防止XSS攻击
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// 设置当前日期
+function setCurrentDate() {
+    const today = new Date();
+    const formattedDate = today.toISOString().split('T')[0];
+    document.getElementById('activity-date').value = formattedDate;
+    
+    const nextHour = new Date(today.getTime() + 60 * 60 * 1000);
+    const formattedTime = nextHour.toTimeString().substring(0, 5);
+    document.getElementById('activity-time').value = formattedTime;
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', initPage);
+// 学生统计导出功能
+function exportStudentStats() {
+    const studentActivities = {};
+    
+    // 构建统计数据（与renderStudentStats逻辑一致）
+    const activityMap = new Map();
+    activities.forEach(activity => {
+        activityMap.set(activity.id, activity);
+    });
+    
+    participants.forEach(participant => {
+        let key;
+        if (participant.major && participant.major.trim() !== '') {
+            key = `${participant.major}_${participant.name}`;
+        } else {
+            key = participant.name;
+        }
+        
+        if (!studentActivities[key]) {
+            studentActivities[key] = {
+                studentId: participant.studentId || '',
+                name: participant.name,
+                major: participant.major || '',
+                activities: [],
+                activitiesSet: new Set(),
+                activitiesCount: 0,
+                totalScore: 0
+            };
+        }
+        
+        if (participant.studentId && participant.studentId !== studentActivities[key].studentId) {
+            studentActivities[key].studentId = participant.studentId;
+        }
+        
+        if (participant.major && participant.major !== studentActivities[key].major) {
+            studentActivities[key].major = participant.major;
+        }
+        
+        const activity = activityMap.get(participant.activityId);
+        if (activity) {
+            if (!studentActivities[key].activitiesSet.has(activity.id)) {
+                studentActivities[key].activitiesSet.add(activity.id);
+                studentActivities[key].activities.push(activity.name);
+                studentActivities[key].activitiesCount++;
+            }
+            
+            if (participant.score !== undefined && participant.score !== null && participant.score !== '') {
+                const scoreValue = parseFloat(participant.score);
+                if (!isNaN(scoreValue)) {
+                    studentActivities[key].totalScore += scoreValue;
                 }
-            });
-            
-            let studentStats = Object.values(studentActivities).map(student => ({
-                ...student,
-                activityCount: student.activitiesCount
-            }));
-            
-            studentStats.sort((a, b) => b.activitiesCount - a.activitiesCount);
-            
-            const majorFilter = document.getElementById('major-filter').value;
-            const countFilter = document.getElementById('count-filter').value;
-            
-            if (majorFilter) {
-                studentStats = studentStats.filter(student => student.major === majorFilter);
-            }
-            
-            if (countFilter) {
-                const minCount = parseInt(countFilter);
-                studentStats = studentStats.filter(student => student.activitiesCount >= minCount);
-            }
-            
-            updateMajorFilterOptions(studentStats);
-            renderStudentList(studentStats);
-            renderStudentStatsTable(studentStats);
-            updateUniqueStudentsCount(Object.keys(studentActivities).length);
-        }
-
-        // 更新专业班级筛选选项
-        function updateMajorFilterOptions(studentStats) {
-            const majorFilter = document.getElementById('major-filter');
-            const currentValue = majorFilter.value;
-            
-            const majors = [...new Set(studentStats.map(student => student.major))].sort();
-            
-            majorFilter.innerHTML = '<option value="">全部专业班级</option>';
-            majors.forEach(major => {
-                const option = document.createElement('option');
-                option.value = major;
-                option.textContent = major;
-                majorFilter.appendChild(option);
-            });
-            
-            if (majors.includes(currentValue)) {
-                majorFilter.value = currentValue;
             }
         }
+    });
+    
+    // 应用筛选条件
+    let studentStats = Object.values(studentActivities).map(student => {
+        const { activitiesSet, ...rest } = student;
+        return {
+            ...rest,
+            activityCount: rest.activitiesCount
+        };
+    });
+    
+    // 按参与次数降序排序
+    studentStats.sort((a, b) => b.activitiesCount - a.activitiesCount);
+    
+    // 获取筛选条件
+    const majorFilter = document.getElementById('major-filter').value;
+    const countFilter = document.getElementById('count-filter').value;
+    
+    let filteredStats = [...studentStats];
+    
+    if (majorFilter) {
+        filteredStats = filteredStats.filter(student => student.major === majorFilter);
+    }
+    
+    if (countFilter) {
+        const minCount = parseInt(countFilter);
+        filteredStats = filteredStats.filter(student => student.activitiesCount >= minCount);
+    }
+    
+    if (filteredStats.length === 0) {
+        alert('没有符合条件的学生数据可导出');
+        return;
+    }
+    
+    // 准备导出数据
+    const exportData = filteredStats.map((student, index) => ({
+        '序号': index + 1,
+        '学号': student.studentId || '--',
+        '姓名': student.name,
+        '专业班级': student.major || '--',
+        '参与活动数': student.activitiesCount,
+        '参与活动列表': student.activities.join('、'),
+        '总综测分数': student.totalScore.toFixed(1)
+    }));
+    
+    // 创建工作簿
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    
+    // 设置列宽
+    ws['!cols'] = [
+        { wch: 6 },   // 序号
+        { wch: 15 },  // 学号
+        { wch: 10 },  // 姓名
+        { wch: 18 },  // 专业班级
+        { wch: 12 },  // 参与活动数
+        { wch: 50 },  // 参与活动列表
+        { wch: 12 }   // 总综测分数
+    ];
+    
+    XLSX.utils.book_append_sheet(wb, ws, '学生参与统计');
+    
+    // 生成文件名（包含筛选信息）
+    let fileName = '财经政法学院_学生参与统计';
+    if (majorFilter) {
+        fileName += `_${majorFilter}`;
+    }
+    if (countFilter) {
+        const minCount = parseInt(countFilter);
+        fileName += `_参与${minCount}次以上`;
+    }
+    fileName += `_${new Date().toISOString().slice(0, 10)}.xlsx`;
+    
+    // 导出文件
+    XLSX.writeFile(wb, fileName);
+    
+    alert(`成功导出 ${filteredStats.length} 名学生数据！`);
+}
 
-        // 渲染学生列表
-        function renderStudentList(studentStats) {
-            const studentList = document.getElementById('student-list');
-            studentList.innerHTML = '';
-            
-            if (studentStats.length === 0) {
-                studentList.innerHTML = `
-                    <div class="empty-state">
-                        <i class="fas fa-user-graduate"></i>
-                        <p>暂无学生数据</p>
-                    </div>
-                `;
-                return;
-            }
-            
-            const displayStats = studentStats.slice(0, 20);
-            
-            displayStats.forEach(student => {
-                const studentItem = document.createElement('div');
-                studentItem.className = 'student-item';
-                studentItem.innerHTML = `
-                    <div>
-                        <div class="student-name">${student.name} (${student.studentId})</div>
-                        <div style="font-size: 14px; color: #64748b; margin-top: 4px;">
-                            ${student.major} - 参与${student.activitiesCount}个活动
-                        </div>
-                        <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">
-                            活动: ${student.activities.slice(0, 3).join('、')}${student.activities.length > 3 ? '...' : ''}
-                        </div>
-                    </div>
-                    <div class="student-activity-count">${student.activitiesCount}次</div>
-                `;
-                studentList.appendChild(studentItem);
-            });
-            
-            if (studentStats.length > 20) {
-                const moreItem = document.createElement('div');
-                moreItem.className = 'student-item';
-                moreItem.style.justifyContent = 'center';
-                moreItem.innerHTML = `<span style="color: #64748b;">...还有${studentStats.length - 20}名学生</span>`;
-                studentList.appendChild(moreItem);
-            }
-        }
+// 在initStudentStats函数中添加导出按钮事件（需要替换原来的initStudentStats函数）
+function initStudentStats() {
+    const refreshBtn = document.getElementById('refresh-stats');
+    refreshBtn.addEventListener('click', renderStudentStats);
+    
+    const majorFilter = document.getElementById('major-filter');
+    const countFilter = document.getElementById('count-filter');
+    
+    majorFilter.addEventListener('change', renderStudentStats);
+    countFilter.addEventListener('change', renderStudentStats);
+    
+    // 添加导出按钮到页面
+    addExportButtonToStudentStats();
+}
 
-        // 渲染学生详细统计表格
-        function renderStudentStatsTable(studentStats) {
-            const tableBody = document.getElementById('student-stats-table');
-            tableBody.innerHTML = '';
-            
-            if (studentStats.length === 0) {
-                const row = document.createElement('tr');
-                row.innerHTML = `<td colspan="6" style="text-align: center; color: #64748b; padding: 40px;">暂无学生统计信息</td>`;
-                tableBody.appendChild(row);
-                return;
-            }
-            
-            studentStats.forEach(student => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${student.studentId}</td>
-                    <td>${student.name}</td>
-                    <td>${student.major}</td>
-                    <td>${student.activitiesCount}</td>
-                    <td>${student.activities.join('、')}</td>
-                    <td>${student.totalScore.toFixed(1)}</td>
-                `;
-                tableBody.appendChild(row);
-            });
-        }
-
-        // 更新统计数字
-        function updateStats() {
-            document.getElementById('total-activities').textContent = activities.length;
-            
-            const totalParticipants = activities.reduce((sum, activity) => sum + activity.participants, 0);
-            document.getElementById('total-participants').textContent = totalParticipants;
-            
-            const ongoingActivities = activities.filter(activity => activity.status === 'ongoing').length;
-            document.getElementById('ongoing-activities').textContent = ongoingActivities;
-            
-            updateUniqueStudentsCount();
-        }
-
-        // 更新参与学生数
-        function updateUniqueStudentsCount() {
-            const uniqueStudents = new Set();
-            participants.forEach(participant => {
-                uniqueStudents.add(`${participant.studentId}_${participant.name}`);
-            });
-            
-            document.getElementById('unique-students').textContent = uniqueStudents.size;
-        }
-
-        // 设置当前日期
-        function setCurrentDate() {
-            const today = new Date();
-            const formattedDate = today.toISOString().split('T')[0];
-            document.getElementById('activity-date').value = formattedDate;
-            
-            const nextHour = new Date(today.getTime() + 60 * 60 * 1000);
-            const formattedTime = nextHour.toTimeString().substring(0, 5);
-            document.getElementById('activity-time').value = formattedTime;
-        }
-
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', initPage);
+// 在学生统计页面添加导出按钮
+function addExportButtonToStudentStats() {
+    const studentStatsHeader = document.querySelector('#student-stats .student-stats-header');
+    if (studentStatsHeader && !document.getElementById('export-student-stats-btn')) {
+        const exportBtn = document.createElement('button');
+        exportBtn.id = 'export-student-stats-btn';
+        exportBtn.className = 'btn btn-success';
+        exportBtn.innerHTML = '<i class="fas fa-file-excel"></i> 导出统计名单';
+        exportBtn.style.marginLeft = '10px';
+        exportBtn.addEventListener('click', exportStudentStats);
+        studentStatsHeader.appendChild(exportBtn);
+    }
+}
     </script>
 </body>
 </html>
