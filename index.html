@@ -1974,35 +1974,46 @@ position: relative;
 
                             <div class="form-group">
                                 <label class="form-label">谈话主题 *</label>
-                                <div class="checkbox-group">
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="适应性"> 适应性
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="人际关系"> 人际关系
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="情感"> 情感
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="学业"> 学业
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="就业"> 就业
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="情绪/健康"> 情绪/健康
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="家庭"> 家庭
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="警示教育"> 警示教育
-                                    </label>
-                                    <label class="checkbox-item">
-                                        <input type="checkbox" name="topic" value="其他" id="otherTopicCheckbox" onchange="toggleOtherTopicInput()"> 其他
-                                    </label>
-                                </div>
+                          <div class="checkbox-group">
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="适应性"> 适应性
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="人际关系"> 人际关系
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="情感"> 情感
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="学业"> 学业
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="就业"> 就业
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="情绪/健康"> 情绪/健康
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="家庭"> 家庭
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="警示教育"> 警示教育
+    </label>
+    <!-- 新增的三个选项开始 -->
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="迟到"> 迟到
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="挂科"> 挂科
+    </label>
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="晚归"> 晚归
+    </label>
+    <!-- 新增的三个选项结束 -->
+    <label class="checkbox-item">
+        <input type="checkbox" name="topic" value="其他" id="otherTopicCheckbox" onchange="toggleOtherTopicInput()"> 其他
+    </label>
+</div>
                                 <div id="otherTopicInput" class="other-topic-input">
                                     <input type="text" id="otherTopicText" class="form-control" placeholder="请输入其他谈话主题...">
                                 </div>
