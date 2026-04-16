@@ -10392,8 +10392,8 @@ const DEFAULT_TEMPLATES = [
         studentBackground: '该生近期出现多次迟到现象，经了解主要是作息不规律导致。',
         talkPurpose: '了解迟到原因，强调纪律要求，帮助学生建立时间观念。',
         studentStatement: '学生承认近期确实有迟到情况，表示会注意调整作息。',
-        talkPoints: '1. 询问迟到原因；2. 强调上课纪律；3. 帮助学生制定改进计划。',
-        talkFeedback: '学生态度端正，承诺以后按时上课。'
+        talkFeedback: '学生态度端正，承诺以后按时上课。',
+        followUpPlan: '一周后跟进学生出勤情况。'
     },
     {
         id: 'template_2',
@@ -10402,8 +10402,8 @@ const DEFAULT_TEMPLATES = [
         studentBackground: '该生学习成绩不理想，多门课程成绩偏低，学习态度需要端正。',
         talkPurpose: '分析学业问题原因，提供学习建议，制定改进计划。',
         studentStatement: '学生表示学习压力大，部分课程听不懂，不知道如何提高。',
-        talkPoints: '1. 分析成绩情况；2. 了解学习方法；3. 提供学习资源建议；4. 制定学习计划。',
-        talkFeedback: '学生认识到问题，表示会改进学习方法。'
+        talkFeedback: '学生认识到问题，表示会改进学习方法。',
+        followUpPlan: '两周后检查学生成绩是否有进步。'
     },
     {
         id: 'template_3',
@@ -10412,8 +10412,8 @@ const DEFAULT_TEMPLATES = [
         studentBackground: '该生近期有晚归记录，存在安全隐患。',
         talkPurpose: '了解晚归原因，强调安全纪律，预防安全事故。',
         studentStatement: '学生表示因社团活动或外出聚会导致晚归。',
-        talkPoints: '1. 询问晚归原因；2. 强调宿舍管理规定；3. 说明安全风险；4. 要求整改。',
-        talkFeedback: '学生认识到晚归的危害，承诺按时回宿舍。'
+        talkFeedback: '学生认识到晚归的危害，承诺按时回宿舍。',
+        followUpPlan: '抽查学生晚归情况，持续关注。'
     },
     {
         id: 'template_4',
@@ -10422,8 +10422,8 @@ const DEFAULT_TEMPLATES = [
         studentBackground: '该生近期情绪状态不稳定，需要关心和疏导。',
         talkPurpose: '关心学生心理状态，提供情感支持，必要时转介心理中心。',
         studentStatement: '学生表达了自己的困扰和压力，情绪较为低落。',
-        talkPoints: '1. 倾听学生倾诉；2. 表达关心和支持；3. 提供缓解压力的方法；4. 建议寻求专业帮助。',
-        talkFeedback: '学生情绪有所缓解，表示愿意继续沟通。'
+        talkFeedback: '学生情绪有所缓解，表示愿意继续沟通。',
+        followUpPlan: '每周定期关心学生状态。'
     },
     {
         id: 'template_5',
@@ -10432,8 +10432,8 @@ const DEFAULT_TEMPLATES = [
         studentBackground: '该生近期与同学/室友存在矛盾，影响正常学习和生活。',
         talkPurpose: '了解矛盾原因，调解人际关系，促进和谐相处。',
         studentStatement: '学生陈述了矛盾经过，表达了不满和困扰。',
-        talkPoints: '1. 了解矛盾详情；2. 分析双方责任；3. 提出调解建议；4. 促进互相理解。',
-        talkFeedback: '学生表示愿意沟通解决矛盾。'
+        talkFeedback: '学生表示愿意沟通解决矛盾。',
+        followUpPlan: '跟进矛盾解决情况，必要时进行二次调解。'
     }
 ];
 
@@ -10495,8 +10495,8 @@ function applyTemplate(templateId) {
     document.getElementById('studentBackground').value = template.studentBackground || '';
     document.getElementById('talkPurpose').value = template.talkPurpose || '';
     document.getElementById('studentStatement').value = template.studentStatement || '';
-    document.getElementById('talkPoints').value = template.talkPoints || '';
     document.getElementById('talkFeedback').value = template.talkFeedback || '';
+    document.getElementById('followUpPlan').value = template.followUpPlan || '';
     
     showMessage(`已应用模板："${template.name}"`, 'success');
     
@@ -10579,8 +10579,8 @@ function renderTemplateList() {
                     </div>
                 </div>
                 <div style="font-size: 12px; color: #555; margin-top: 8px;">
-                    <div><strong>学生背景：</strong>${escapeHtml(template.studentBackground || '').substring(0, 80)}${(template.studentBackground || '').length > 80 ? '...' : ''}</div>
-                    <div style="margin-top: 5px;"><strong>谈话目的：</strong>${escapeHtml(template.talkPurpose || '').substring(0, 80)}${(template.talkPurpose || '').length > 80 ? '...' : ''}</div>
+                    <div><strong>学生背景：</strong>${escapeHtml(template.studentBackground || '').substring(0, 60)}${(template.studentBackground || '').length > 60 ? '...' : ''}</div>
+                    <div style="margin-top: 5px;"><strong>谈话目的：</strong>${escapeHtml(template.talkPurpose || '').substring(0, 60)}${(template.talkPurpose || '').length > 60 ? '...' : ''}</div>
                 </div>
             </div>
         `;
@@ -10636,18 +10636,18 @@ function showTemplateFormModal(title, template) {
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">学生自述（模板）</label>
+                        <label class="form-label">学生自述</label>
                         <textarea id="templateStudentStatement" class="form-control" rows="3" placeholder="学生可能说的话...">${template ? escapeHtml(template.studentStatement || '') : ''}</textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">谈话要点</label>
-                        <textarea id="templateTalkPoints" class="form-control" rows="3" placeholder="谈话的主要内容要点...">${template ? escapeHtml(template.talkPoints || '') : ''}</textarea>
+                        <label class="form-label">谈话反馈</label>
+                        <textarea id="templateTalkFeedback" class="form-control" rows="3" placeholder="谈话后的反馈记录...">${template ? escapeHtml(template.talkFeedback || '') : ''}</textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">谈话反馈（模板）</label>
-                        <textarea id="templateTalkFeedback" class="form-control" rows="3" placeholder="谈话后的反馈记录...">${template ? escapeHtml(template.talkFeedback || '') : ''}</textarea>
+                        <label class="form-label">后续跟进计划</label>
+                        <textarea id="templateFollowUpPlan" class="form-control" rows="2" placeholder="后续跟进计划...">${template ? escapeHtml(template.followUpPlan || '') : ''}</textarea>
                     </div>
                     
                     <div style="display: flex; gap: 15px; margin-top: 20px;">
@@ -10694,8 +10694,8 @@ function saveTemplateFromForm() {
         studentBackground: document.getElementById('templateStudentBackground').value,
         talkPurpose: document.getElementById('templateTalkPurpose').value,
         studentStatement: document.getElementById('templateStudentStatement').value,
-        talkPoints: document.getElementById('templateTalkPoints').value,
-        talkFeedback: document.getElementById('templateTalkFeedback').value
+        talkFeedback: document.getElementById('templateTalkFeedback').value,
+        followUpPlan: document.getElementById('templateFollowUpPlan').value
     };
     
     if (templateId) {
