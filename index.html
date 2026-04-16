@@ -10379,6 +10379,416 @@ let headerHtml = `<h1>${schoolTitle}</h1><h1>辅导员谈心谈话记录表</h1>
         });
     }
 })();
+// ==================== 谈话模板功能 ====================
+// 模板存储key
+const TEMPLATES_STORAGE_KEY = 'talkTemplates';
+
+// 默认模板数据
+const DEFAULT_TEMPLATES = [
+    {
+        id: 'template_1',
+        name: '迟到谈话模板',
+        description: '适用于多次迟到的学生',
+        studentBackground: '该生近期出现多次迟到现象，经了解主要是作息不规律导致。',
+        talkPurpose: '了解迟到原因，强调纪律要求，帮助学生建立时间观念。',
+        studentStatement: '学生承认近期确实有迟到情况，表示会注意调整作息。',
+        talkPoints: '1. 询问迟到原因；2. 强调上课纪律；3. 帮助学生制定改进计划。',
+        talkFeedback: '学生态度端正，承诺以后按时上课。'
+    },
+    {
+        id: 'template_2',
+        name: '学业预警模板',
+        description: '适用于挂科或学业困难的学生',
+        studentBackground: '该生学习成绩不理想，多门课程成绩偏低，学习态度需要端正。',
+        talkPurpose: '分析学业问题原因，提供学习建议，制定改进计划。',
+        studentStatement: '学生表示学习压力大，部分课程听不懂，不知道如何提高。',
+        talkPoints: '1. 分析成绩情况；2. 了解学习方法；3. 提供学习资源建议；4. 制定学习计划。',
+        talkFeedback: '学生认识到问题，表示会改进学习方法。'
+    },
+    {
+        id: 'template_3',
+        name: '晚归谈话模板',
+        description: '适用于晚归或夜不归宿的学生',
+        studentBackground: '该生近期有晚归记录，存在安全隐患。',
+        talkPurpose: '了解晚归原因，强调安全纪律，预防安全事故。',
+        studentStatement: '学生表示因社团活动或外出聚会导致晚归。',
+        talkPoints: '1. 询问晚归原因；2. 强调宿舍管理规定；3. 说明安全风险；4. 要求整改。',
+        talkFeedback: '学生认识到晚归的危害，承诺按时回宿舍。'
+    },
+    {
+        id: 'template_4',
+        name: '心理关怀模板',
+        description: '适用于情绪低落或心理困扰的学生',
+        studentBackground: '该生近期情绪状态不稳定，需要关心和疏导。',
+        talkPurpose: '关心学生心理状态，提供情感支持，必要时转介心理中心。',
+        studentStatement: '学生表达了自己的困扰和压力，情绪较为低落。',
+        talkPoints: '1. 倾听学生倾诉；2. 表达关心和支持；3. 提供缓解压力的方法；4. 建议寻求专业帮助。',
+        talkFeedback: '学生情绪有所缓解，表示愿意继续沟通。'
+    },
+    {
+        id: 'template_5',
+        name: '人际关系模板',
+        description: '适用于与同学/室友有矛盾的学生',
+        studentBackground: '该生近期与同学/室友存在矛盾，影响正常学习和生活。',
+        talkPurpose: '了解矛盾原因，调解人际关系，促进和谐相处。',
+        studentStatement: '学生陈述了矛盾经过，表达了不满和困扰。',
+        talkPoints: '1. 了解矛盾详情；2. 分析双方责任；3. 提出调解建议；4. 促进互相理解。',
+        talkFeedback: '学生表示愿意沟通解决矛盾。'
+    }
+];
+
+// 获取所有模板
+function getTemplates() {
+    const stored = localStorage.getItem(TEMPLATES_STORAGE_KEY);
+    if (stored) {
+        return JSON.parse(stored);
+    }
+    // 初始化默认模板
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(DEFAULT_TEMPLATES));
+    return [...DEFAULT_TEMPLATES];
+}
+
+// 保存模板
+function saveTemplates(templates) {
+    localStorage.setItem(TEMPLATES_STORAGE_KEY, JSON.stringify(templates));
+}
+
+// 添加模板
+function addTemplate(template) {
+    const templates = getTemplates();
+    templates.push(template);
+    saveTemplates(templates);
+    renderTemplateList();
+    showMessage('模板添加成功！', 'success');
+}
+
+// 更新模板
+function updateTemplate(templateId, updatedTemplate) {
+    const templates = getTemplates();
+    const index = templates.findIndex(t => t.id === templateId);
+    if (index !== -1) {
+        templates[index] = { ...templates[index], ...updatedTemplate };
+        saveTemplates(templates);
+        renderTemplateList();
+        showMessage('模板更新成功！', 'success');
+    }
+}
+
+// 删除模板
+function deleteTemplate(templateId) {
+    if (confirm('确定要删除这个模板吗？')) {
+        const templates = getTemplates();
+        const newTemplates = templates.filter(t => t.id !== templateId);
+        saveTemplates(newTemplates);
+        renderTemplateList();
+        showMessage('模板删除成功！', 'success');
+    }
+}
+
+// 应用模板到表单
+function applyTemplate(templateId) {
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    // 应用到表单
+    document.getElementById('studentBackground').value = template.studentBackground || '';
+    document.getElementById('talkPurpose').value = template.talkPurpose || '';
+    document.getElementById('studentStatement').value = template.studentStatement || '';
+    document.getElementById('talkPoints').value = template.talkPoints || '';
+    document.getElementById('talkFeedback').value = template.talkFeedback || '';
+    
+    showMessage(`已应用模板："${template.name}"`, 'success');
+    
+    // 关闭模板管理面板
+    closeTemplatePanel();
+}
+
+// 显示模板管理模态框
+function showTemplateManager() {
+    // 关闭其他可能打开的模态框
+    document.querySelectorAll('.modal').forEach(modal => {
+        if (modal.id !== 'templateManagerModal') {
+            modal.style.display = 'none';
+        }
+    });
+    
+    renderTemplateList();
+    
+    const modalHtml = `
+        <div class="modal" id="templateManagerModal" style="display: flex;">
+            <div class="modal-content modal-lg" style="max-width: 800px;">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">📋 谈话模板管理</h3>
+                
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-success" onclick="showAddTemplateModal()" style="margin-right: 10px;">+ 新建模板</button>
+                    <button class="btn" onclick="closeTemplatePanel()">关闭</button>
+                </div>
+                
+                <div id="templateListContainer" style="max-height: 500px; overflow-y: auto;">
+                    <!-- 模板列表会动态生成 -->
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除旧的模态框
+    const oldModal = document.getElementById('templateManagerModal');
+    if (oldModal) oldModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'templateManagerModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+    
+    renderTemplateList();
+}
+
+// 渲染模板列表
+function renderTemplateList() {
+    const container = document.getElementById('templateListContainer');
+    if (!container) return;
+    
+    const templates = getTemplates();
+    
+    if (templates.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px; color: #666;">
+                <div style="font-size: 48px; margin-bottom: 10px;">📋</div>
+                <p>暂无谈话模板</p>
+                <button class="btn btn-success" onclick="showAddTemplateModal()">创建第一个模板</button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+    
+    templates.forEach(template => {
+        html += `
+            <div style="background: #f8f9fa; border-radius: 8px; padding: 15px; border-left: 4px solid #3498db;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <div>
+                        <strong style="font-size: 16px;">${escapeHtml(template.name)}</strong>
+                        <span style="font-size: 12px; color: #666; margin-left: 10px;">${escapeHtml(template.description || '')}</span>
+                    </div>
+                    <div>
+                        <button class="btn" style="padding: 5px 12px; background: #27ae60; margin-right: 5px;" onclick="applyTemplate('${template.id}')">应用</button>
+                        <button class="btn" style="padding: 5px 12px; background: #3498db; margin-right: 5px;" onclick="editTemplate('${template.id}')">编辑</button>
+                        <button class="btn" style="padding: 5px 12px; background: #e74c3c;" onclick="deleteTemplate('${template.id}')">删除</button>
+                    </div>
+                </div>
+                <div style="font-size: 12px; color: #555; margin-top: 8px;">
+                    <div><strong>学生背景：</strong>${escapeHtml(template.studentBackground || '').substring(0, 80)}${(template.studentBackground || '').length > 80 ? '...' : ''}</div>
+                    <div style="margin-top: 5px;"><strong>谈话目的：</strong>${escapeHtml(template.talkPurpose || '').substring(0, 80)}${(template.talkPurpose || '').length > 80 ? '...' : ''}</div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 显示添加模板模态框
+function showAddTemplateModal() {
+    showTemplateFormModal('添加模板', null);
+}
+
+// 编辑模板
+function editTemplate(templateId) {
+    const templates = getTemplates();
+    const template = templates.find(t => t.id === templateId);
+    if (template) {
+        showTemplateFormModal('编辑模板', template);
+    }
+}
+
+// 显示模板表单模态框
+function showTemplateFormModal(title, template) {
+    const isEdit = !!template;
+    const formHtml = `
+        <div class="modal" id="templateFormModal" style="display: flex;">
+            <div class="modal-content modal-lg" style="max-width: 700px; max-height: 85vh; overflow-y: auto;">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">${title}</h3>
+                
+                <form id="templateForm">
+                    <input type="hidden" id="templateId" value="${template ? template.id : ''}">
+                    
+                    <div class="form-group">
+                        <label class="form-label">模板名称 *</label>
+                        <input type="text" id="templateName" class="form-control" value="${template ? escapeHtml(template.name) : ''}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">描述</label>
+                        <input type="text" id="templateDesc" class="form-control" value="${template ? escapeHtml(template.description || '') : ''}" placeholder="简短描述这个模板的用途">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">学生背景</label>
+                        <textarea id="templateStudentBackground" class="form-control" rows="3" placeholder="填写学生的基本情况...">${template ? escapeHtml(template.studentBackground || '') : ''}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">谈话目的</label>
+                        <textarea id="templateTalkPurpose" class="form-control" rows="3" placeholder="填写谈话的主要目的...">${template ? escapeHtml(template.talkPurpose || '') : ''}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">学生自述（模板）</label>
+                        <textarea id="templateStudentStatement" class="form-control" rows="3" placeholder="学生可能说的话...">${template ? escapeHtml(template.studentStatement || '') : ''}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">谈话要点</label>
+                        <textarea id="templateTalkPoints" class="form-control" rows="3" placeholder="谈话的主要内容要点...">${template ? escapeHtml(template.talkPoints || '') : ''}</textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">谈话反馈（模板）</label>
+                        <textarea id="templateTalkFeedback" class="form-control" rows="3" placeholder="谈话后的反馈记录...">${template ? escapeHtml(template.talkFeedback || '') : ''}</textarea>
+                    </div>
+                    
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <button type="submit" class="btn btn-primary">保存模板</button>
+                        <button type="button" class="btn" onclick="closeTemplateFormModal()">取消</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    `;
+    
+    // 移除旧的模态框
+    const oldModal = document.getElementById('templateFormModal');
+    if (oldModal) oldModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'templateFormModal';
+    modal.innerHTML = formHtml;
+    document.body.appendChild(modal);
+    
+    // 绑定表单提交事件
+    const form = document.getElementById('templateForm');
+    if (form) {
+        form.onsubmit = function(e) {
+            e.preventDefault();
+            saveTemplateFromForm();
+        };
+    }
+}
+
+// 从表单保存模板
+function saveTemplateFromForm() {
+    const templateId = document.getElementById('templateId').value;
+    const name = document.getElementById('templateName').value.trim();
+    
+    if (!name) {
+        showMessage('请输入模板名称！', 'error');
+        return;
+    }
+    
+    const templateData = {
+        name: name,
+        description: document.getElementById('templateDesc').value.trim(),
+        studentBackground: document.getElementById('templateStudentBackground').value,
+        talkPurpose: document.getElementById('templateTalkPurpose').value,
+        studentStatement: document.getElementById('templateStudentStatement').value,
+        talkPoints: document.getElementById('templateTalkPoints').value,
+        talkFeedback: document.getElementById('templateTalkFeedback').value
+    };
+    
+    if (templateId) {
+        // 更新现有模板
+        updateTemplate(templateId, templateData);
+    } else {
+        // 添加新模板
+        const newTemplate = {
+            id: 'template_' + Date.now(),
+            ...templateData
+        };
+        addTemplate(newTemplate);
+    }
+    
+    closeTemplateFormModal();
+}
+
+// 关闭模板表单模态框
+function closeTemplateFormModal() {
+    const modal = document.getElementById('templateFormModal');
+    if (modal) modal.remove();
+}
+
+// 关闭模板管理面板
+function closeTemplatePanel() {
+    const modal = document.getElementById('templateManagerModal');
+    if (modal) modal.remove();
+}
+
+// 在新建谈话记录页面添加模板按钮
+function addTemplateButtonToRecordPage() {
+    const cardTitle = document.querySelector('#recordTab .card-title');
+    if (cardTitle && !document.getElementById('templateQuickBtn')) {
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.justifyContent = 'space-between';
+        btnContainer.style.alignItems = 'center';
+        btnContainer.style.marginBottom = '20px';
+        
+        // 移动标题到按钮容器中
+        const titleClone = cardTitle.cloneNode(true);
+        btnContainer.appendChild(titleClone);
+        
+        const templateBtn = document.createElement('button');
+        templateBtn.id = 'templateQuickBtn';
+        templateBtn.className = 'btn btn-info';
+        templateBtn.innerHTML = '📋 谈话模板';
+        templateBtn.style.padding = '8px 16px';
+        templateBtn.onclick = showTemplateManager;
+        btnContainer.appendChild(templateBtn);
+        
+        cardTitle.parentNode.insertBefore(btnContainer, cardTitle);
+        cardTitle.style.display = 'none';
+    }
+}
+
+// HTML转义函数
+function escapeHtml(str) {
+    if (!str) return '';
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+// 页面加载时添加模板按钮
+(function() {
+    const originalShowMainSystem = window.showMainSystem;
+    if (originalShowMainSystem) {
+        window.showMainSystem = function() {
+            originalShowMainSystem();
+            setTimeout(addTemplateButtonToRecordPage, 100);
+        };
+    } else {
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(addTemplateButtonToRecordPage, 500);
+        });
+    }
+})();
+
+// 暴露全局函数
+window.getTemplates = getTemplates;
+window.addTemplate = addTemplate;
+window.updateTemplate = updateTemplate;
+window.deleteTemplate = deleteTemplate;
+window.applyTemplate = applyTemplate;
+window.showTemplateManager = showTemplateManager;
+window.showAddTemplateModal = showAddTemplateModal;
+window.editTemplate = editTemplate;
+window.closeTemplatePanel = closeTemplatePanel;
+window.closeTemplateFormModal = closeTemplateFormModal;
 </script>
 </body>
 </html>
