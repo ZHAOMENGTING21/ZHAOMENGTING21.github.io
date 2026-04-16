@@ -9418,7 +9418,7 @@ function loadStudentsTable(searchTerm = '', riskFilter = '', politicalFilter = '
         tbody.appendChild(row);
     });
 }
-// ========== 修复结束 ==========
+
    // ========== 修复政治面貌筛选选项 ==========
 // 这个函数会在页面加载时自动运行
 function fixPoliticalFilter() {
@@ -10789,6 +10789,1331 @@ window.showAddTemplateModal = showAddTemplateModal;
 window.editTemplate = editTemplate;
 window.closeTemplatePanel = closeTemplatePanel;
 window.closeTemplateFormModal = closeTemplateFormModal;
+// ==================== 学生心理档案模块 ====================
+
+// 心理档案存储key
+const PSYCHOLOGICAL_RECORDS_KEY = 'psychologicalRecords';
+
+// 初始化心理档案数据
+function initPsychologicalRecords() {
+    if (!localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY)) {
+        // 添加示例数据
+        const sampleData = [
+            {
+                id: Date.now(),
+                studentId: '20200101',
+                type: 'assessment',
+                scaleName: 'SCL-90',
+                result: '正常',
+                score: '98分',
+                remark: '心理健康状况良好',
+                recordDate: new Date('2024-03-15').toISOString()
+            },
+            {
+                id: Date.now() + 1,
+                studentId: '20200102',
+                type: 'referral',
+                counselor: '校心理咨询中心 - 王老师',
+                contact: '0758-1234567',
+                reason: '长期焦虑，睡眠质量差',
+                status: '进行中',
+                feedback: '已安排每周一次咨询',
+                recordDate: new Date('2024-04-10').toISOString()
+            }
+        ];
+        localStorage.setItem(PSYCHOLOGICAL_RECORDS_KEY, JSON.stringify(sampleData));
+    }
+}
+
+// 获取所有心理档案记录（带学生信息）
+function getAllPsychologicalRecords() {
+    const allRecords = JSON.parse(localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY) || '[]');
+    return allRecords.sort((a, b) => new Date(b.recordDate) - new Date(a.recordDate));
+}
+
+// 获取学生的心理档案
+function getStudentPsychologicalRecords(studentId) {
+    const allRecords = JSON.parse(localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY) || '[]');
+    return allRecords.filter(r => r.studentId === studentId).sort((a, b) => new Date(b.recordDate) - new Date(a.recordDate));
+}
+
+// 添加心理测评记录
+function addPsychologicalAssessment(studentId, data) {
+    const allRecords = JSON.parse(localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY) || '[]');
+    const newRecord = {
+        id: Date.now(),
+        studentId: studentId,
+        type: 'assessment',
+        recordDate: new Date().toISOString(),
+        ...data
+    };
+    allRecords.push(newRecord);
+    localStorage.setItem(PSYCHOLOGICAL_RECORDS_KEY, JSON.stringify(allRecords));
+    showMessage('心理测评记录已保存', 'success');
+}
+
+// 添加心理咨询转介记录
+function addCounselingReferral(studentId, data) {
+    const allRecords = JSON.parse(localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY) || '[]');
+    const newRecord = {
+        id: Date.now(),
+        studentId: studentId,
+        type: 'referral',
+        recordDate: new Date().toISOString(),
+        ...data
+    };
+    allRecords.push(newRecord);
+    localStorage.setItem(PSYCHOLOGICAL_RECORDS_KEY, JSON.stringify(allRecords));
+    showMessage('转介记录已保存', 'success');
+}
+
+// 删除单条心理档案记录
+function deletePsychologicalRecord(recordId) {
+    if (!confirm('确定要删除这条记录吗？')) return;
+    
+    const allRecords = JSON.parse(localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY) || '[]');
+    const newRecords = allRecords.filter(r => r.id !== recordId);
+    localStorage.setItem(PSYCHOLOGICAL_RECORDS_KEY, JSON.stringify(newRecords));
+    
+    showMessage('记录已删除', 'success');
+    
+    // 刷新当前页面
+    const currentTab = document.querySelector('.content-tab[style="display: block"]')?.id;
+    if (currentTab === 'psychologyTab') {
+        loadPsychologyRecords();
+        updatePsychStats();
+        updateBatchPsychActionState();
+    }
+}
+
+// ==================== 批量删除功能 ====================
+
+// 切换所有心理档案记录的选择状态
+function toggleSelectAllPsychRecords(checkbox) {
+    const checkboxes = document.querySelectorAll('.psych-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = checkbox.checked;
+    });
+    updateBatchPsychActionState();
+}
+
+// 更新批量删除按钮状态
+function updateBatchPsychActionState() {
+    const checkboxes = document.querySelectorAll('.psych-checkbox:checked');
+    const selectedCount = checkboxes.length;
+    const batchDeleteBtn = document.getElementById('batchDeletePsychBtn');
+    const batchActionInfo = document.getElementById('batchPsychActionInfo');
+    const selectedCountSpan = document.getElementById('selectedPsychCount');
+    
+    if (selectedCount > 0) {
+        if (batchDeleteBtn) batchDeleteBtn.style.display = 'inline-block';
+        if (batchActionInfo) batchActionInfo.style.display = 'block';
+        if (selectedCountSpan) selectedCountSpan.textContent = selectedCount;
+    } else {
+        if (batchDeleteBtn) batchDeleteBtn.style.display = 'none';
+        if (batchActionInfo) batchActionInfo.style.display = 'none';
+    }
+}
+
+// 清除所有心理档案记录的选择
+function clearPsychSelection() {
+    const checkboxes = document.querySelectorAll('.psych-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = false;
+    });
+    const selectAll = document.getElementById('selectAllPsychRecords');
+    if (selectAll) selectAll.checked = false;
+    updateBatchPsychActionState();
+}
+
+// 批量删除心理档案记录
+function batchDeletePsychologicalRecords() {
+    const checkboxes = document.querySelectorAll('.psych-checkbox:checked');
+    const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    if (selectedIds.length === 0) {
+        showMessage('请先选择要删除的记录！', 'error');
+        return;
+    }
+    
+    if (!confirm(`确定要删除选中的 ${selectedIds.length} 条心理档案记录吗？此操作不可恢复！`)) {
+        return;
+    }
+    
+    try {
+        const allRecords = JSON.parse(localStorage.getItem(PSYCHOLOGICAL_RECORDS_KEY) || '[]');
+        const newRecords = allRecords.filter(record => !selectedIds.includes(record.id));
+        localStorage.setItem(PSYCHOLOGICAL_RECORDS_KEY, JSON.stringify(newRecords));
+        
+        // 刷新界面
+        loadPsychologyRecords();
+        updatePsychStats();
+        
+        // 重置选择状态
+        clearPsychSelection();
+        
+        showMessage(`成功删除 ${selectedIds.length} 条记录！`, 'success');
+        
+    } catch (error) {
+        console.error('批量删除心理档案记录时出错：', error);
+        showMessage('批量删除失败：' + error.message, 'error');
+    }
+}
+
+// ==================== 心理档案批量导入功能 ====================
+
+// 心理档案导入数据
+let psychImportData = [];
+let psychImportPreviewData = [];
+
+// 显示心理档案导入模态框
+function showPsychImportModal() {
+    resetPsychImport();
+    document.getElementById('psychImportModal').style.display = 'flex';
+}
+
+// 重置心理档案导入
+function resetPsychImport() {
+    psychImportData = [];
+    psychImportPreviewData = [];
+    
+    document.getElementById('psychUploadStep').style.display = 'block';
+    document.getElementById('psychPreviewStep').style.display = 'none';
+    document.getElementById('psychCompleteStep').style.display = 'none';
+    
+    const fileInput = document.getElementById('psychFileInput');
+    if (fileInput) fileInput.value = '';
+    
+    const previewContainer = document.getElementById('psychPreviewTableContainer');
+    if (previewContainer) previewContainer.innerHTML = '';
+}
+
+// 关闭心理档案导入模态框
+function closePsychImportModal() {
+    const modal = document.getElementById('psychImportModal');
+    if (modal) modal.remove();
+}
+
+// 处理心理档案文件选择
+function handlePsychFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        showMessage('请选择Excel文件（.xlsx 或 .xls 格式）', 'error');
+        return;
+    }
+    
+    showMessage('正在读取Excel文件...', 'info');
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', blankrows: true });
+            
+            if (jsonData.length <= 1) {
+                showMessage('Excel文件没有数据', 'error');
+                return;
+            }
+            
+            processPsychExcelData(jsonData);
+        } catch (error) {
+            showMessage('读取Excel文件失败：' + error.message, 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// 处理心理档案Excel数据
+function processPsychExcelData(jsonData) {
+    const headers = jsonData[0];
+    
+    // 表头映射
+    const headerMapping = {
+        '学生姓名': ['学生姓名', '姓名', 'name', 'Name'],
+        '学号': ['学号', 'studentId', '学号编号'],
+        '记录类型': ['记录类型', '类型', 'type', 'Type'],
+        '测评量表': ['测评量表', '量表名称', 'scaleName'],
+        '测评结果': ['测评结果', '结果', 'result'],
+        '测评总分': ['测评总分', '总分', '分数', 'score'],
+        '转介机构': ['转介机构', '咨询师', 'counselor'],
+        '转介原因': ['转介原因', '原因', 'reason'],
+        '转介状态': ['转介状态', '状态', 'status'],
+        '反馈信息': ['反馈信息', '反馈', 'feedback'],
+        '记录日期': ['记录日期', '日期', 'date'],
+        '备注': ['备注', 'remark']
+    };
+    
+    // 查找列索引
+    const headerMap = {};
+    headers.forEach((header, index) => {
+        if (header) {
+            const headerStr = header.toString().trim();
+            for (const [standardName, possibleNames] of Object.entries(headerMapping)) {
+                if (possibleNames.some(name => headerStr.includes(name) || name.includes(headerStr))) {
+                    headerMap[standardName] = index;
+                    break;
+                }
+            }
+        }
+    });
+    
+    // 检查必需列
+    if (headerMap['学生姓名'] === undefined && headerMap['学号'] === undefined) {
+        showMessage('Excel需要包含"学生姓名"或"学号"列', 'error');
+        return;
+    }
+    
+    // 处理数据
+    psychImportData = [];
+    let validCount = 0;
+    let invalidCount = 0;
+    
+    for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (!row || row.every(cell => !cell || cell.toString().trim() === '')) continue;
+        
+        const getValue = (col) => {
+            const idx = headerMap[col];
+            return idx !== undefined && row[idx] ? row[idx].toString().trim() : '';
+        };
+        
+        let studentName = getValue('学生姓名');
+        let studentId = getValue('学号');
+        
+        // 根据姓名或学号查找学生
+        let foundStudent = null;
+        if (studentId) {
+            foundStudent = students.find(s => s.studentId === studentId);
+        }
+        if (!foundStudent && studentName) {
+            foundStudent = students.find(s => s.name === studentName);
+        }
+        
+        if (!foundStudent) {
+            invalidCount++;
+            continue;
+        }
+        
+        const recordType = getValue('记录类型').toLowerCase();
+        let record = { studentId: foundStudent.studentId };
+        
+        if (recordType.includes('测评') || recordType === 'assessment') {
+            record.type = 'assessment';
+            record.scaleName = getValue('测评量表') || '未指定量表';
+            record.result = getValue('测评结果') || '';
+            record.score = getValue('测评总分') || '';
+            record.remark = getValue('备注') || '';
+        } else if (recordType.includes('转介') || recordType === 'referral') {
+            record.type = 'referral';
+            record.counselor = getValue('转介机构') || '';
+            record.reason = getValue('转介原因') || '';
+            record.status = getValue('转介状态') || '进行中';
+            record.feedback = getValue('反馈信息') || '';
+            record.remark = getValue('备注') || '';
+        } else {
+            invalidCount++;
+            continue;
+        }
+        
+        // 处理日期
+        let recordDate = getValue('记录日期');
+        if (recordDate) {
+            try {
+                const parsedDate = new Date(recordDate);
+                if (!isNaN(parsedDate.getTime())) {
+                    record.recordDate = parsedDate.toISOString();
+                }
+            } catch(e) {}
+        }
+        
+        psychImportData.push(record);
+        validCount++;
+    }
+    
+    if (psychImportData.length === 0) {
+        showMessage('没有有效的心理档案数据', 'error');
+        return;
+    }
+    
+    psychImportPreviewData = psychImportData.slice(0, 10);
+    
+    // 检查重复
+    const existingRecords = getAllPsychologicalRecords();
+    const duplicateCount = psychImportData.filter(newRecord => 
+        existingRecords.some(existing => 
+            existing.studentId === newRecord.studentId && 
+            existing.type === newRecord.type &&
+            Math.abs(new Date(existing.recordDate || 0) - new Date(newRecord.recordDate || 0)) < 86400000
+        )
+    ).length;
+    
+    document.getElementById('psychValidCount').textContent = validCount;
+    document.getElementById('psychInvalidCount').textContent = invalidCount;
+    document.getElementById('psychDuplicateCount').textContent = duplicateCount;
+    
+    generatePsychPreviewTable();
+    
+    document.getElementById('psychUploadStep').style.display = 'none';
+    document.getElementById('psychPreviewStep').style.display = 'block';
+    
+    showMessage(`成功读取 ${validCount} 条有效数据`, 'success');
+}
+
+// 生成心理档案预览表格
+function generatePsychPreviewTable() {
+    const container = document.getElementById('psychPreviewTableContainer');
+    let html = '<table class="preview-table"><thead><tr>';
+    html += '<th>学生姓名</th><th>学号</th><th>班级</th><th>记录类型</th><th>详细内容</th><th>状态</th>';
+    html += '<tr></thead><tbody>';
+    
+    psychImportPreviewData.forEach(record => {
+        const student = students.find(s => s.studentId === record.studentId);
+        const studentName = student ? student.name : '未知';
+        const studentClass = student ? student.className : '未知';
+        
+        let detail = '';
+        let typeText = '';
+        if (record.type === 'assessment') {
+            typeText = '心理测评';
+            detail = `${record.scaleName || ''}：${record.result || ''}`;
+        } else {
+            typeText = '咨询转介';
+            detail = `${record.counselor || ''}：${record.reason || ''}`;
+        }
+        
+        html += `<tr class="valid">
+            <td>${studentName}</td>
+            <td>${record.studentId}</td>
+            <td>${studentClass}</td>
+            <td>${typeText}</td>
+            <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${detail}</td>
+            <td><span style="color:#2e7d32;">待导入</span></td>
+        </tr>`;
+    });
+    
+    html += '</tbody></table>';
+    if (psychImportData.length > 10) {
+        html += `<p style="text-align:center;color:#666;margin-top:10px;">仅显示前10行，共 ${psychImportData.length} 行</p>`;
+    }
+    container.innerHTML = html;
+}
+
+// 确认导入心理档案
+function confirmPsychImport() {
+    const existingRecords = getAllPsychologicalRecords();
+    let successCount = 0;
+    let failCount = 0;
+    
+    const progressFill = document.getElementById('psychProgressFill');
+    const progressText = document.getElementById('psychProgressText');
+    document.getElementById('psychImportProgress').style.display = 'block';
+    
+    const batchSize = 50;
+    const totalBatches = Math.ceil(psychImportData.length / batchSize);
+    let currentBatch = 0;
+    
+    function importBatch() {
+        const start = currentBatch * batchSize;
+        const end = Math.min(start + batchSize, psychImportData.length);
+        
+        for (let i = start; i < end; i++) {
+            const record = psychImportData[i];
+            
+            // 检查是否重复（同一天同类型）
+            const isDuplicate = existingRecords.some(existing => 
+                existing.studentId === record.studentId && 
+                existing.type === record.type &&
+                Math.abs(new Date(existing.recordDate || 0) - new Date(record.recordDate || 0)) < 86400000
+            );
+            
+            if (!isDuplicate) {
+                const newRecord = {
+                    id: Date.now() + i,
+                    ...record,
+                    recordDate: record.recordDate || new Date().toISOString()
+                };
+                existingRecords.push(newRecord);
+                successCount++;
+            } else {
+                failCount++;
+            }
+        }
+        
+        currentBatch++;
+        const progress = Math.round((currentBatch / totalBatches) * 100);
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        if (progressText) progressText.textContent = `${progress}% (${currentBatch * batchSize}/${psychImportData.length})`;
+        
+        if (currentBatch < totalBatches) {
+            setTimeout(importBatch, 10);
+        } else {
+            localStorage.setItem(PSYCHOLOGICAL_RECORDS_KEY, JSON.stringify(existingRecords));
+            
+            document.getElementById('psychSuccessCount').textContent = successCount;
+            document.getElementById('psychFailCount').textContent = failCount;
+            
+            document.getElementById('psychPreviewStep').style.display = 'none';
+            document.getElementById('psychCompleteStep').style.display = 'block';
+            
+            loadPsychologyRecords();
+            updatePsychStats();
+            showMessage(`成功导入 ${successCount} 条记录`, 'success');
+        }
+    }
+    
+    importBatch();
+}
+
+// 下载心理档案模板
+function downloadPsychTemplate() {
+    const templateData = [
+        ['学生姓名', '学号', '记录类型', '测评量表', '测评结果', '测评总分', '转介机构', '转介原因', '转介状态', '反馈信息', '记录日期', '备注'],
+        ['张三', '20200101', '测评', 'SCL-90', '正常', '98分', '', '', '', '', '2024-03-15', '心理健康状况良好'],
+        ['李四', '20200102', '转介', '', '', '', '校心理咨询中心-王老师', '长期焦虑，睡眠差', '进行中', '已安排每周咨询', '2024-04-10', '需要持续关注'],
+        ['王五', '20200103', '测评', 'SAS', '轻度焦虑', '52分', '', '', '', '', '2024-05-20', '建议定期关注'],
+        ['赵六', '20200104', '转介', '', '', '', '市精神卫生中心', '抑郁情绪', '已完成', '情况好转', '2024-06-01', '已结案']
+    ];
+    
+    const ws = XLSX.utils.aoa_to_sheet(templateData);
+    ws['!cols'] = [{wch:12},{wch:12},{wch:10},{wch:12},{wch:12},{wch:10},{wch:18},{wch:20},{wch:10},{wch:20},{wch:12},{wch:20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '心理档案数据');
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '心理档案导入模板.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+    showMessage('模板下载成功', 'success');
+}
+
+// ==================== 学生搜索下拉组件（简化版） ====================
+
+// 显示学生搜索下拉框
+function showStudentSearchDropdown(inputElement, onSelectCallback) {
+    const dropdown = document.createElement('div');
+    dropdown.className = 'student-search-dropdown';
+    dropdown.style.cssText = `
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        max-height: 250px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        display: none;
+    `;
+    
+    // 设置父容器为相对定位
+    inputElement.style.position = 'relative';
+    const container = inputElement.parentNode;
+    if (getComputedStyle(container).position !== 'relative') {
+        container.style.position = 'relative';
+    }
+    container.appendChild(dropdown);
+    
+    // 搜索函数
+    const searchStudents = (keyword) => {
+        if (!keyword.trim()) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        const filtered = students.filter(s => 
+            s.name.includes(keyword) || 
+            s.studentId.includes(keyword) ||
+            s.className.includes(keyword)
+        ).slice(0, 10); // 最多显示10条
+        
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div style="padding: 10px; color: #999; text-align: center;">未找到匹配的学生</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        
+        dropdown.innerHTML = '';
+        filtered.forEach(student => {
+            const item = document.createElement('div');
+            item.className = 'student-search-item';
+            item.style.cssText = 'padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;';
+            item.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${student.name}</strong> <span style="color: #666; font-size: 12px;">(${student.studentId})</span>
+                        <div style="font-size: 11px; color: #999;">${student.className}</div>
+                    </div>
+                    <div style="font-size: 11px; color: #3498db;">选择</div>
+                </div>
+            `;
+            item.onclick = () => {
+                onSelectCallback(student);
+                dropdown.style.display = 'none';
+            };
+            dropdown.appendChild(item);
+        });
+        dropdown.style.display = 'block';
+    };
+    
+    // 监听输入事件
+    inputElement.addEventListener('input', (e) => {
+        searchStudents(e.target.value);
+    });
+    
+    // 点击其他地方关闭下拉框
+    document.addEventListener('click', function closeDropdown(e) {
+        if (!container.contains(e.target)) {
+            dropdown.style.display = 'none';
+            document.removeEventListener('click', closeDropdown);
+        }
+    });
+    
+    return dropdown;
+}
+
+// ==================== 心理档案主页面 ====================
+
+// 加载心理档案主页面
+function loadPsychologyRecords(searchTerm = '', typeFilter = '') {
+    const container = document.getElementById('psychologyList');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    let records = getAllPsychologicalRecords();
+    
+    // 搜索筛选
+    if (searchTerm) {
+        records = records.filter(record => {
+            const student = students.find(s => s.studentId === record.studentId);
+            return (student && (student.name.includes(searchTerm) || student.studentId.includes(searchTerm))) ||
+                   (record.scaleName && record.scaleName.includes(searchTerm)) ||
+                   (record.counselor && record.counselor.includes(searchTerm));
+        });
+    }
+    
+    // 类型筛选
+    if (typeFilter) {
+        records = records.filter(record => record.type === typeFilter);
+    }
+    
+    if (records.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 60px; color: #999;">
+                <div style="font-size: 48px; margin-bottom: 15px;">📋</div>
+                <p>暂无心理档案记录</p>
+                <p style="font-size: 12px; margin-top: 10px;">点击"添加心理测评"或"添加转介记录"按钮添加</p>
+            </div>
+        `;
+        updateBatchPsychActionState();
+        return;
+    }
+    
+    let html = '<div style="display: flex; flex-direction: column; gap: 15px;">';
+    
+    records.forEach(record => {
+        const student = students.find(s => s.studentId === record.studentId);
+        const studentName = student ? student.name : '未知学生';
+        const studentClass = student ? student.className : '未知班级';
+        
+        // 获取该学生的谈话记录
+        const studentTalks = talkRecords.filter(t => t.studentId === record.studentId).sort((a, b) => new Date(b.talkTime) - new Date(a.talkTime));
+        
+        if (record.type === 'assessment') {
+            html += `
+                <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; border-left: 4px solid #3498db;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                                <input type="checkbox" class="psych-checkbox" value="${record.id}" onchange="updateBatchPsychActionState()" style="margin-right: 5px;">
+                                <span style="background: #3498db; color: white; padding: 2px 10px; border-radius: 15px; font-size: 12px;">📋 心理测评</span>
+                                <strong style="font-size: 16px; cursor: pointer; color: #2c3e50;" onclick="showStudentTalksForPsych('${record.studentId}')">${studentName}</strong>
+                                <span style="font-size: 12px; color: #666;">${studentClass}</span>
+                                <span style="font-size: 11px; color: #999; cursor: pointer;" onclick="showStudentTalksForPsych('${record.studentId}')">📞 查看谈话记录 (${studentTalks.length}次)</span>
+                            </div>
+                            <div style="font-size: 13px; margin-top: 8px;">
+                                <div><strong>测评量表：</strong> ${record.scaleName || '-'}</div>
+                                <div><strong>测评结果：</strong> ${record.result || '-'}</div>
+                                <div><strong>总分/等级：</strong> ${record.score || '-'}</div>
+                                ${record.remark ? `<div><strong>备注：</strong> ${record.remark}</div>` : ''}
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                            <div style="font-size: 11px; color: #999;">${new Date(record.recordDate).toLocaleString()}</div>
+                            <button class="btn" style="padding: 4px 12px; background: #e74c3c; font-size: 12px;" onclick="deletePsychologicalRecord(${record.id})">删除</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (record.type === 'referral') {
+            const statusClass = {
+                '已转介': '#ff9800',
+                '进行中': '#2196f3',
+                '已完成': '#4caf50',
+                '拒绝': '#f44336'
+            }[record.status] || '#666';
+            
+            html += `
+                <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; border-left: 4px solid #9b59b6;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        <div style="flex: 1;">
+                            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                                <input type="checkbox" class="psych-checkbox" value="${record.id}" onchange="updateBatchPsychActionState()" style="margin-right: 5px;">
+                                <span style="background: #9b59b6; color: white; padding: 2px 10px; border-radius: 15px; font-size: 12px;">📞 心理咨询转介</span>
+                                <strong style="font-size: 16px; cursor: pointer; color: #2c3e50;" onclick="showStudentTalksForPsych('${record.studentId}')">${studentName}</strong>
+                                <span style="font-size: 12px; color: #666;">${studentClass}</span>
+                                <span style="font-size: 11px; color: #999; cursor: pointer;" onclick="showStudentTalksForPsych('${record.studentId}')">📞 查看谈话记录 (${studentTalks.length}次)</span>
+                            </div>
+                            <div style="font-size: 13px; margin-top: 8px;">
+                                <div><strong>转介机构/咨询师：</strong> ${record.counselor || '-'}</div>
+                                <div><strong>联系方式：</strong> ${record.contact || '-'}</div>
+                                <div><strong>转介原因：</strong> ${record.reason || '-'}</div>
+                                <div><strong>状态：</strong> <span style="color: ${statusClass}; font-weight: bold;">${record.status || '进行中'}</span></div>
+                                ${record.feedback ? `<div><strong>反馈：</strong> ${record.feedback}</div>` : ''}
+                                ${record.remark ? `<div><strong>备注：</strong> ${record.remark}</div>` : ''}
+                            </div>
+                        </div>
+                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
+                            <div style="font-size: 11px; color: #999;">${new Date(record.recordDate).toLocaleString()}</div>
+                            <button class="btn" style="padding: 4px 12px; background: #e74c3c; font-size: 12px;" onclick="deletePsychologicalRecord(${record.id})">删除</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    updateBatchPsychActionState();
+}
+
+// 显示学生的谈话记录（从心理档案页面）
+function showStudentTalksForPsych(studentId) {
+    const student = students.find(s => s.studentId === studentId);
+    if (!student) return;
+    
+    const studentTalks = talkRecords.filter(r => r.studentId === studentId).sort((a, b) => new Date(b.talkTime) - new Date(a.talkTime));
+    
+    let talksHtml = '<div style="max-height: 400px; overflow-y: auto;">';
+    if (studentTalks.length === 0) {
+        talksHtml += '<div style="text-align: center; padding: 30px; color: #999;">暂无谈话记录</div>';
+    } else {
+        talksHtml += '<table style="width: 100%; border-collapse: collapse;">';
+        talksHtml += '<thead><tr style="background: #f0f0f0;"><th style="padding: 8px;">谈话时间</th><th style="padding: 8px;">谈话主题</th><th style="padding: 8px;">风险等级</th></tr></thead><tbody>';
+        studentTalks.forEach(talk => {
+            let riskColor = talk.riskLevel === 'red' ? '#c62828' : (talk.riskLevel === 'yellow' ? '#f57f17' : '#2e7d32');
+            let riskText = talk.riskLevel === 'red' ? '红色预警' : (talk.riskLevel === 'yellow' ? '黄色关注' : '绿色正常');
+            talksHtml += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px;">${new Date(talk.talkTime).toLocaleString()}</td>
+                    <td style="padding: 8px;">${talk.topics ? talk.topics.join('、') : '-'}</td>
+                    <td style="padding: 8px; color: ${riskColor};">${riskText}</td>
+                </tr>
+            `;
+        });
+        talksHtml += '</tbody></table>';
+    }
+    talksHtml += '</div>';
+    
+    const modalHtml = `
+        <div class="modal" id="studentTalksModal" style="display: flex;">
+            <div class="modal-content" style="max-width: 600px;">
+                <h3 style="margin-bottom: 15px; color: #2c3e50;">📚 ${student.name} 的谈话记录</h3>
+                <div style="background: #f0f7ff; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+                    ${student.className} | 共 ${studentTalks.length} 次谈话
+                </div>
+                ${talksHtml}
+                <div style="margin-top: 20px; text-align: right;">
+                    <button class="btn" onclick="closeStudentTalksModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('studentTalksModal');
+    if (oldModal) oldModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'studentTalksModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+}
+
+function closeStudentTalksModal() {
+    const modal = document.getElementById('studentTalksModal');
+    if (modal) modal.remove();
+}
+
+// 搜索心理档案
+function searchPsychologyRecords() {
+    const searchTerm = document.getElementById('psychSearchInput').value;
+    const typeFilter = document.getElementById('psychTypeFilter').value;
+    loadPsychologyRecords(searchTerm, typeFilter);
+}
+
+// 清空心理档案搜索
+function clearPsychologySearch() {
+    document.getElementById('psychSearchInput').value = '';
+    document.getElementById('psychTypeFilter').value = '';
+    loadPsychologyRecords();
+}
+
+// 显示添加测评记录模态框（带搜索下拉框）
+function showAddAssessmentModalForStudent(studentId = null) {
+    const modalHtml = `
+        <div class="modal" id="addAssessmentModal" style="display: flex;">
+            <div class="modal-content" style="max-width: 500px;">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">📋 添加心理测评记录</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">选择学生 *</label>
+                    <div class="search-select-container" style="position: relative;">
+                        <input type="text" id="assessmentStudentSearchInput" class="form-control" placeholder="输入姓名或学号搜索学生...">
+                        <div id="assessmentStudentDropdown" class="search-select-dropdown" style="display: none;"></div>
+                    </div>
+                    <input type="hidden" id="assessmentStudentId">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">测评量表名称 *</label>
+                    <select id="assessmentScale" class="form-control">
+                        <option value="SCL-90">SCL-90 症状自评量表</option>
+                        <option value="SAS">SAS 焦虑自评量表</option>
+                        <option value="SDS">SDS 抑郁自评量表</option>
+                        <option value="UPI">UPI 大学生人格问卷</option>
+                        <option value="EPQ">EPQ 艾森克人格问卷</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">测评结果 *</label>
+                    <input type="text" id="assessmentResult" class="form-control" placeholder="如：轻度焦虑、正常、需要关注等">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">总分/等级</label>
+                    <input type="text" id="assessmentScore" class="form-control" placeholder="如：128分、中度">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="assessmentRemark" class="form-control" rows="3" placeholder="其他需要记录的信息..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="saveAssessmentFromModal()">保存记录</button>
+                    <button class="btn" onclick="closeAddAssessmentModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('addAssessmentModal');
+    if (oldModal) oldModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'addAssessmentModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+    
+    // 初始化学生搜索下拉框
+    initStudentSearchDropdown('assessmentStudentSearchInput', 'assessmentStudentId');
+    
+    if (studentId) {
+        const student = students.find(s => s.studentId === studentId);
+        if (student) {
+            document.getElementById('assessmentStudentSearchInput').value = `${student.name} (${student.studentId})`;
+            document.getElementById('assessmentStudentId').value = student.studentId;
+        }
+    }
+}
+
+// 初始化学生搜索下拉框
+function initStudentSearchDropdown(inputId, hiddenId) {
+    const input = document.getElementById(inputId);
+    const hidden = document.getElementById(hiddenId);
+    if (!input) return;
+    
+    const container = input.parentNode;
+    let dropdown = container.querySelector('.search-select-dropdown');
+    
+    if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.className = 'search-select-dropdown';
+        container.appendChild(dropdown);
+    }
+    
+    const searchStudents = (keyword) => {
+        if (!keyword.trim()) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        
+        const filtered = students.filter(s => 
+            s.name.includes(keyword) || 
+            s.studentId.includes(keyword) ||
+            s.className.includes(keyword)
+        ).slice(0, 10);
+        
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div class="search-select-item">未找到匹配的学生</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        
+        dropdown.innerHTML = '';
+        filtered.forEach(student => {
+            const item = document.createElement('div');
+            item.className = 'search-select-item';
+            item.innerHTML = `
+                <div>
+                    <strong>${student.name}</strong> (${student.studentId})
+                    <div style="font-size: 11px; color: #666;">${student.className}</div>
+                </div>
+            `;
+            item.onclick = () => {
+                input.value = `${student.name} (${student.studentId})`;
+                hidden.value = student.studentId;
+                dropdown.style.display = 'none';
+            };
+            dropdown.appendChild(item);
+        });
+        dropdown.style.display = 'block';
+    };
+    
+    input.addEventListener('input', (e) => {
+        searchStudents(e.target.value);
+    });
+    
+    input.addEventListener('focus', () => {
+        if (input.value.trim()) {
+            searchStudents(input.value);
+        }
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!container.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+// 保存测评记录
+function saveAssessmentFromModal() {
+    const studentId = document.getElementById('assessmentStudentId').value;
+    if (!studentId) {
+        showMessage('请选择学生', 'error');
+        return;
+    }
+    
+    const result = document.getElementById('assessmentResult').value.trim();
+    if (!result) {
+        showMessage('请填写测评结果', 'error');
+        return;
+    }
+    
+    addPsychologicalAssessment(studentId, {
+        scaleName: document.getElementById('assessmentScale').value,
+        result: result,
+        score: document.getElementById('assessmentScore')?.value || '',
+        remark: document.getElementById('assessmentRemark')?.value || ''
+    });
+    
+    closeAddAssessmentModal();
+    loadPsychologyRecords();
+    updatePsychStats();
+}
+
+// 显示添加转介记录模态框（带搜索下拉框）
+function showAddReferralModalForStudent(studentId = null) {
+    const modalHtml = `
+        <div class="modal" id="addReferralModal" style="display: flex;">
+            <div class="modal-content" style="max-width: 500px;">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">📞 添加心理咨询转介记录</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">选择学生 *</label>
+                    <div class="search-select-container" style="position: relative;">
+                        <input type="text" id="referralStudentSearchInput" class="form-control" placeholder="输入姓名或学号搜索学生...">
+                        <div id="referralStudentDropdown" class="search-select-dropdown" style="display: none;"></div>
+                    </div>
+                    <input type="hidden" id="referralStudentId">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">转介机构/咨询师 *</label>
+                    <input type="text" id="referralCounselor" class="form-control" placeholder="如：校心理咨询中心 - 张老师">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">联系方式</label>
+                    <input type="text" id="referralContact" class="form-control" placeholder="电话或邮箱">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">转介原因 *</label>
+                    <textarea id="referralReason" class="form-control" rows="3" placeholder="描述转介的原因..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">当前状态</label>
+                    <select id="referralStatus" class="form-control">
+                        <option value="已转介">已转介</option>
+                        <option value="进行中">进行中</option>
+                        <option value="已完成">已完成</option>
+                        <option value="拒绝">拒绝</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">反馈信息</label>
+                    <textarea id="referralFeedback" class="form-control" rows="2" placeholder="咨询师的反馈或后续建议..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="referralRemark" class="form-control" rows="2" placeholder="其他备注信息..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="saveReferralFromModal()">保存记录</button>
+                    <button class="btn" onclick="closeAddReferralModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('addReferralModal');
+    if (oldModal) oldModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'addReferralModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+    
+    // 初始化学生搜索下拉框
+    initStudentSearchDropdown('referralStudentSearchInput', 'referralStudentId');
+    
+    if (studentId) {
+        const student = students.find(s => s.studentId === studentId);
+        if (student) {
+            document.getElementById('referralStudentSearchInput').value = `${student.name} (${student.studentId})`;
+            document.getElementById('referralStudentId').value = student.studentId;
+        }
+    }
+}
+
+// 保存转介记录
+function saveReferralFromModal() {
+    const studentId = document.getElementById('referralStudentId').value;
+    if (!studentId) {
+        showMessage('请选择学生', 'error');
+        return;
+    }
+    
+    const counselor = document.getElementById('referralCounselor').value.trim();
+    const reason = document.getElementById('referralReason').value.trim();
+    
+    if (!counselor) {
+        showMessage('请填写转介机构/咨询师', 'error');
+        return;
+    }
+    if (!reason) {
+        showMessage('请填写转介原因', 'error');
+        return;
+    }
+    
+    addCounselingReferral(studentId, {
+        counselor: counselor,
+        contact: document.getElementById('referralContact')?.value || '',
+        reason: reason,
+        status: document.getElementById('referralStatus').value,
+        feedback: document.getElementById('referralFeedback')?.value || '',
+        remark: document.getElementById('referralRemark')?.value || ''
+    });
+    
+    closeAddReferralModal();
+    loadPsychologyRecords();
+    updatePsychStats();
+}
+
+// 关闭模态框
+function closeAddAssessmentModal() {
+    const modal = document.getElementById('addAssessmentModal');
+    if (modal) modal.remove();
+}
+
+function closeAddReferralModal() {
+    const modal = document.getElementById('addReferralModal');
+    if (modal) modal.remove();
+}
+
+// 更新心理档案统计
+function updatePsychStats() {
+    const records = getAllPsychologicalRecords();
+    const totalCount = records.length;
+    const assessmentCount = records.filter(r => r.type === 'assessment').length;
+    const referralCount = records.filter(r => r.type === 'referral').length;
+    const studentCount = new Set(records.map(r => r.studentId)).size;
+    
+    const totalEl = document.getElementById('totalPsychCount');
+    const assessmentEl = document.getElementById('assessmentCount');
+    const referralEl = document.getElementById('referralCount');
+    const studentEl = document.getElementById('studentWithPsychCount');
+    
+    if (totalEl) totalEl.textContent = totalCount;
+    if (assessmentEl) assessmentEl.textContent = assessmentCount;
+    if (referralEl) referralEl.textContent = referralCount;
+    if (studentEl) studentEl.textContent = studentCount;
+}
+
+// ==================== 心理档案模块HTML ====================
+function getPsychologyTabHTML() {
+    return `
+        <div id="psychologyTab" class="content-tab" style="display: none;">
+            <div class="card">
+                <h2 class="card-title">🧠 心理档案管理</h2>
+                
+                <!-- 统计卡片 -->
+                <div class="stats-container" id="psychStatsContainer">
+                    <div class="stat-card total">
+                        <div class="stat-value">
+                            <span id="totalPsychCount">0</span>
+                            <span style="font-size: 16px;">条</span>
+                        </div>
+                        <div class="stat-label">总记录数</div>
+                    </div>
+                    <div class="stat-card" style="border-top-color: #3498db;">
+                        <div class="stat-value">
+                            <span id="assessmentCount">0</span>
+                            <span style="font-size: 16px;">条</span>
+                        </div>
+                        <div class="stat-label">心理测评</div>
+                    </div>
+                    <div class="stat-card" style="border-top-color: #9b59b6;">
+                        <div class="stat-value">
+                            <span id="referralCount">0</span>
+                            <span style="font-size: 16px;">条</span>
+                        </div>
+                        <div class="stat-label">咨询转介</div>
+                    </div>
+                    <div class="stat-card" style="border-top-color: #27ae60;">
+                        <div class="stat-value">
+                            <span id="studentWithPsychCount">0</span>
+                            <span style="font-size: 16px;">人</span>
+                        </div>
+                        <div class="stat-label">涉及学生</div>
+                    </div>
+                </div>
+                
+                <!-- 操作区域 -->
+                <div style="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;">
+                    <h3 style="margin-bottom: 15px;">操作</h3>
+                    <div style="display: flex; gap: 15px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="showAddAssessmentModalForStudent()">📋 添加心理测评</button>
+                        <button class="btn btn-info" onclick="showAddReferralModalForStudent()">📞 添加转介记录</button>
+                        <button class="btn btn-success" onclick="showPsychImportModal()">📤 批量导入Excel</button>
+                        <button class="btn btn-warning" onclick="downloadPsychTemplate()">📥 下载导入模板</button>
+                        <button class="btn btn-danger" id="batchDeletePsychBtn" style="display: none;" onclick="batchDeletePsychologicalRecords()">🗑️ 批量删除</button>
+                    </div>
+                    <div id="batchPsychActionInfo" style="margin-top: 10px; font-size: 14px; color: #666; display: none;">
+                        <span id="selectedPsychCount">0</span> 条记录已选中
+                        <button class="btn" style="padding: 4px 8px; font-size: 12px; margin-left: 10px;" onclick="clearPsychSelection()">清除选择</button>
+                    </div>
+                </div>
+                
+                <!-- 搜索区域 -->
+                <div style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px; position: relative;">
+                        <input type="text" id="psychSearchInput" class="form-control" placeholder="搜索学生姓名、学号或量表名称..." 
+                               oninput="searchPsychologyRecords()" style="width: 100%;">
+                    </div>
+                    <select id="psychTypeFilter" class="form-control" style="max-width: 150px;" onchange="searchPsychologyRecords()">
+                        <option value="">全部类型</option>
+                        <option value="assessment">心理测评</option>
+                        <option value="referral">咨询转介</option>
+                    </select>
+                    <button class="btn" onclick="clearPsychologySearch()">重置</button>
+                </div>
+                
+                <!-- 全选和提示 -->
+                <div style="margin-bottom: 10px; display: flex; align-items: center; gap: 15px;">
+                    <label style="display: flex; align-items: center; gap: 5px;">
+                        <input type="checkbox" id="selectAllPsychRecords" onchange="toggleSelectAllPsychRecords(this)">
+                        <span style="font-size: 13px;">全选</span>
+                    </label>
+                    <span style="font-size: 12px; color: #999;">提示：勾选记录后可使用批量删除功能</span>
+                </div>
+                
+                <!-- 记录列表 -->
+                <div id="psychologyList" style="max-height: 500px; overflow-y: auto; padding-right: 5px;">
+                    <!-- 心理档案记录会动态加载 -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- 心理档案批量导入模态框 -->
+        <div id="psychImportModal" class="modal">
+            <div class="modal-content modal-lg">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">📤 批量导入心理档案数据</h3>
+                
+                <div style="display: flex; margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+                    <div id="psychStep1" style="flex: 1; text-align: center; padding: 10px; background: #3498db; color: white; border-radius: 5px;">步骤1: 上传文件</div>
+                    <div id="psychStep2" style="flex: 1; text-align: center; padding: 10px; background: #ddd; color: #666; border-radius: 5px;">步骤2: 预览数据</div>
+                    <div id="psychStep3" style="flex: 1; text-align: center; padding: 10px; background: #ddd; color: #666; border-radius: 5px;">步骤3: 导入完成</div>
+                </div>
+                
+                <div id="psychUploadStep">
+                    <div class="file-upload-area" id="psychFileDropArea">
+                        <div style="font-size: 48px;">📊</div>
+                        <p><strong>点击或拖拽Excel文件到这里</strong></p>
+                        <p>支持格式: .xlsx, .xls</p>
+                        <div class="file-upload-btn" onclick="document.getElementById('psychFileInput').click()">选择Excel文件</div>
+                        <input type="file" id="psychFileInput" accept=".xlsx,.xls" style="display: none;" onchange="handlePsychFileSelect(event)">
+                    </div>
+                    <div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 6px;">
+                        <h4>📋 模板格式说明</h4>
+                        <p>Excel需包含以下列：学生姓名、学号、记录类型(测评/转介)、测评量表、测评结果、测评总分、转介机构、转介原因、转介状态、反馈信息、记录日期、备注</p>
+                        <button class="btn btn-info" onclick="downloadPsychTemplate()">下载Excel模板</button>
+                    </div>
+                </div>
+                
+                <div id="psychPreviewStep" style="display: none;">
+                    <h4>数据预览 (前10行)</h4>
+                    <div id="psychPreviewTableContainer" class="table-container"></div>
+                    <div id="psychImportSummary" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 6px;">
+                        <p>有效数据: <span id="psychValidCount">0</span> 条</p>
+                        <p>无效数据: <span id="psychInvalidCount">0</span> 条</p>
+                        <p>重复数据: <span id="psychDuplicateCount">0</span> 条</p>
+                    </div>
+                    <div class="import-progress" id="psychImportProgress" style="display: none;">
+                        <div class="progress-bar"><div class="progress-fill" id="psychProgressFill"></div></div>
+                        <div class="progress-text" id="psychProgressText">0%</div>
+                    </div>
+                    <div style="display: flex; gap: 15px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="confirmPsychImport()">确认导入</button>
+                        <button class="btn" onclick="resetPsychImport()">重新上传</button>
+                        <button class="btn" onclick="closePsychImportModal()">取消</button>
+                    </div>
+                </div>
+                
+                <div id="psychCompleteStep" style="display: none; text-align: center;">
+                    <div style="font-size: 64px; color: #27ae60; margin-bottom: 20px;">✅</div>
+                    <h3>导入完成！</h3>
+                    <p>成功导入 <span id="psychSuccessCount">0</span> 条记录</p>
+                    <p>失败 <span id="psychFailCount">0</span> 条</p>
+                    <div style="margin-top: 30px;">
+                        <button class="btn btn-success" onclick="closePsychImportModal(); loadPsychologyRecords(); updatePsychStats();">完成</button>
+                        <button class="btn" onclick="resetPsychImport()">继续导入</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// 添加心理档案菜单到侧边栏
+function addPsychologyMenu() {
+    const navMenu = document.querySelector('.nav-menu');
+    if (!navMenu) return;
+    if (document.getElementById('psychologyNavItem')) return;
+    
+    const psychMenuItem = document.createElement('div');
+    psychMenuItem.id = 'psychologyNavItem';
+    psychMenuItem.className = 'nav-item';
+    psychMenuItem.innerHTML = '🧠 心理档案';
+    psychMenuItem.onclick = () => switchTab('psychology');
+    
+    const exportItem = Array.from(navMenu.children).find(item => item.textContent.includes('数据导出'));
+    if (exportItem && exportItem.nextSibling) {
+        navMenu.insertBefore(psychMenuItem, exportItem.nextSibling);
+    } else {
+        navMenu.appendChild(psychMenuItem);
+    }
+}
+
+// 修改switchTab支持心理档案
+const originalSwitchTabGlobal = window.switchTab;
+window.switchTab = function(tabName) {
+    if (tabName === 'psychology') {
+        let psychTab = document.getElementById('psychologyTab');
+        if (!psychTab) {
+            const mainSystem = document.getElementById('mainSystem');
+            const exportTab = document.getElementById('exportTab');
+            if (mainSystem && exportTab) {
+                const html = getPsychologyTabHTML();
+                exportTab.insertAdjacentHTML('afterend', html);
+            }
+            psychTab = document.getElementById('psychologyTab');
+        }
+        
+        document.querySelectorAll('.content-tab').forEach(tab => tab.style.display = 'none');
+        if (psychTab) psychTab.style.display = 'block';
+        
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        const psychNav = document.getElementById('psychologyNavItem');
+        if (psychNav) psychNav.classList.add('active');
+        
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle) pageTitle.textContent = '心理档案管理';
+        
+        loadPsychologyRecords();
+        updatePsychStats();
+    } else {
+        if (originalSwitchTabGlobal) originalSwitchTabGlobal(tabName);
+    }
+};
+
+// 初始化心理档案文件拖拽
+function initPsychFileDrop() {
+    const dropArea = document.getElementById('psychFileDropArea');
+    if (!dropArea) return;
+    
+    dropArea.addEventListener('dragover', (e) => { e.preventDefault(); dropArea.classList.add('drag-over'); });
+    dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
+    dropArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropArea.classList.remove('drag-over');
+        if (e.dataTransfer.files.length) handlePsychFileSelect({ target: { files: e.dataTransfer.files } });
+    });
+}
+
+// 初始化心理档案模块
+function initPsychologicalModule() {
+    initPsychologicalRecords();
+    addPsychologyMenu();
+    
+    setTimeout(() => {
+        initPsychFileDrop();
+        const psychTab = document.getElementById('psychologyTab');
+        if (!psychTab && document.getElementById('mainSystem')) {
+            const exportTab = document.getElementById('exportTab');
+            if (exportTab) {
+                const html = getPsychologyTabHTML();
+                exportTab.insertAdjacentHTML('afterend', html);
+            }
+        }
+    }, 500);
+}
+
+// 页面加载完成后初始化
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initPsychologicalModule, 1000);
+});
+
+console.log('✅ 学生心理档案模块已加载（完整版，含批量删除和搜索优化）');
 </script>
 </body>
 </html>
