@@ -8552,30 +8552,31 @@ function downloadExcelTemplate() {
         return;
     }
     
-    // 完整的模板数据 - 包含所有需要的字段
-    const templateData = [
-        // 表头 - 包含所有必填和选填字段
-        ['学号*', '姓名*', '班级*', '宿舍', '性别', '联系电话', 
-         '身份证号', '家长联系方式', '户籍地', 
-         '政治面貌', '困难认定', '风险等级', 
-         '处分记录', '学籍异动', '备注'],
-        
-        // 示例数据行
-        ['20230001', '张三', '计算机2001班', '3栋205', '男', '13800138001',
-         '440101200001011234', '13800138000', '广东省广州市天河区',
-         '共青团员', '无', '绿色正常',
-         '', '无', '班长'],
-         
-        ['20230002', '李四', '计算机2001班', '3栋206', '女', '13800138002',
-         '440101200002022345', '13800138011', '广东省深圳市南山区',
-         '中共党员', '特别困难', '红色预警',
-         '警告处分;通报批评', '复学', '需要重点关注'],
-         
-        ['20230003', '王五', '软件工程2001班', '4栋101', '男', '13800138003',
-         '', '13800138022', '湖南省长沙市',
-         '群众', '困难', '黄色关注',
-         '严重警告', '转专业', '内向学生']
-    ];
+   
+// 修改模板示例数据
+const templateData = [
+    // 表头
+    ['学号*', '姓名*', '班级*', '宿舍', '性别', '联系电话', 
+     '身份证号', '家长联系方式', '户籍地', 
+     '政治面貌', '困难认定', '风险等级', 
+     '处分记录', '学籍异动', '备注'],
+    
+    // 示例数据行 - 修改班级
+    ['20230001', '张三', '23法律本1班', '3栋205', '男', '13800138001',
+     '440101200001011234', '13800138000', '广东省广州市天河区',
+     '共青团员', '无', '绿色正常',
+     '', '无', '班长'],
+     
+    ['20230002', '李四', '23法律本1班', '3栋206', '女', '13800138002',
+     '440101200002022345', '13800138011', '广东省深圳市南山区',
+     '中共党员', '特别困难', '红色预警',
+     '警告处分;通报批评', '复学', '需要重点关注'],
+     
+    ['20230003', '王五', '23金融管理本1班', '4栋101', '男', '13800138003',
+     '', '13800138022', '湖南省长沙市',
+     '群众', '困难', '黄色关注',
+     '严重警告', '转专业', '内向学生']
+];
     
     // 创建一个工作表
     const ws = XLSX.utils.aoa_to_sheet(templateData);
@@ -9154,83 +9155,106 @@ function downloadExcelTemplate() {
             console.log('初始化示例数据...');
             
             // 如果本地存储中没有学生数据，初始化示例数据
-            if (students.length === 0) {
-                console.log('初始化学生数据...');
-                students = [
-                    {
-                        studentId: '20200101',
-                        name: '张三',
-                        className: '计算机科学与技术2001',
-                        dormitory: '梅园1栋302',
-                        gender: '男',
-                        phone: '13800138000',
-                        politicalStatus: '共青团员',
-                        hardship: '一般困难',
-                        riskLevel: 'green',
-                        punishments: [],
-                        statusChange: '无',
-                        generalRemark: '优秀学生'
-                    },
-                    {
-                        studentId: '20200102',
-                        name: '李四',
-                        className: '软件工程2001',
-                        dormitory: '梅园2栋401',
-                        gender: '女',
-                        phone: '13800138001',
-                        politicalStatus: '中共党员',
-                        hardship: '特别困难',
-                        riskLevel: 'yellow',
-                        punishments: ['警告处分'],
-                        statusChange: '无',
-                        generalRemark: '需要关注学习情况'
-                    },
-                    {
-                        studentId: '20200103',
-                        name: '王五',
-                        className: '网络工程2001',
-                        dormitory: '竹园3栋201',
-                        gender: '男',
-                        phone: '13800138002',
-                        politicalStatus: '群众',
-                        hardship: '无',
-                        riskLevel: 'red',
-                        punishments: ['严重警告处分', '记过处分'],
-                        statusChange: '休学一学期',
-                        generalRemark: '重点关注对象'
-                    },
-                    {
-                        studentId: '20200104',
-                        name: '赵六',
-                        className: '人工智能2001',
-                        dormitory: '兰园4栋101',
-                        gender: '女',
-                        phone: '13800138003',
-                        politicalStatus: '共青团员',
-                        hardship: '困难',
-                        riskLevel: 'green',
-                        punishments: [],
-                        statusChange: '转专业',
-                        generalRemark: '学习委员'
-                    },
-                    {
-                        studentId: '20200105',
-                        name: '钱七',
-                        className: '数据科学2001',
-                        dormitory: '菊园5栋202',
-                        gender: '男',
-                        phone: '13800138004',
-                        politicalStatus: '中共预备党员',
-                        hardship: '一般困难',
-                        riskLevel: 'green',
-                        punishments: [],
-                        statusChange: '复学',
-                        generalRemark: '班干部'
-                    }
-                ];
-                localStorage.setItem('students', JSON.stringify(students));
-                console.log('学生数据已保存');
-            }
+         if (talkRecords.length === 0) {
+    console.log('初始化谈话记录数据...');
+    
+    const sampleRecords = [
+        {
+            id: Date.now(),
+            studentId: '20200101',
+            studentName: '张三',
+            className: '23法律本1班',     // 修改
+            dormitory: '梅园1栋302',
+            talkTime: new Date('2024-01-15T10:30:00').toISOString().slice(0, 16),
+            talkLocation: '辅导员办公室',
+            topics: ['学业', '就业'],
+            studentBackground: '学生基本信息：张三，23法律本1班，宿舍梅园1栋302。成绩优秀，积极参与社团活动。',
+            talkPurpose: '了解学生近期学习情况和就业规划',
+            studentStatement: '最近学习压力较大，对未来的就业方向感到迷茫，希望得到指导。',
+            talkPoints: '1. 分析了当前的学习情况；2. 讨论了就业方向选择；3. 制定了学习计划；4. 建议参加实习积累经验。',
+            talkFeedback: '学生表示会调整学习状态，积极准备就业，对谈话表示感谢。',
+            riskLevel: 'green',
+            followUpPlan: '一个月后跟进就业准备情况',
+            generalRemark: '学生态度积极，需要定期跟进就业进展。',
+            studentSignature: '张三',
+            counselorSignature: '陈',
+            createTime: new Date('2024-01-15T10:30:00').toISOString(),
+            updateTime: new Date('2024-01-15T10:30:00').toISOString()
+        },
+        {
+            id: Date.now() + 1,
+            studentId: '20200102',
+            studentName: '李四',
+            className: '23法律本1班',     // 修改
+            dormitory: '梅园2栋401',
+            talkTime: new Date('2024-02-20T14:00:00').toISOString().slice(0, 16),
+            talkLocation: '心理咨询室',
+            topics: ['情绪/健康', '人际关系'],
+            studentBackground: '学生基本信息：李四，23法律本1班，宿舍梅园2栋401。家庭经济困难，性格内向。',
+            talkPurpose: '了解学生近期情绪状态和人际关系',
+            studentStatement: '最近感到焦虑，与室友关系紧张，睡眠质量下降。',
+            talkPoints: '1. 倾听学生情绪表达；2. 分析了人际关系问题；3. 提供了情绪调节方法；4. 建议参加心理辅导。',
+            talkFeedback: '学生情绪有所缓解，愿意尝试改善人际关系。',
+            riskLevel: 'yellow',
+            followUpPlan: '两周后跟进情绪状态',
+            generalRemark: '需要持续关注学生情绪变化。',
+            studentSignature: '李四',
+            counselorSignature: '陈',
+            createTime: new Date('2024-02-20T14:00:00').toISOString(),
+            updateTime: new Date('2024-02-20T14:00:00').toISOString()
+        },
+        {
+            id: Date.now() + 2,
+            studentId: '20200103',
+            studentName: '王五',
+            className: '23金融管理本1班',  // 修改
+            dormitory: '竹园3栋201',
+            talkTime: new Date('2024-03-10T09:00:00').toISOString().slice(0, 16),
+            talkLocation: '辅导员办公室',
+            topics: ['警示教育', '适应性'],
+            studentBackground: '学生基本信息：王五，23金融管理本1班，宿舍竹园3栋201。有处分记录，学习态度消极。',
+            talkPurpose: '进行警示教育，了解学生近期表现',
+            studentStatement: '承认之前的行为不当，但现在已经改正，希望有机会证明自己。',
+            talkPoints: '1. 强调了校纪校规；2. 了解了学生近期表现；3. 鼓励学生积极改正；4. 制定了改进计划。',
+            talkFeedback: '学生态度诚恳，表示会努力改正。',
+            riskLevel: 'red',
+            followUpPlan: '每周跟进学生表现',
+            generalRemark: '高风险学生，需要重点监控。',
+            studentSignature: '王五',
+            counselorSignature: '陈',
+            createTime: new Date('2024-03-10T09:00:00').toISOString(),
+            updateTime: new Date('2024-03-10T09:00:00').toISOString()
+        },
+        {
+            id: Date.now() + 3,
+            studentId: '20200104',
+            studentName: '赵六',
+            className: '23金融管理本1班',  // 修改
+            dormitory: '兰园4栋101',
+            talkTime: new Date('2024-03-25T15:30:00').toISOString().slice(0, 16),
+            talkLocation: '学生活动中心',
+            topics: ['学业', '家庭'],
+            studentBackground: '学生基本信息：赵六，23金融管理本1班，宿舍兰园4栋101。学习委员，家庭经济困难。',
+            talkPurpose: '了解学生学习情况和家庭状况',
+            studentStatement: '学习成绩稳定，但家庭经济压力大，担心影响后续学习。',
+            talkPoints: '1. 了解了学生学习情况；2. 讨论了家庭经济困难；3. 介绍了学校资助政策；4. 提供了学习建议。',
+            talkFeedback: '学生了解了资助政策，情绪稳定。',
+            riskLevel: 'green',
+            followUpPlan: '协助申请资助',
+            generalRemark: '优秀学生，需要关注家庭经济状况。',
+            studentSignature: '赵六',
+            counselorSignature: '陈',
+            createTime: new Date('2024-03-25T15:30:00').toISOString(),
+            updateTime: new Date('2024-03-25T15:30:00').toISOString()
+        }
+    ];
+    
+    sampleRecords.forEach(record => {
+        talkRecords.push(record);
+    });
+    
+    localStorage.setItem('talkRecords', JSON.stringify(talkRecords));
+}
             
             // 如果本地存储中没有谈话记录，初始化示例数据
             if (talkRecords.length === 0) {
@@ -10237,7 +10261,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="settings-label">学院名称</div>
                         <div class="settings-value">
                             <input type="text" id="simpleCollegeInput" class="form-control" 
-                                   placeholder="例如：计算机学院" value="${savedCollege}" style="width: 100%;">
+                                   placeholder="例如：财经政法学院" value="${savedCollege}" style="width: 100%;">
                         </div>
                     </div>
                     <div class="settings-item">
@@ -12114,6 +12138,528 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ 学生心理档案模块已加载（完整版，含批量删除和搜索优化）');
+</script>
+<!-- ==================== 献血管理模块（修改版 - 献血量改为填写） ==================== -->
+<script>
+// 献血记录存储key
+const DONATION_STORAGE_KEY = 'donationRecords';
+
+// 初始化献血数据
+function initDonationData() {
+    if (!localStorage.getItem(DONATION_STORAGE_KEY)) {
+        const sampleData = [
+            {
+                id: Date.now(),
+                studentId: '20200101',
+                studentName: '张三',
+                className: '23法律本1班',
+                donationDate: '2024-10-15',
+                bloodType: 'A型',
+                donationAmount: '200ml',
+                donationLocation: '学校献血车',
+                healthStatus: '良好',
+                remark: '第一次献血，状态良好'
+            },
+            {
+                id: Date.now() + 1,
+                studentId: '20200102',
+                studentName: '李四',
+                className: '23法律本1班',
+                donationDate: '2024-11-20',
+                bloodType: 'O型',
+                donationAmount: '400ml',
+                donationLocation: '市中心血站',
+                healthStatus: '良好',
+                remark: '第二次献血'
+            }
+        ];
+        localStorage.setItem(DONATION_STORAGE_KEY, JSON.stringify(sampleData));
+    }
+}
+
+// 获取所有献血记录
+function getAllDonationRecords() {
+    return JSON.parse(localStorage.getItem(DONATION_STORAGE_KEY) || '[]');
+}
+
+// 获取学生的献血记录
+function getStudentDonationRecords(studentId) {
+    const allRecords = getAllDonationRecords();
+    return allRecords.filter(r => r.studentId === studentId).sort((a, b) => new Date(b.donationDate) - new Date(a.donationDate));
+}
+
+// 添加献血记录
+function addDonationRecord(record) {
+    const allRecords = getAllDonationRecords();
+    const newRecord = {
+        id: Date.now(),
+        ...record,
+        createTime: new Date().toISOString()
+    };
+    allRecords.push(newRecord);
+    localStorage.setItem(DONATION_STORAGE_KEY, JSON.stringify(allRecords));
+    showMessage('献血记录已保存', 'success');
+}
+
+// 删除献血记录
+function deleteDonationRecord(recordId) {
+    if (!confirm('确定要删除这条献血记录吗？')) return;
+    const allRecords = getAllDonationRecords();
+    const newRecords = allRecords.filter(r => r.id !== recordId);
+    localStorage.setItem(DONATION_STORAGE_KEY, JSON.stringify(newRecords));
+    showMessage('记录已删除', 'success');
+    loadDonationRecords();
+    updateDonationStats();
+}
+
+// 批量删除献血记录
+function batchDeleteDonationRecords() {
+    const checkboxes = document.querySelectorAll('.donation-checkbox:checked');
+    const selectedIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    
+    if (selectedIds.length === 0) {
+        showMessage('请先选择要删除的记录！', 'error');
+        return;
+    }
+    
+    if (!confirm(`确定要删除选中的 ${selectedIds.length} 条献血记录吗？`)) return;
+    
+    const allRecords = getAllDonationRecords();
+    const newRecords = allRecords.filter(r => !selectedIds.includes(r.id));
+    localStorage.setItem(DONATION_STORAGE_KEY, JSON.stringify(newRecords));
+    
+    loadDonationRecords();
+    updateDonationStats();
+    clearDonationSelection();
+    showMessage(`成功删除 ${selectedIds.length} 条记录`, 'success');
+}
+
+// 全选切换
+function toggleSelectAllDonations(checkbox) {
+    document.querySelectorAll('.donation-checkbox').forEach(cb => cb.checked = checkbox.checked);
+    updateDonationBatchState();
+}
+
+// 更新批量删除按钮状态
+function updateDonationBatchState() {
+    const selectedCount = document.querySelectorAll('.donation-checkbox:checked').length;
+    const batchBtn = document.getElementById('batchDeleteDonationBtn');
+    const batchInfo = document.getElementById('batchDonationActionInfo');
+    const countSpan = document.getElementById('selectedDonationCount');
+    
+    if (selectedCount > 0) {
+        if (batchBtn) batchBtn.style.display = 'inline-block';
+        if (batchInfo) batchInfo.style.display = 'block';
+        if (countSpan) countSpan.textContent = selectedCount;
+    } else {
+        if (batchBtn) batchBtn.style.display = 'none';
+        if (batchInfo) batchInfo.style.display = 'none';
+    }
+}
+
+// 清除选择
+function clearDonationSelection() {
+    document.querySelectorAll('.donation-checkbox').forEach(cb => cb.checked = false);
+    const selectAll = document.getElementById('selectAllDonations');
+    if (selectAll) selectAll.checked = false;
+    updateDonationBatchState();
+}
+
+// 加载献血记录列表
+function loadDonationRecords(searchTerm = '') {
+    const container = document.getElementById('donationList');
+    if (!container) return;
+    
+    let records = getAllDonationRecords();
+    
+    if (searchTerm) {
+        records = records.filter(r => 
+            r.studentName.includes(searchTerm) || 
+            r.studentId.includes(searchTerm) ||
+            r.className.includes(searchTerm)
+        );
+    }
+    
+    records.sort((a, b) => new Date(b.donationDate) - new Date(a.donationDate));
+    
+    if (records.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 60px; color: #999;">
+                <div style="font-size: 48px; margin-bottom: 15px;">🩸</div>
+                <p>暂无献血记录</p>
+                <p style="font-size: 12px; margin-top: 10px;">点击"添加献血记录"按钮添加</p>
+            </div>
+        `;
+        updateDonationBatchState();
+        return;
+    }
+    
+    let html = '<div style="display: flex; flex-direction: column; gap: 12px;">';
+    
+    records.forEach(record => {
+        html += `
+            <div style="background: #f8f9fa; border-radius: 10px; padding: 15px; border-left: 4px solid #e74c3c;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px;">
+                            <input type="checkbox" class="donation-checkbox" value="${record.id}" onchange="updateDonationBatchState()">
+                            <span style="background: #e74c3c; color: white; padding: 2px 12px; border-radius: 15px; font-size: 12px;">🩸 献血</span>
+                            <strong style="font-size: 16px;">${record.studentName}</strong>
+                            <span style="font-size: 12px; color: #666;">${record.className} | ${record.studentId}</span>
+                        </div>
+                        <div style="font-size: 13px; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-top: 8px;">
+                            <div><strong>献血日期：</strong> ${record.donationDate || '-'}</div>
+                            <div><strong>血型：</strong> ${record.bloodType || '-'}</div>
+                            <div><strong>献血量：</strong> ${record.donationAmount || '-'}</div>
+                            <div><strong>献血地点：</strong> ${record.donationLocation || '-'}</div>
+                            <div><strong>身体状况：</strong> ${record.healthStatus || '-'}</div>
+                            <div><strong>备注：</strong> ${record.remark || '-'}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <button class="btn" style="padding: 4px 12px; background: #e74c3c; font-size: 12px;" onclick="deleteDonationRecord(${record.id})">删除</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    updateDonationBatchState();
+}
+
+// 搜索献血记录
+function searchDonationRecords() {
+    const searchTerm = document.getElementById('donationSearchInput').value;
+    loadDonationRecords(searchTerm);
+}
+
+// 清除搜索
+function clearDonationSearch() {
+    document.getElementById('donationSearchInput').value = '';
+    loadDonationRecords();
+}
+
+// 更新献血统计
+function updateDonationStats() {
+    const records = getAllDonationRecords();
+    const totalCount = records.length;
+    const studentCount = new Set(records.map(r => r.studentId)).size;
+    
+    let totalAmount = 0;
+    records.forEach(r => {
+        let amount = 0;
+        if (r.donationAmount) {
+            const match = r.donationAmount.match(/\d+/);
+            if (match) amount = parseInt(match[0]);
+        }
+        totalAmount += amount;
+    });
+    
+    const bloodTypeCount = { 'A型': 0, 'B型': 0, 'O型': 0, 'AB型': 0 };
+    records.forEach(r => {
+        if (bloodTypeCount.hasOwnProperty(r.bloodType)) bloodTypeCount[r.bloodType]++;
+    });
+    
+    document.getElementById('totalDonationCount').textContent = totalCount;
+    document.getElementById('donationStudentCount').textContent = studentCount;
+    document.getElementById('totalDonationAmount').textContent = totalAmount + 'ml';
+    document.getElementById('bloodTypeStats').innerHTML = 
+        `A型:${bloodTypeCount['A型']} B型:${bloodTypeCount['B型']} O型:${bloodTypeCount['O型']} AB型:${bloodTypeCount['AB型']}`;
+}
+
+// 显示添加献血记录模态框（带学生搜索）
+function showAddDonationModal(studentId = null) {
+    const modalHtml = `
+        <div class="modal" id="addDonationModal" style="display: flex;">
+            <div class="modal-content" style="max-width: 500px;">
+                <h3 style="margin-bottom: 20px; color: #2c3e50;">🩸 添加献血记录</h3>
+                
+                <div class="form-group">
+                    <label class="form-label">选择学生</label>
+                    <div style="position: relative;">
+                        <input type="text" id="donationStudentSearchInput" class="form-control" placeholder="输入姓名或学号搜索学生...">
+                        <div id="donationStudentDropdown" class="search-select-dropdown" style="display: none;"></div>
+                    </div>
+                    <input type="hidden" id="donationStudentId">
+                    <input type="hidden" id="donationStudentName">
+                    <input type="hidden" id="donationStudentClass">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">献血日期</label>
+                    <input type="date" id="donationDate" class="form-control" value="${new Date().toISOString().slice(0,10)}">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">血型</label>
+                    <select id="donationBloodType" class="form-control">
+                        <option value="">请选择</option>
+                        <option value="A型">A型</option>
+                        <option value="B型">B型</option>
+                        <option value="O型">O型</option>
+                        <option value="AB型">AB型</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">献血量</label>
+                    <input type="text" id="donationAmount" class="form-control" placeholder="如：200ml、400ml、1单位等">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">献血地点</label>
+                    <input type="text" id="donationLocation" class="form-control" placeholder="如：学校献血车、市中心血站">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">献血时身体状况</label>
+                    <select id="donationHealthStatus" class="form-control">
+                        <option value="">请选择</option>
+                        <option value="良好">良好</option>
+                        <option value="一般">一般</option>
+                        <option value="头晕">头晕</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="donationRemark" class="form-control" rows="3" placeholder="其他需要记录的信息..."></textarea>
+                </div>
+                
+                <div style="display: flex; gap: 15px; margin-top: 20px;">
+                    <button class="btn btn-primary" onclick="saveDonationFromModal()">保存记录</button>
+                    <button class="btn" onclick="closeAddDonationModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const oldModal = document.getElementById('addDonationModal');
+    if (oldModal) oldModal.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'addDonationModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+    
+    initDonationStudentSearch();
+    
+    if (studentId) {
+        const student = students.find(s => s.studentId === studentId);
+        if (student) {
+            document.getElementById('donationStudentSearchInput').value = `${student.name} (${student.studentId})`;
+            document.getElementById('donationStudentId').value = student.studentId;
+            document.getElementById('donationStudentName').value = student.name;
+            document.getElementById('donationStudentClass').value = student.className;
+        }
+    }
+}
+
+// 初始化学生搜索
+function initDonationStudentSearch() {
+    const input = document.getElementById('donationStudentSearchInput');
+    const hiddenId = document.getElementById('donationStudentId');
+    const hiddenName = document.getElementById('donationStudentName');
+    const hiddenClass = document.getElementById('donationStudentClass');
+    const container = input.parentNode;
+    let dropdown = container.querySelector('.search-select-dropdown');
+    
+    if (!dropdown) {
+        dropdown = document.createElement('div');
+        dropdown.className = 'search-select-dropdown';
+        container.appendChild(dropdown);
+    }
+    
+    const searchStudents = (keyword) => {
+        if (!keyword.trim()) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        const filtered = students.filter(s => 
+            s.name.includes(keyword) || s.studentId.includes(keyword)
+        ).slice(0, 10);
+        
+        if (filtered.length === 0) {
+            dropdown.innerHTML = '<div class="search-select-item">未找到匹配的学生</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        
+        dropdown.innerHTML = '';
+        filtered.forEach(student => {
+            const item = document.createElement('div');
+            item.className = 'search-select-item';
+            item.innerHTML = `<div><strong>${student.name}</strong> (${student.studentId})<div style="font-size:11px;color:#666;">${student.className}</div></div>`;
+            item.onclick = () => {
+                input.value = `${student.name} (${student.studentId})`;
+                hiddenId.value = student.studentId;
+                hiddenName.value = student.name;
+                hiddenClass.value = student.className;
+                dropdown.style.display = 'none';
+            };
+            dropdown.appendChild(item);
+        });
+        dropdown.style.display = 'block';
+    };
+    
+    input.addEventListener('input', (e) => searchStudents(e.target.value));
+    input.addEventListener('focus', () => { if (input.value.trim()) searchStudents(input.value); });
+    document.addEventListener('click', (e) => { if (!container.contains(e.target)) dropdown.style.display = 'none'; });
+}
+
+// 保存献血记录
+function saveDonationFromModal() {
+    const studentId = document.getElementById('donationStudentId').value;
+    const studentName = document.getElementById('donationStudentName').value;
+    const studentClass = document.getElementById('donationStudentClass').value;
+    
+    if (!studentId) {
+        if (confirm('未选择学生，是否继续保存（仅记录献血信息）？')) {
+            addDonationRecord({
+                studentId: 'anonymous_' + Date.now(),
+                studentName: document.getElementById('donationStudentSearchInput').value || '匿名',
+                className: '未指定',
+                donationDate: document.getElementById('donationDate').value,
+                bloodType: document.getElementById('donationBloodType').value,
+                donationAmount: document.getElementById('donationAmount').value,
+                donationLocation: document.getElementById('donationLocation').value,
+                healthStatus: document.getElementById('donationHealthStatus').value,
+                remark: document.getElementById('donationRemark').value
+            });
+        } else {
+            return;
+        }
+    } else {
+        addDonationRecord({
+            studentId: studentId,
+            studentName: studentName,
+            className: studentClass,
+            donationDate: document.getElementById('donationDate').value,
+            bloodType: document.getElementById('donationBloodType').value,
+            donationAmount: document.getElementById('donationAmount').value,
+            donationLocation: document.getElementById('donationLocation').value,
+            healthStatus: document.getElementById('donationHealthStatus').value,
+            remark: document.getElementById('donationRemark').value
+        });
+    }
+    
+    closeAddDonationModal();
+    loadDonationRecords();
+    updateDonationStats();
+}
+
+function closeAddDonationModal() {
+    const modal = document.getElementById('addDonationModal');
+    if (modal) modal.remove();
+}
+
+// 获取献血模块HTML
+function getDonationTabHTML() {
+    return `
+        <div id="donationTab" class="content-tab" style="display: none;">
+            <div class="card">
+                <h2 class="card-title">🩸 献血管理</h2>
+                
+                <div class="stats-container">
+                    <div class="stat-card total"><div class="stat-value"><span id="totalDonationCount">0</span><span style="font-size:16px;">次</span></div><div class="stat-label">总献血次数</div></div>
+                    <div class="stat-card" style="border-top-color:#27ae60;"><div class="stat-value"><span id="donationStudentCount">0</span><span style="font-size:16px;">人</span></div><div class="stat-label">献血学生数</div></div>
+                    <div class="stat-card" style="border-top-color:#e74c3c;"><div class="stat-value"><span id="totalDonationAmount">0ml</span></div><div class="stat-label">总献血量</div></div>
+                    <div class="stat-card" style="border-top-color:#3498db;"><div class="stat-value"><span id="bloodTypeStats">-</span><span style="font-size:12px;"></span></div><div class="stat-label">血型分布</div></div>
+                </div>
+                
+                <div style="background:#f8f9fa; padding:20px; border-radius:6px; margin-bottom:20px;">
+                    <h3 style="margin-bottom:15px;">操作</h3>
+                    <div style="display:flex; gap:15px; flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="showAddDonationModal()">➕ 添加献血记录</button>
+                        <button class="btn btn-danger" id="batchDeleteDonationBtn" style="display:none;" onclick="batchDeleteDonationRecords()">🗑️ 批量删除</button>
+                    </div>
+                    <div id="batchDonationActionInfo" style="margin-top:10px; font-size:14px; color:#666; display:none;">
+                        <span id="selectedDonationCount">0</span> 条记录已选中
+                        <button class="btn" style="padding:4px 8px; font-size:12px; margin-left:10px;" onclick="clearDonationSelection()">清除选择</button>
+                    </div>
+                </div>
+                
+                <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+                    <input type="text" id="donationSearchInput" class="form-control" placeholder="搜索学生姓名、学号..." style="flex:1; min-width:250px;" oninput="searchDonationRecords()">
+                    <button class="btn" onclick="clearDonationSearch()">重置</button>
+                </div>
+                
+                <div style="margin-bottom:10px; display:flex; align-items:center; gap:15px;">
+                    <label style="display:flex; align-items:center; gap:5px;">
+                        <input type="checkbox" id="selectAllDonations" onchange="toggleSelectAllDonations(this)">
+                        <span style="font-size:13px;">全选</span>
+                    </label>
+                </div>
+                
+                <div id="donationList" style="max-height:500px; overflow-y:auto; padding-right:5px;"></div>
+            </div>
+        </div>
+    `;
+}
+
+// 添加献血菜单
+function addDonationMenu() {
+    const navMenu = document.querySelector('.nav-menu');
+    if (!navMenu || document.getElementById('donationNavItem')) return;
+    
+    const donationMenuItem = document.createElement('div');
+    donationMenuItem.id = 'donationNavItem';
+    donationMenuItem.className = 'nav-item';
+    donationMenuItem.innerHTML = '🩸 献血管理';
+    donationMenuItem.onclick = () => switchTab('donation');
+    navMenu.appendChild(donationMenuItem);
+}
+
+// 修改switchTab支持献血模块
+const originalSwitchDonation = window.switchTab;
+window.switchTab = function(tabName) {
+    if (tabName === 'donation') {
+        let donationTab = document.getElementById('donationTab');
+        if (!donationTab) {
+            const mainSystem = document.getElementById('mainSystem');
+            const exportTab = document.getElementById('exportTab');
+            if (mainSystem && exportTab) {
+                const html = getDonationTabHTML();
+                exportTab.insertAdjacentHTML('afterend', html);
+            }
+            donationTab = document.getElementById('donationTab');
+        }
+        document.querySelectorAll('.content-tab').forEach(tab => tab.style.display = 'none');
+        if (donationTab) donationTab.style.display = 'block';
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        const donationNav = document.getElementById('donationNavItem');
+        if (donationNav) donationNav.classList.add('active');
+        const pageTitle = document.getElementById('pageTitle');
+        if (pageTitle) pageTitle.textContent = '献血管理';
+        loadDonationRecords();
+        updateDonationStats();
+    } else {
+        if (originalSwitchDonation) originalSwitchDonation(tabName);
+    }
+};
+
+// 初始化
+function initDonationModule() {
+    initDonationData();
+    addDonationMenu();
+    setTimeout(() => {
+        if (!document.getElementById('donationTab') && document.getElementById('mainSystem')) {
+            const exportTab = document.getElementById('exportTab');
+            if (exportTab) {
+                const html = getDonationTabHTML();
+                exportTab.insertAdjacentHTML('afterend', html);
+            }
+        }
+    }, 500);
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(initDonationModule, 1500);
+});
+
+console.log('✅ 献血管理模块已加载（献血量已改为填写）');
 </script>
 </body>
 </html>
