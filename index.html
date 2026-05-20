@@ -5095,7 +5095,7 @@ position: relative;
         // 更新总体数据概览
         function updateAnalysisOverview(records, studentsData) {
             const totalCount = records.length;
-            const studentCount = new Set(records.map(r => r.studentId)).size;
+            const studentCount = new Set(records.map(r => r.studentId || r.studentName).filter(Boolean)).size;
             const redCount = records.filter(r => r.riskLevel === 'red').length;
             const redPercent = totalCount > 0 ? Math.round((redCount / totalCount) * 100) : 0;
             
@@ -18448,7 +18448,8 @@ function updateLatecomeStats(records = null) {
     if (!records) records = getAllLatecomeRecords();
     
     const totalCount = records.length;
-    const studentCount = new Set(records.map(r => r.studentId)).size;
+    
+   const studentCount = new Set(records.map(r => r.studentName)).size;
     
     // 统计原因分布
     const reasonStats = {};
@@ -18483,7 +18484,6 @@ function updateLatecomeStats(records = null) {
         `;
     });
     
-    // 原因统计显示
     let reasonStatsHtml = '';
     Object.entries(reasonStats).slice(0, 5).forEach(([reason, count]) => {
         reasonStatsHtml += `<span style="background:#fff3e0;padding:3px 10px;border-radius:15px;margin-right:8px;font-size:12px;">${escapeHtml(reason)}:${count}次</span>`;
@@ -18819,6 +18819,12 @@ async function saveLatecomeFromModal(event) {
         }
     }
     
+    // 🔧 新增：确保 studentId 不为空（如果仍然没有，生成临时ID）
+    if (!finalStudentId && studentName) {
+        finalStudentId = `temp_${Date.now()}_${studentName}`;
+        console.warn(`学生 ${studentName} 没有学号，已生成临时ID: ${finalStudentId}`);
+    }
+    
     const recordData = {
         studentName: studentName,
         studentId: finalStudentId || '',
@@ -18840,17 +18846,6 @@ async function saveLatecomeFromModal(event) {
     closeAddLatecomeModal();
     await loadLatecomeRecords();
     updateLatecomeStats();
-}
-
-function editLatecomeRecord(recordId) {
-    showAddLatecomeModal(recordId);
-}
-
-function closeAddLatecomeModal() {
-    const modal = document.getElementById('addLatecomeModal');
-    if (modal) modal.remove();
-    editLatecomeId = null;
-    latecomeTempPhotos = [];
 }
 
 // ==================== 获取晚归台账模块HTML ====================
