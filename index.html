@@ -13031,14 +13031,21 @@ async function addAttendanceRecord(record) {
     
     const newRecord = {
         id: newId,
-        date: record.date,
-        period: record.period,
-        teacher: record.teacher,
         className: record.className,
-        classroom: record.classroom,
-        situation: record.situation,
-        absence: record.absence,
-        note: record.note,
+        classroom: record.classroom || '',  // 新增
+        course: record.course || '',
+        teacher: record.teacher || '',
+        inspector: record.inspector,
+        date: record.date,
+        period: record.period || '',
+        shouldArrive: record.shouldArrive || '',
+        actualArrive: record.actualArrive || '',
+        attendanceRate: record.attendanceRate || '',
+        absence: record.absence || '',
+        leave: record.leave || '',
+        late: record.late || '',
+        phoneStatus: record.phoneStatus || '',
+        remark: record.remark || '',
         photos: [],
         createTime: new Date().toISOString()
     };
@@ -13046,16 +13053,8 @@ async function addAttendanceRecord(record) {
     records.push(newRecord);
     localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(records));
     showMessage('查课记录已保存', 'success');
-    
-    if (USE_API_MODE) {
-        try {
-            await apiRequest('/attendance/add', { method: 'POST', body: JSON.stringify(newRecord) });
-        } catch(e) {}
-    }
-    
     await loadAttendanceRecords();
     updateAttendanceStats(getAllAttendanceRecords());
-    return newRecord;
 }
 
 async function updateAttendanceRecord(recordId, updatedData) {
@@ -13072,26 +13071,26 @@ async function updateAttendanceRecord(recordId, updatedData) {
         
         records[index] = {
             ...records[index],
-            date: updatedData.date,
-            period: updatedData.period,
-            teacher: updatedData.teacher,
             className: updatedData.className,
-            classroom: updatedData.classroom,
-            situation: updatedData.situation,
-            absence: updatedData.absence,
-            note: updatedData.note,
+            classroom: updatedData.classroom || '',  // 新增
+            course: updatedData.course || '',
+            teacher: updatedData.teacher || '',
+            inspector: updatedData.inspector,
+            date: updatedData.date,
+            period: updatedData.period || '',
+            shouldArrive: updatedData.shouldArrive || '',
+            actualArrive: updatedData.actualArrive || '',
+            attendanceRate: updatedData.attendanceRate || '',
+            absence: updatedData.absence || '',
+            leave: updatedData.leave || '',
+            late: updatedData.late || '',
+            phoneStatus: updatedData.phoneStatus || '',
+            remark: updatedData.remark || '',
             photos: [],
             updateTime: new Date().toISOString()
         };
         
         localStorage.setItem(ATTENDANCE_STORAGE_KEY, JSON.stringify(records));
-        
-        if (USE_API_MODE) {
-            try {
-                await apiRequest(`/attendance/update/${recordId}`, { method: 'PUT', body: JSON.stringify(records[index]) });
-            } catch(e) {}
-        }
-        
         showMessage('查课记录已更新', 'success');
         await loadAttendanceRecords();
         updateAttendanceStats(getAllAttendanceRecords());
@@ -13154,9 +13153,9 @@ async function loadAttendanceRecords(searchTerm = '') {
     const container = document.getElementById('attendanceList');
     if (!container) return;
     
-    let records = await getAllAttendanceRecordsAsync();
-
-// ========== 从 IndexedDB 加载照片 ==========
+    let records = getAllAttendanceRecords();
+    
+    // 加载照片
     for (let i = 0; i < records.length; i++) {
         const photos = await getAttendancePhotosForRecord(records[i].id);
         records[i].photos = photos;
@@ -13165,8 +13164,9 @@ async function loadAttendanceRecords(searchTerm = '') {
     if (searchTerm) {
         records = records.filter(r => 
             (r.className && String(r.className).includes(searchTerm)) || 
+            (r.course && String(r.course).includes(searchTerm)) ||
             (r.teacher && String(r.teacher).includes(searchTerm)) ||
-            (r.classroom && String(r.classroom).includes(searchTerm))
+            (r.inspector && String(r.inspector).includes(searchTerm))
         );
     }
     
@@ -13180,9 +13180,11 @@ async function loadAttendanceRecords(searchTerm = '') {
     }
     
     let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
-    records.forEach(r => {
+    
+    for (const r of records) {
         const sourceBadge = USE_API_MODE ? '<span style="background:#27ae60;color:white;padding:2px 6px;border-radius:10px;font-size:10px;margin-left:5px;">☁️云端</span>' : '<span style="background:#95a5a6;color:white;padding:2px 6px;border-radius:10px;font-size:10px;margin-left:5px;">💾本地</span>';
         
+        // 照片显示
         let photosHtml = '';
         if (r.photos && Array.isArray(r.photos) && r.photos.length > 0) {
             photosHtml = '<div style="display:flex;gap:5px;margin-top:8px;flex-wrap:wrap;">';
@@ -13194,6 +13196,9 @@ async function loadAttendanceRecords(searchTerm = '') {
             photosHtml += '</div>';
         }
         
+        // 出勤率显示
+        let rateDisplay = r.attendanceRate ? `<span style="background:#e8f5e9;color:#2e7d32;padding:2px 8px;border-radius:20px;font-size:12px;">出勤率：${r.attendanceRate}</span>` : '';
+        
         html += `
             <div style="background:#f8f9fa;border-radius:10px;padding:15px;border-left:4px solid #3498db;">
                 <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">
@@ -13202,16 +13207,24 @@ async function loadAttendanceRecords(searchTerm = '') {
                             <input type="checkbox" class="attendance-checkbox" value="${r.id}" onchange="updateAttendanceBatchState()">
                             <span style="background:#3498db;color:white;padding:2px 12px;border-radius:15px;font-size:12px;">📋 查课</span>
                             <strong style="font-size:16px;">${escapeHtml(r.className || '')}</strong>
-                            <span style="font-size:12px;color:#666;">${r.date || ''} | ${r.period || '未设置节次'} | ${escapeHtml(r.teacher || '')}</span>
+                            <span style="font-size:12px;color:#666;">${r.date || ''}</span>
                             ${sourceBadge}
+                            ${rateDisplay}
                         </div>
-                        <div style="font-size:13px;margin-top:8px;">
-                            <div><strong>教室：</strong> ${escapeHtml(r.classroom || '')}</div>
-                            <div><strong>上课情况：</strong> ${escapeHtml(r.situation || '')}</div>
-                            <div class="absence-detail" style="background:#fff3cd;padding:4px 8px;border-radius:6px;margin:5px 0;">${escapeHtml(r.absence || '')}</div>
-                            ${r.note ? `<div><strong>备注：</strong> ${escapeHtml(r.note)}</div>` : ''}
-                            ${photosHtml}
+                        <div style="font-size:13px;margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:8px;">
+<div><strong>教室：</strong> ${escapeHtml(r.classroom || '-')}</div>
+                            <div><strong>课程：</strong> ${escapeHtml(r.course || '-')}</div>
+                            <div><strong>任课老师：</strong> ${escapeHtml(r.teacher || '-')}</div>
+                            <div><strong>查课人：</strong> ${escapeHtml(r.inspector || '-')}</div>
+                            <div><strong>节次：</strong> ${escapeHtml(r.period || '-')}</div>
+                            <div><strong>应到/实到：</strong> ${r.shouldArrive || '-'} / ${r.actualArrive || '-'}</div>
+                            <div><strong>缺勤：</strong> ${escapeHtml(r.absence || '-')}</div>
+                            <div><strong>请假：</strong> ${escapeHtml(r.leave || '-')}</div>
+                            <div><strong>迟到：</strong> ${escapeHtml(r.late || '-')}</div>
+                            <div><strong>手机入袋：</strong> ${escapeHtml(r.phoneStatus || '-')}</div>
                         </div>
+                        ${r.remark ? `<div style="margin-top:8px;"><strong>备注：</strong> ${escapeHtml(r.remark)}</div>` : ''}
+                        ${photosHtml}
                     </div>
                     <div style="display:flex;gap:5px;">
                         <button class="btn" style="padding:4px 12px;background:#3498db;color:white;font-size:12px;" onclick="editAttendanceRecord(${r.id})">编辑</button>
@@ -13220,7 +13233,7 @@ async function loadAttendanceRecords(searchTerm = '') {
                 </div>
             </div>
         `;
-    });
+    }
     html += '</div>';
     container.innerHTML = html;
     updateAttendanceBatchState();
@@ -13339,8 +13352,32 @@ function showAddAttendanceModal(recordId = null) {
         <div class="modal" id="addAttendanceModal" style="display:flex;z-index:10000;">
             <div class="modal-content" style="max-width:600px;max-height:90vh;overflow-y:auto;">
                 <h3 style="margin-bottom:20px;">${recordId ? '编辑查课记录' : '添加查课记录'}</h3>
-                <div class="form-group"><label>日期 *</label><input type="date" id="attDate" class="form-control" value="${record ? record.date : new Date().toISOString().slice(0,10)}"></div>
-                <div class="form-group"><label>节次 *</label>
+                <div class="form-group">
+                    <label class="form-label">班级 *</label>
+                    <input type="text" id="attClassName" class="form-control" value="${record ? escapeHtml(record.className) : ''}" placeholder="如：23金融管理本1班" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">教室/上课地点 *</label>
+                    <input type="text" id="attClassroom" class="form-control" value="${record ? escapeHtml(record.classroom || '') : ''}" placeholder="如：致知楼101" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">课程</label>
+                    <input type="text" id="attCourse" class="form-control" value="${record ? escapeHtml(record.course || '') : ''}" placeholder="如：高等数学">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">任课老师</label>
+                    <input type="text" id="attTeacher" class="form-control" value="${record ? escapeHtml(record.teacher || '') : ''}" placeholder="如：张老师">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">查课人 *</label>
+                    <input type="text" id="attInspector" class="form-control" value="${record ? escapeHtml(record.inspector || '') : (currentUser ? currentUser.fullname : '赵梦婷')}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">时间 *</label>
+                    <input type="datetime-local" id="attDate" class="form-control" value="${record ? (record.date || '').replace(' ', 'T') : new Date().toISOString().slice(0,16)}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">节次</label>
                     <select id="attPeriod" class="form-control">
                         <option value="">请选择节次</option>
                         <option value="第1-2节" ${record && record.period === '第1-2节' ? 'selected' : ''}>第1-2节</option>
@@ -13352,12 +13389,36 @@ function showAddAttendanceModal(recordId = null) {
                     </select>
                     <input type="text" id="attPeriodOther" class="form-control" style="margin-top:5px;display:${record && record.period && !['第1-2节','第3-4节','第5-6节','第7-8节','第9-10节'].includes(record.period) ? 'block' : 'none'}" placeholder="请输入节次" value="${record && record.period && !['第1-2节','第3-4节','第5-6节','第7-8节','第9-10节'].includes(record.period) ? escapeHtml(record.period) : ''}">
                 </div>
-                <div class="form-group"><label>查课人 *</label><input type="text" id="attTeacher" class="form-control" value="${record ? record.teacher : '赵梦婷'}"></div>
-                <div class="form-group"><label>班级 *</label><input type="text" id="attClassName" class="form-control" value="${record ? record.className : ''}"></div>
-                <div class="form-group"><label>教室</label><input type="text" id="attClassroom" class="form-control" value="${record ? record.classroom : ''}"></div>
-                <div class="form-group"><label>上课情况</label><textarea id="attSituation" class="form-control" rows="2">${record ? record.situation : ''}</textarea></div>
-                <div class="form-group"><label>缺勤/迟到记录</label><textarea id="attAbsence" class="form-control" rows="3">${record ? record.absence : ''}</textarea></div>
-                <div class="form-group"><label>佐证材料照片</label>
+                <div class="form-group">
+                    <label class="form-label">应到</label>
+                    <input type="number" id="attShouldArrive" class="form-control" value="${record ? (record.shouldArrive || '') : ''}" placeholder="应到人数">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">实到</label>
+                    <input type="number" id="attActualArrive" class="form-control" value="${record ? (record.actualArrive || '') : ''}" placeholder="实到人数">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">缺勤</label>
+                    <input type="text" id="attAbsence" class="form-control" value="${record ? escapeHtml(record.absence || '') : ''}" placeholder="缺勤人数或名单">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">请假</label>
+                    <input type="text" id="attLeave" class="form-control" value="${record ? escapeHtml(record.leave || '') : ''}" placeholder="请假人数或名单">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">迟到</label>
+                    <input type="text" id="attLate" class="form-control" value="${record ? escapeHtml(record.late || '') : ''}" placeholder="迟到人数或名单">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">手机入袋</label>
+                    <textarea id="attPhoneStatus" class="form-control" rows="2" placeholder="手机入袋情况记录">${record ? escapeHtml(record.phoneStatus || '') : ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="attRemark" class="form-control" rows="2" placeholder="其他备注信息">${record ? escapeHtml(record.remark || '') : ''}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">佐证材料照片</label>
                     <div class="photo-upload-area" onclick="document.getElementById('attPhotoInput').click()" style="padding:15px;">
                         <div style="font-size:24px;">📷</div>
                         <p style="margin:5px 0;">点击上传照片</p>
@@ -13366,7 +13427,6 @@ function showAddAttendanceModal(recordId = null) {
                     <input type="file" id="attPhotoInput" accept="image/*" style="display:none;" multiple onchange="handleAttendancePhotoUpload(event)">
                     <div id="attPhotosPreview" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">${photosPreviewHtml}</div>
                 </div>
-                <div class="form-group"><label>备注</label><textarea id="attNote" class="form-control" rows="2">${record ? record.note : ''}</textarea></div>
                 <div style="display:flex;gap:15px;margin-top:20px;">
                     <button class="btn btn-primary" onclick="saveAttendanceFromModal()">保存记录</button>
                     <button class="btn" onclick="closeAddAttendanceModal()">取消</button>
@@ -13380,6 +13440,7 @@ function showAddAttendanceModal(recordId = null) {
     modal.innerHTML = modalHtml;
     document.body.appendChild(modal);
     
+    // 绑定节次选择变化事件
     const periodSelect = document.getElementById('attPeriod');
     const periodOther = document.getElementById('attPeriodOther');
     if (periodSelect && periodOther) {
@@ -13420,41 +13481,92 @@ function updatePhotoPreview() {
 }
 
 async function saveAttendanceFromModal() {
+    // 获取节次
     let period = document.getElementById('attPeriod').value;
     const periodOther = document.getElementById('attPeriodOther');
     if (period === '其他' && periodOther) {
         period = periodOther.value.trim();
-        if (!period) { showMessage('请填写节次', 'error'); return; }
+        if (!period) {
+            showMessage('请填写节次', 'error');
+            return;
+        }
     }
-    if (!period) { showMessage('请选择节次', 'error'); return; }
     
-    const recordData = {
-        date: document.getElementById('attDate').value,
-        period: period,
-        teacher: document.getElementById('attTeacher').value,
-        className: document.getElementById('attClassName').value,
-        classroom: document.getElementById('attClassroom').value,
-        situation: document.getElementById('attSituation').value,
-        absence: document.getElementById('attAbsence').value,
-        note: document.getElementById('attNote').value,
-        photos: [...tempPhotos]   // ← 只改这里
-    };
+    // 获取表单数据
+    const className = document.getElementById('attClassName').value.trim();
+    const classroom = document.getElementById('attClassroom').value.trim();  // 新增：教室
+    const course = document.getElementById('attCourse').value.trim();
+    const teacher = document.getElementById('attTeacher').value.trim();
+    const inspector = document.getElementById('attInspector').value.trim();
+    let date = document.getElementById('attDate').value;
+    const shouldArrive = document.getElementById('attShouldArrive').value;
+    const actualArrive = document.getElementById('attActualArrive').value;
+    const absence = document.getElementById('attAbsence').value.trim();
+    const leave = document.getElementById('attLeave').value.trim();
+    const late = document.getElementById('attLate').value.trim();
+    const phoneStatus = document.getElementById('attPhoneStatus').value.trim();
+    const remark = document.getElementById('attRemark').value.trim();
     
-    if (!recordData.date || !recordData.teacher || !recordData.className) {
-        showMessage('请填写日期、查课人和班级', 'error');
+    // 必填验证（班级、教室、查课人、时间为必填）
+    if (!className) {
+        showMessage('请填写班级！', 'error');
         return;
     }
+    if (!classroom) {
+        showMessage('请填写教室/上课地点！', 'error');
+        return;
+    }
+    if (!inspector) {
+        showMessage('请填写查课人！', 'error');
+        return;
+    }
+    if (!date) {
+        showMessage('请填写时间！', 'error');
+        return;
+    }
+    
+    date = date.replace('T', ' ');
+    
+    // 计算出勤率
+    let attendanceRate = '';
+    if (shouldArrive && actualArrive) {
+        const should = parseInt(shouldArrive);
+        const actual = parseInt(actualArrive);
+        if (should > 0) {
+            attendanceRate = Math.round((actual / should) * 100) + '%';
+        }
+    }
+    
+    const recordData = {
+        className: className,
+        classroom: classroom,  // 新增：教室字段
+        course: course,
+        teacher: teacher,
+        inspector: inspector,
+        date: date,
+        period: period || '',
+        shouldArrive: shouldArrive,
+        actualArrive: actualArrive,
+        attendanceRate: attendanceRate,
+        absence: absence,
+        leave: leave,
+        late: late,
+        phoneStatus: phoneStatus,
+        remark: remark,
+        photos: [...tempPhotos]
+    };
     
     if (editAttendanceId) {
         await updateAttendanceRecord(editAttendanceId, recordData);
     } else {
-        await addAttendanceRecord(recordData);
+        await addAttendanceRecord(editAttendanceId, recordData);
     }
     
     closeAddAttendanceModal();
     await loadAttendanceRecords();
     updateAttendanceStats(getAllAttendanceRecords());
 }
+
 function editAttendanceRecord(recordId) { showAddAttendanceModal(recordId); }
 function closeAddAttendanceModal() {
     const modal = document.getElementById('addAttendanceModal');
@@ -13838,10 +13950,19 @@ async function confirmAttendanceImport() {
 }
 
 function downloadAttendanceTemplate() {
-    if (typeof XLSX === 'undefined') { showMessage('Excel处理库未加载，请刷新页面重试', 'error'); return; }
-    const templateData = [['日期','节次','查课人','班级','教室','上课情况','缺勤记录','备注'],['2026-05-08','第1-2节','赵梦婷','23金融管理本1班','致知楼101','良好 前排就座','缺勤：2人（张三请假）','无']];
+    if (typeof XLSX === 'undefined') {
+        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
+        return;
+    }
+    
+    const templateData = [
+        ['班级', '教室/上课地点', '课程', '任课老师', '查课人', '时间', '节次', '应到', '实到', '缺勤', '请假', '迟到', '手机入袋', '备注'],
+        ['23金融管理本1班', '致知楼101', '高等数学', '张老师', '赵梦婷', '2026-05-20 10:00', '第1-2节', '45', '43', '2', '1', '1', '手机入袋率95%', '教室卫生良好'],
+        ['23法律本3班', '笃行楼205', '刑法学', '李老师', '赵梦婷', '2026-05-20 14:30', '第5-6节', '52', '50', '2', '2', '0', '手机全部入袋', '无']
+    ];
+    
     const ws = XLSX.utils.aoa_to_sheet(templateData);
-    ws['!cols'] = [{wch:12},{wch:10},{wch:10},{wch:18},{wch:12},{wch:30},{wch:35},{wch:20}];
+    ws['!cols'] = [{wch:18},{wch:16},{wch:12},{wch:12},{wch:12},{wch:18},{wch:12},{wch:8},{wch:8},{wch:12},{wch:12},{wch:12},{wch:20},{wch:20}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '查课记录');
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
@@ -13850,8 +13971,12 @@ function downloadAttendanceTemplate() {
     const a = document.createElement('a');
     a.href = url;
     a.download = '查课记录导入模板.xlsx';
+    document.body.appendChild(a);
     a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); }, 100);
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
     showMessage('模板下载成功', 'success');
 }
 
@@ -14024,17 +14149,35 @@ window.processAttendanceExcelData = processAttendanceExcelData;
 
 // ==================== 获取查课模块HTML ====================
 function getAttendanceTabHTML() {
-    return `<div id="attendanceTab" class="content-tab" style="display:none;"><div class="card"><h2 class="card-title">📋 查课记录</h2><div class="stats-container" id="attendanceStatsContainer"></div>
-    <div style="background:#f8f9fa;padding:20px;border-radius:6px;margin-bottom:20px;"><h3 style="margin-bottom:15px;">操作</h3><div style="display:flex;gap:15px;flex-wrap:wrap;">
-    <button class="btn btn-primary" onclick="showAddAttendanceModal()">➕ 添加查课记录</button>
-    <button class="btn btn-warning" onclick="showAttendanceImportModal()">📤 批量导入Excel</button>
-    <button class="btn btn-info" onclick="downloadAttendanceTemplate()">📥 下载导入模板</button>
-   <button class="btn btn-info" onclick="showAttendancePhotoImportModal()">📸 批量导入照片</button>
-    <button class="btn btn-danger" id="batchDeleteAttendanceBtn" style="display:none;" onclick="batchDeleteAttendanceRecords()">🗑️ 批量删除</button></div>
-    <div id="batchAttendanceActionInfo" style="margin-top:10px;font-size:14px;color:#666;display:none;"><span id="selectedAttendanceCount">0</span> 条记录已选中<button class="btn" style="padding:4px 8px;font-size:12px;margin-left:10px;" onclick="clearAttendanceSelection()">清除选择</button></div></div>
-    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><input type="text" id="attendanceSearchInput" class="form-control" placeholder="搜索班级、查课人、教室..." style="flex:1;min-width:250px;" oninput="searchAttendanceRecords()"><button class="btn" onclick="clearAttendanceSearch()">重置</button></div>
-    <div style="margin-bottom:10px;display:flex;align-items:center;gap:15px;"><label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="selectAllAttendance" onchange="toggleSelectAllAttendance(this)"><span style="font-size:13px;">全选</span></label><span style="font-size:12px;color:#999;">💡 同一班级同一天不同节次可重复记录</span></div>
-    <div id="attendanceList" style="max-height:500px;overflow-y:auto;padding-right:5px;"></div></div></div>`;
+    return `<div id="attendanceTab" class="content-tab" style="display:none;">
+        <div class="card">
+            <h2 class="card-title">📋 查课台账</h2>
+            <div class="stats-container" id="attendanceStatsContainer"></div>
+            <div style="background:#f8f9fa;padding:20px;border-radius:6px;margin-bottom:20px;">
+                <h3 style="margin-bottom:15px;">操作</h3>
+                <div style="display:flex;gap:15px;flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="showAddAttendanceModal()">➕ 添加查课记录</button>
+                    <button class="btn btn-warning" onclick="showAttendanceImportModal()">📤 批量导入Excel</button>
+                    <button class="btn btn-info" onclick="downloadAttendanceTemplate()">📥 下载导入模板</button>
+                    <button class="btn btn-info" onclick="showAttendancePhotoImportModal()">📸 批量导入照片</button>
+                    <button class="btn btn-danger" id="batchDeleteAttendanceBtn" style="display:none;" onclick="batchDeleteAttendanceRecords()">🗑️ 批量删除</button>
+                </div>
+                <div id="batchAttendanceActionInfo" style="margin-top:10px;font-size:14px;color:#666;display:none;">
+                    <span id="selectedAttendanceCount">0</span> 条记录已选中
+                    <button class="btn" style="padding:4px 8px;font-size:12px;margin-left:10px;" onclick="clearAttendanceSelection()">清除选择</button>
+                </div>
+            </div>
+            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                <input type="text" id="attendanceSearchInput" class="form-control" placeholder="搜索班级、课程、任课老师..." style="flex:1;min-width:250px;" oninput="searchAttendanceRecords()">
+                <button class="btn" onclick="clearAttendanceSearch()">重置</button>
+            </div>
+            <div style="margin-bottom:10px;display:flex;align-items:center;gap:15px;">
+                <label style="display:flex;align-items:center;gap:5px;"><input type="checkbox" id="selectAllAttendance" onchange="toggleSelectAllAttendance(this)"><span style="font-size:13px;">全选</span></label>
+                <span style="font-size:12px;color:#999;">💡 支持批量导入Excel和照片</span>
+            </div>
+            <div id="attendanceList" style="max-height:500px;overflow-y:auto;padding-right:5px;"></div>
+        </div>
+    </div>`;
 }
 
 function addAttendanceMenu() {
@@ -20134,10 +20277,19 @@ function initClassAttendData() {
 
 function getAllClassAttendRecords() { return JSON.parse(localStorage.getItem(CLASS_ATTEND_STORAGE_KEY) || '[]'); }
 
+// 找到 calculateAbsenceHours 函数后面的 addClassAttendRecord 函数
+// 在记录对象中增加 courseName 字段
 function addClassAttendRecord(record) {
     const records = getAllClassAttendRecords();
     const absenceHours = calculateAbsenceHours(record.status, record.lateMinutes || 0);
-    const newRecord = { id: Date.now(), ...record, absenceHours, createTime: new Date().toISOString(), updateTime: new Date().toISOString() };
+    const newRecord = { 
+        id: Date.now(), 
+        ...record, 
+        courseName: record.courseName || '',  // 新增
+        absenceHours, 
+        createTime: new Date().toISOString(), 
+        updateTime: new Date().toISOString() 
+    };
     records.push(newRecord);
     localStorage.setItem(CLASS_ATTEND_STORAGE_KEY, JSON.stringify(records));
     showMessage('课堂记录已保存', 'success');
@@ -20292,11 +20444,17 @@ function handleClassAttendFileSelect(event) {
 function processClassAttendExcelData(jsonData) {
     const headers = jsonData[0];
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    const headerMapping = {
-        'studentName': ['学生姓名', '姓名', 'name'], 'studentId': ['学号', 'studentId'], 'className': ['班级', 'class'],
-        'date': ['日期', 'date'], 'period': ['节次', 'period'], 'status': ['状态', 'status'],
-        'lateMinutes': ['迟到分钟', '分钟', 'lateMinutes'], 'remark': ['备注', 'remark']
-    };
+   const headerMapping = {
+    'studentName': ['学生姓名', '姓名', 'name'],
+    'studentId': ['学号', 'studentId'],
+    'className': ['班级', 'class'],
+    'date': ['日期', 'date'],
+    'period': ['节次', 'period'],
+    'courseName': ['课程名称', '课程', 'course'],  // 新增
+    'status': ['状态', 'status'],
+    'lateMinutes': ['迟到分钟', '分钟', 'lateMinutes'],
+    'remark': ['备注', 'remark']
+};
     const headerMap = {};
     if (!headers) { showMessage('Excel格式错误', 'error'); return; }
     headers.forEach((header, index) => {
@@ -20388,14 +20546,22 @@ function confirmClassAttendImport() {
 
 function downloadClassAttendTemplate() {
     if (typeof XLSX === 'undefined') { showMessage('Excel库未加载', 'error'); return; }
-    const templateData = [['学生姓名', '学号', '班级', '日期', '节次', '状态', '迟到分钟', '备注'], ['张三', '20200101', '计算机2001班', '2026-05-12', '第1-2节', '迟到', '8', '地铁故障'], ['李四', '20200102', '计算机2001班', '2026-05-11', '第3-4节', '旷课', '', '无故缺勤']];
+    const templateData = [
+        ['学生姓名', '学号', '班级', '日期', '节次', '课程名称', '状态', '迟到分钟', '备注'], 
+        ['张三', '20200101', '计算机2001班', '2026-05-12', '第1-2节', '高等数学', '迟到', '8', '地铁故障'], 
+        ['李四', '20200102', '计算机2001班', '2026-05-11', '第3-4节', '大学英语', '旷课', '', '无故缺勤']
+    ];
     const ws = XLSX.utils.aoa_to_sheet(templateData);
-    ws['!cols'] = [{wch:12},{wch:12},{wch:16},{wch:12},{wch:12},{wch:10},{wch:10},{wch:20}];
-    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '考勤记录');
+    ws['!cols'] = [{wch:12},{wch:12},{wch:16},{wch:12},{wch:12},{wch:15},{wch:10},{wch:10},{wch:20}];
+    const wb = XLSX.utils.book_new(); 
+    XLSX.utils.book_append_sheet(wb, ws, '考勤记录');
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a');
-    a.href = url; a.download = '考勤记录导入模板.xlsx'; a.click();
+    const url = URL.createObjectURL(blob); 
+    const a = document.createElement('a');
+    a.href = url; 
+    a.download = '考勤记录导入模板.xlsx'; 
+    a.click();
     setTimeout(() => { URL.revokeObjectURL(url); }, 100);
     showMessage('模板下载成功', 'success');
 }
@@ -20429,43 +20595,127 @@ function getStudentAbsenceSummary() {
 function updateStudentAbsenceSummary(searchTerm = '') {
     const container = document.getElementById('studentAbsenceSummary');
     if (!container) return;
+    
     let summary = getStudentAbsenceSummary();
     if (searchTerm) {
         summary = summary.filter(s => s.studentName.includes(searchTerm) || s.className.includes(searchTerm) || s.studentId.includes(searchTerm));
     }
+    
     if (summary.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无考勤记录</div>';
+        updateSummaryBatchState();
         return;
     }
-    let html = '<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;"><th style="padding:10px;text-align:left;">学生姓名</th><th style="padding:10px;text-align:left;">班级</th><th style="padding:10px;text-align:center;">迟到次数</th><th style="padding:10px;text-align:center;">旷课次数</th><th style="padding:10px;text-align:center;">累计旷课课时</th><th style="padding:10px;text-align:center;">记录次数</th><th style="padding:10px;text-align:center;">操作</th></tr></thead><tbody>';
+    
+    // 添加表头，带复选框
+    let html = `
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;">
+                    <th style="padding:10px;text-align:center;width:40px;">
+                        <input type="checkbox" id="selectAllSummary" onchange="toggleSelectAllSummary(this)">
+                    </th>
+                    <th style="padding:10px;text-align:left;">学生姓名</th>
+                    <th style="padding:10px;text-align:left;">班级</th>
+                    <th style="padding:10px;text-align:center;">迟到次数</th>
+                    <th style="padding:10px;text-align:center;">旷课次数</th>
+                    <th style="padding:10px;text-align:center;">累计旷课课时</th>
+                    <th style="padding:10px;text-align:center;">记录次数</th>
+                    <th style="padding:10px;text-align:center;">操作</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
     summary.forEach(s => {
         let hoursDisplay = s.totalAbsenceHours === 0.5 ? '0.5课时' : (s.totalAbsenceHours === Math.floor(s.totalAbsenceHours) ? s.totalAbsenceHours + '课时' : s.totalAbsenceHours + '课时');
         let warningClass = s.totalAbsenceHours >= 4 ? 'style="color:#c62828;font-weight:bold;"' : (s.totalAbsenceHours >= 2 ? 'style="color:#f57f17;font-weight:bold;"' : '');
-        html += `<tr style="border-bottom:1px solid #eee;"><td style="padding:10px;"><strong>${escapeHtml(s.studentName)}</strong></td><td style="padding:10px;">${escapeHtml(s.className)}</td><td style="padding:10px;text-align:center;"><span style="color:#f39c12;">${s.lateCount}</span></td><td style="padding:10px;text-align:center;"><span style="color:#e74c3c;">${s.absentCount}</span></td><td style="padding:10px;text-align:center;"><span ${warningClass}>${hoursDisplay}</span></td><td style="padding:10px;text-align:center;">${s.recordCount}</td><td style="padding:10px;text-align:center;"><button class="btn" style="padding:4px 10px;background:#3498db;color:white;font-size:12px;" onclick="showStudentClassAttendRecords('${s.studentId}')">查看详情</button></td></tr>`;
+        
+        html += `<tr style="border-bottom:1px solid #eee;">
+            <td style="padding:10px;text-align:center;">
+                <input type="checkbox" class="summary-checkbox" value="${s.studentId}" data-student-id="${s.studentId}" data-student-name="${escapeHtml(s.studentName)}" onchange="updateSummaryBatchState()">
+            </td>
+            <td style="padding:10px;"><strong>${escapeHtml(s.studentName)}</strong></td>
+            <td style="padding:10px;">${escapeHtml(s.className)}</strong></td>
+            <td style="padding:10px;text-align:center;"><span style="color:#f39c12;">${s.lateCount}</span></td>
+            <td style="padding:10px;text-align:center;"><span style="color:#e74c3c;">${s.absentCount}</span></td>
+            <td style="padding:10px;text-align:center;"><span ${warningClass}>${hoursDisplay}</span></td>
+            <td style="padding:10px;text-align:center;">${s.recordCount}</td>
+            <td style="padding:10px;text-align:center;">
+                <button class="btn" style="padding:4px 10px;background:#3498db;color:white;font-size:12px;" onclick="showStudentClassAttendRecords('${s.studentId}')">查看详情</button>
+            </td>
+        </tr>`;
     });
+    
     const totalHours = summary.reduce((sum, s) => sum + s.totalAbsenceHours, 0);
-    html += `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6;font-weight:bold;"><td style="padding:10px;" colspan="2">合计</td><td style="padding:10px;text-align:center;">${summary.reduce((sum, s) => sum + s.lateCount, 0)}</td><td style="padding:10px;text-align:center;">${summary.reduce((sum, s) => sum + s.absentCount, 0)}</td><td style="padding:10px;text-align:center;color:#9b59b6;">${totalHours}课时</td><td style="padding:10px;text-align:center;">${summary.reduce((sum, s) => sum + s.recordCount, 0)}</td><td></td></tr></tbody></table>`;
+    const totalLate = summary.reduce((sum, s) => sum + s.lateCount, 0);
+    const totalAbsent = summary.reduce((sum, s) => sum + s.absentCount, 0);
+    const totalRecords = summary.reduce((sum, s) => sum + s.recordCount, 0);
+    
+    html += `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6;font-weight:bold;">
+        <td style="padding:10px;text-align:center;"></td>
+        <td style="padding:10px;" colspan="2">合计</td>
+        <td style="padding:10px;text-align:center;">${totalLate}</td>
+        <td style="padding:10px;text-align:center;">${totalAbsent}</td>
+        <td style="padding:10px;text-align:center;color:#9b59b6;">${totalHours}课时</td>
+        <td style="padding:10px;text-align:center;">${totalRecords}</td>
+        <td style="padding:10px;text-align:center;"></td>
+    </tr></tbody></table>`;
+    
     container.innerHTML = html;
+    updateSummaryBatchState();
 }
 
-function showStudentClassAttendRecords(studentId) {
-    const records = getAllClassAttendRecords().filter(r => r.studentId === studentId);
-    const student = records[0];
-    if (!student) return;
-    let html = `<div style="max-height:400px;overflow-y:auto;"><table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f0f0f0;"><th>日期</th><th>节次</th><th>状态</th><th>迟到分钟</th><th>课时</th><th>备注</th></tr></thead><tbody>`;
-    records.forEach(r => {
-        let statusColor = r.status === '迟到' ? '#f39c12' : '#e74c3c';
-        html += `<tr><td>${r.date}</td><td>${r.period}</td><td style="color:${statusColor};">${r.status}</td><td>${r.status === '迟到' ? r.lateMinutes : '-'}</td><td>${r.absenceHours}课时</td><td>${escapeHtml(r.remark || '-')}</td></tr>`;
-    });
-    html += '</tbody></table></div>';
-    const modalHtml = `<div class="modal" id="studentDetailModal" style="display:flex;z-index:10000;"><div class="modal-content" style="max-width:600px;"><h3>${escapeHtml(student.studentName)} - 考勤明细</h3>${html}<div style="margin-top:15px;text-align:right;"><button class="btn" onclick="closeStudentDetailModal()">关闭</button></div></div></div>`;
-    const oldModal = document.getElementById('studentDetailModal');
-    if (oldModal) oldModal.remove();
-    const modal = document.createElement('div');
-    modal.id = 'studentDetailModal';
-    modal.innerHTML = modalHtml;
-    document.body.appendChild(modal);
+// 全选/取消全选汇总表格
+function toggleSelectAllSummary(checkbox) {
+    document.querySelectorAll('.summary-checkbox').forEach(cb => cb.checked = checkbox.checked);
+    updateSummaryBatchState();
 }
+
+// 更新汇总表格批量删除按钮状态
+function updateSummaryBatchState() {
+    const selected = document.querySelectorAll('.summary-checkbox:checked');
+    const selectedCount = selected.length;
+    const batchBtn = document.getElementById('batchDeleteSummaryBtn');
+    
+    if (selectedCount > 0) {
+        if (batchBtn) batchBtn.style.display = 'inline-block';
+    } else {
+        if (batchBtn) batchBtn.style.display = 'none';
+    }
+}
+
+// 批量删除选中学生的所有考勤记录
+function batchDeleteSummaryRecords() {
+    const checkboxes = document.querySelectorAll('.summary-checkbox:checked');
+    if (checkboxes.length === 0) {
+        showMessage('请先勾选要删除的学生！', 'error');
+        return;
+    }
+    
+    const selectedStudentIds = Array.from(checkboxes).map(cb => cb.value);
+    const selectedStudentNames = Array.from(checkboxes).map(cb => cb.getAttribute('data-student-name'));
+    
+    if (!confirm(`确定要删除 ${selectedStudentNames.join('、')} 等 ${selectedStudentIds.length} 名学生的所有考勤记录吗？\n此操作不可恢复！`)) {
+        return;
+    }
+    
+    let records = getAllClassAttendRecords();
+    // 删除选中学生的所有记录
+    records = records.filter(r => !selectedStudentIds.includes(r.studentId));
+    localStorage.setItem(CLASS_ATTEND_STORAGE_KEY, JSON.stringify(records));
+    
+    // 刷新页面
+    loadClassAttendRecords();
+    updateStudentAbsenceSummary();
+    
+    // 清除全选复选框
+    const selectAll = document.getElementById('selectAllSummary');
+    if (selectAll) selectAll.checked = false;
+    
+    showMessage(`成功删除 ${selectedStudentIds.length} 名学生的 ${records.filter(r => !selectedStudentIds.includes(r.studentId)).length} 条考勤记录`, 'success');
+}
+
 function closeStudentDetailModal() { const modal = document.getElementById('studentDetailModal'); if (modal) modal.remove(); }
 
 // ==================== 课堂记录增删改查UI ====================
@@ -20475,10 +20725,68 @@ function showAddClassAttendModal(recordId = null) {
     let record = recordId ? getAllClassAttendRecords().find(r => r.id == recordId) : null;
     const oldModal = document.getElementById('addClassAttendModal');
     if (oldModal) oldModal.remove();
-    let periodOptions = ''; PERIOD_OPTIONS.forEach(p => { periodOptions += `<option value="${p}" ${record && record.period === p ? 'selected' : ''}>${p}</option>`; });
-    const modalHtml = `<div class="modal" id="addClassAttendModal" style="display:flex;z-index:10000;"><div class="modal-content" style="max-width:500px;"><h3>${recordId ? '编辑考勤记录' : '添加考勤记录'}</h3><div class="form-group"><label>学生姓名 *</label><input type="text" id="classAttendStudentName" class="form-control" value="${record ? escapeHtml(record.studentName) : ''}" placeholder="输入姓名或学号" required></div><div class="form-group"><label>学号</label><input type="text" id="classAttendStudentId" class="form-control" value="${record ? escapeHtml(record.studentId) : ''}" readonly style="background:#f5f5f5;"></div><div class="form-group"><label>班级</label><input type="text" id="classAttendClassName" class="form-control" value="${record ? escapeHtml(record.className) : ''}" readonly style="background:#f5f5f5;"></div><div class="form-group"><label>日期 *</label><input type="date" id="classAttendDate" class="form-control" value="${record ? record.date : new Date().toISOString().slice(0,10)}" required></div><div class="form-group"><label>节次 *</label><select id="classAttendPeriod" class="form-control">${periodOptions}</select></div><div class="form-group"><label>状态 *</label><select id="classAttendStatus" class="form-control" onchange="toggleClassAttendMinutes()"><option value="迟到" ${record && record.status === '迟到' ? 'selected' : ''}>迟到</option><option value="旷课" ${record && record.status === '旷课' ? 'selected' : ''}>旷课</option></select></div><div class="form-group" id="classAttendMinutesGroup" style="display:${record && record.status === '迟到' ? 'block' : 'none'};"><label>迟到分钟</label><input type="number" id="classAttendLateMinutes" class="form-control" value="${record && record.status === '迟到' ? record.lateMinutes : ''}" placeholder="输入迟到分钟数"><small>迟到≤10分钟=0.5课时，>10分钟=1课时</small></div><div class="form-group"><label>备注</label><textarea id="classAttendRemark" class="form-control" rows="2">${record ? escapeHtml(record.remark || '') : ''}</textarea></div><div style="display:flex;gap:15px;margin-top:20px;"><button class="btn btn-primary" onclick="saveClassAttendFromModal()">保存</button><button class="btn" onclick="closeAddClassAttendModal()">取消</button></div></div></div>`;
-    const modal = document.createElement('div'); modal.id = 'addClassAttendModal'; modal.innerHTML = modalHtml; document.body.appendChild(modal);
-    initClassAttendStudentSearch(); toggleClassAttendMinutes();
+    let periodOptions = ''; 
+    PERIOD_OPTIONS.forEach(p => { 
+        periodOptions += `<option value="${p}" ${record && record.period === p ? 'selected' : ''}>${p}</option>`; 
+    });
+    
+    const modalHtml = `<div class="modal" id="addClassAttendModal" style="display:flex;z-index:10000;">
+        <div class="modal-content" style="max-width:500px;">
+            <h3>${recordId ? '编辑考勤记录' : '添加考勤记录'}</h3>
+            <div class="form-group">
+                <label>学生姓名 *</label>
+                <input type="text" id="classAttendStudentName" class="form-control" value="${record ? escapeHtml(record.studentName) : ''}" placeholder="输入姓名或学号" required>
+            </div>
+            <div class="form-group">
+                <label>学号</label>
+                <input type="text" id="classAttendStudentId" class="form-control" value="${record ? escapeHtml(record.studentId) : ''}" readonly style="background:#f5f5f5;">
+            </div>
+            <div class="form-group">
+                <label>班级</label>
+                <input type="text" id="classAttendClassName" class="form-control" value="${record ? escapeHtml(record.className) : ''}" readonly style="background:#f5f5f5;">
+            </div>
+            <div class="form-group">
+                <label>日期 *</label>
+                <input type="date" id="classAttendDate" class="form-control" value="${record ? record.date : new Date().toISOString().slice(0,10)}" required>
+            </div>
+            <div class="form-group">
+                <label>节次 *</label>
+                <select id="classAttendPeriod" class="form-control">${periodOptions}</select>
+            </div>
+            <!-- 新增：课程名称输入框 -->
+            <div class="form-group">
+                <label>课程名称</label>
+                <input type="text" id="classAttendCourseName" class="form-control" value="${record ? escapeHtml(record.courseName || '') : ''}" placeholder="选填，如：高等数学">
+            </div>
+            <div class="form-group">
+                <label>状态 *</label>
+                <select id="classAttendStatus" class="form-control" onchange="toggleClassAttendMinutes()">
+                    <option value="迟到" ${record && record.status === '迟到' ? 'selected' : ''}>迟到</option>
+                    <option value="旷课" ${record && record.status === '旷课' ? 'selected' : ''}>旷课</option>
+                </select>
+            </div>
+            <div class="form-group" id="classAttendMinutesGroup" style="display:${record && record.status === '迟到' ? 'block' : 'none'};">
+                <label>迟到分钟</label>
+                <input type="number" id="classAttendLateMinutes" class="form-control" value="${record && record.status === '迟到' ? record.lateMinutes : ''}" placeholder="输入迟到分钟数">
+                <small>迟到≤10分钟=0.5课时，>10分钟=1课时</small>
+            </div>
+            <div class="form-group">
+                <label>备注</label>
+                <textarea id="classAttendRemark" class="form-control" rows="2">${record ? escapeHtml(record.remark || '') : ''}</textarea>
+            </div>
+            <div style="display:flex;gap:15px;margin-top:20px;">
+                <button class="btn btn-primary" onclick="saveClassAttendFromModal()">保存</button>
+                <button class="btn" onclick="closeAddClassAttendModal()">取消</button>
+            </div>
+        </div>
+    </div>`;
+    
+    const modal = document.createElement('div'); 
+    modal.id = 'addClassAttendModal'; 
+    modal.innerHTML = modalHtml; 
+    document.body.appendChild(modal);
+    initClassAttendStudentSearch(); 
+    toggleClassAttendMinutes();
 }
 function toggleClassAttendMinutes() { const status = document.getElementById('classAttendStatus').value; const group = document.getElementById('classAttendMinutesGroup'); if (group) group.style.display = status === '迟到' ? 'block' : 'none'; }
 let classAttendTimeout = null;
@@ -20518,15 +20826,33 @@ function saveClassAttendFromModal() {
     const status = document.getElementById('classAttendStatus').value;
     const lateMinutes = parseInt(document.getElementById('classAttendLateMinutes')?.value) || 0;
     const remark = document.getElementById('classAttendRemark').value.trim();
-    if (!studentName || !date) { showMessage('请填写学生姓名和日期！', 'error'); return; }
+    const courseName = document.getElementById('classAttendCourseName')?.value.trim() || '';  // 新增：读取课程名称
+    
+    if (!studentName || !date) { 
+        showMessage('请填写学生姓名和日期！', 'error'); 
+        return; 
+    }
     if (!studentId || !className) {
         const students = JSON.parse(localStorage.getItem('students') || '[]');
         const matched = students.find(s => s.name === studentName);
         if (matched) { studentId = matched.studentId; className = matched.className; }
     }
-    const recordData = { studentName, studentId: studentId || '', className: className || '未知班级', date, period, status, lateMinutes: status === '迟到' ? lateMinutes : 0, remark };
+    
+    const recordData = { 
+        studentName, 
+        studentId: studentId || '', 
+        className: className || '未知班级', 
+        date, 
+        period, 
+        status, 
+        lateMinutes: status === '迟到' ? lateMinutes : 0, 
+        remark,
+        courseName  // 新增：保存课程名称
+    };
+    
     if (editClassAttendId) updateClassAttendRecord(editClassAttendId, recordData);
     else addClassAttendRecord(recordData);
+    
     closeAddClassAttendModal();
 }
 function editClassAttendRecord(recordId) { showAddClassAttendModal(recordId); }
@@ -20536,16 +20862,46 @@ function loadClassAttendRecords() {
     if (!container) return;
     let records = getAllClassAttendRecords();
     records.sort((a, b) => new Date(b.date) - new Date(a.date));
-    if (records.length === 0) { container.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无考勤记录</div>'; return; }
+    if (records.length === 0) { 
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#999;">暂无考勤记录</div>'; 
+        updateClassAttendBatchState();
+        return; 
+    }
     let html = '<div style="display:flex;flex-direction:column;gap:12px;">';
     records.forEach(r => {
         let statusColor = r.status === '迟到' ? '#f39c12' : '#e74c3c';
         let hoursDisplay = r.absenceHours === 0.5 ? '0.5课时' : (r.absenceHours === 1 ? '1课时' : '2课时');
-        html += `<div style="background:#f9f9f9;border-radius:10px;padding:15px;border-left:4px solid ${statusColor};"><div style="display:flex;justify-content:space-between;align-items:flex-start;"><div><div style="margin-bottom:8px;"><input type="checkbox" class="classAttend-checkbox" value="${r.id}" onchange="updateClassAttendBatchState()"> <strong>${escapeHtml(r.studentName)}</strong> <span style="color:#666;">${escapeHtml(r.className)}</span></div><div style="font-size:13px;"><span>${r.date} ${r.period}</span> <span style="color:${statusColor};">${r.status}</span> ${r.status === '迟到' ? `(${r.lateMinutes}分钟)` : ''} <span style="color:#e74c3c;">${hoursDisplay}</span><br>备注: ${escapeHtml(r.remark) || '-'}</div></div><div><button class="btn" style="padding:4px 10px;background:#3498db;color:white;" onclick="editClassAttendRecord(${r.id})">编辑</button><button class="btn" style="padding:4px 10px;background:#e74c3c;color:white;margin-left:5px;" onclick="deleteClassAttendRecord(${r.id})">删除</button></div></div></div>`;
+        let courseDisplay = r.courseName ? `<span style="background:#e3f2fd;padding:2px 8px;border-radius:12px;font-size:11px;margin-left:5px;">📚 ${escapeHtml(r.courseName)}</span>` : '';
+        
+        html += `<div style="background:#f9f9f9;border-radius:10px;padding:15px;border-left:4px solid ${statusColor};">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+                <div style="flex:1;">
+                    <div style="margin-bottom:8px;">
+                        <input type="checkbox" class="classAttend-checkbox" value="${r.id}" onchange="updateClassAttendBatchState()"> 
+                        <strong>${escapeHtml(r.studentName)}</strong> 
+                        <span style="color:#666;">${escapeHtml(r.className)}</span>
+                        ${courseDisplay}
+                    </div>
+                    <div style="font-size:13px;">
+                        <span>${r.date} ${r.period}</span> 
+                        <span style="color:${statusColor};">${r.status}</span> 
+                        ${r.status === '迟到' ? `(${r.lateMinutes}分钟)` : ''} 
+                        <span style="color:#e74c3c;">${hoursDisplay}</span>
+                        <br>备注: ${escapeHtml(r.remark) || '-'}
+                    </div>
+                </div>
+                <div>
+                    <button class="btn" style="padding:4px 10px;background:#3498db;color:white;" onclick="editClassAttendRecord(${r.id})">编辑</button>
+                    <button class="btn" style="padding:4px 10px;background:#e74c3c;color:white;margin-left:5px;" onclick="deleteClassAttendRecord(${r.id})">删除</button>
+                </div>
+            </div>
+        </div>`;
     });
-    html += '</div>'; container.innerHTML = html;
+    html += '</div>'; 
+    container.innerHTML = html;
     updateClassAttendBatchState();
 }
+
 function toggleSelectAllClassAttend(checkbox) { document.querySelectorAll('.classAttend-checkbox').forEach(cb => cb.checked = checkbox.checked); updateClassAttendBatchState(); }
 function updateClassAttendBatchState() { const selected = document.querySelectorAll('.classAttend-checkbox:checked').length; const batchBtn = document.getElementById('batchDeleteClassAttendBtn'); const batchInfo = document.getElementById('batchClassAttendActionInfo'); const countSpan = document.getElementById('selectedClassAttendCount'); if (selected > 0) { if (batchBtn) batchBtn.style.display = 'inline-block'; if (batchInfo) batchInfo.style.display = 'block'; if (countSpan) countSpan.textContent = selected; } else { if (batchBtn) batchBtn.style.display = 'none'; if (batchInfo) batchInfo.style.display = 'none'; } }
 function clearClassAttendSelection() { document.querySelectorAll('.classAttend-checkbox').forEach(cb => cb.checked = false); const selectAll = document.getElementById('selectAllClassAttend'); if (selectAll) selectAll.checked = false; updateClassAttendBatchState(); }
@@ -20840,8 +21196,71 @@ function closeAddLeaveSimpleModal() { const modal = document.getElementById('add
 
 // ==================== 考勤综合页面 ====================
 function getAttendanceStatsModuleHTML() {
-    return `<div id="attendanceStatsTab" class="content-tab" style="display:none;"><div class="card"><h2 class="card-title">📊 考勤统计管理</h2><div style="display:flex;gap:10px;margin-bottom:20px;"><button class="btn" style="background:#e74c3c;color:white;" onclick="switchAttendSubTab('classAttend')">📚 课堂考勤</button><button class="btn" style="background:#2ecc71;color:white;" onclick="switchAttendSubTab('leaveSimple')">📋 请假记录</button></div><div id="classAttendSubTab"><div style="background:#f8f9fa;padding:20px;margin-bottom:20px;"><div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="showAddClassAttendModal()">➕ 添加记录</button><button class="btn btn-warning" onclick="showClassAttendImportModal()">📤 批量导入</button><button class="btn btn-info" onclick="downloadClassAttendTemplate()">📄 下载模板</button><button class="btn btn-danger" id="batchDeleteClassAttendBtn" style="display:none;" onclick="batchDeleteClassAttendRecords()">🗑️ 批量删除</button></div><div id="batchClassAttendActionInfo" style="margin-top:10px;display:none;"><span id="selectedClassAttendCount">0</span> 条选中 <button class="btn" onclick="clearClassAttendSelection()">清除</button></div></div><div style="margin-bottom:20px;"><div style="display:flex;gap:10px;"><input type="text" id="absenceSummarySearch" class="form-control" placeholder="搜索学生姓名/班级..." style="flex:1;" oninput="updateStudentAbsenceSummary(this.value)"><button class="btn" onclick="updateStudentAbsenceSummary('')">重置</button></div></div><div style="margin-top:20px;"><h3 style="margin-bottom:15px;color:#2c3e50;">📊 学生累计旷课课时汇总</h3><div id="studentAbsenceSummary" style="max-height:500px;overflow-y:auto;"></div></div><div style="margin-top:30px;"><h3 style="margin-bottom:15px;color:#2c3e50;">📋 详细考勤记录</h3><div><label><input type="checkbox" id="selectAllClassAttend" onchange="toggleSelectAllClassAttend(this)"> 全选</label></div><div id="classAttendList" style="max-height:400px;overflow-y:auto;margin-top:10px;"></div></div></div><div id="leaveSimpleSubTab" style="display:none;"><div style="background:#f8f9fa;padding:20px;margin-bottom:20px;"><div style="display:flex;gap:10px;flex-wrap:wrap;"><button class="btn btn-primary" onclick="showAddLeaveSimpleModal()">➕ 添加请假</button><button class="btn btn-warning" onclick="showLeaveSimpleImportModal()">📤 批量导入</button><button class="btn btn-info" onclick="downloadLeaveSimpleTemplate()">📄 下载模板</button><button class="btn btn-danger" id="batchDeleteLeaveSimpleBtn" style="display:none;" onclick="batchDeleteLeaveSimpleRecords()">🗑️ 批量删除</button></div><div id="batchLeaveSimpleActionInfo" style="margin-top:10px;display:none;"><span id="selectedLeaveSimpleCount">0</span> 条选中 <button class="btn" onclick="clearLeaveSimpleSelection()">清除</button></div></div><div style="display:flex;gap:10px;margin-bottom:20px;"><input type="text" id="leaveSimpleSearchInput" class="form-control" placeholder="搜索学生姓名/班级..." style="flex:1;" oninput="searchLeaveSimpleRecords()"><button class="btn" onclick="clearLeaveSimpleSearch()">重置</button></div><div><label><input type="checkbox" id="selectAllLeaveSimple" onchange="toggleSelectAllLeaveSimple(this)"> 全选</label></div><div id="leaveSimpleList" style="max-height:500px;overflow-y:auto;margin-top:10px;"></div></div></div></div>`;
+    return `<div id="attendanceStatsTab" class="content-tab" style="display:none;">
+        <div class="card">
+            <h2 class="card-title">📊 考勤统计管理</h2>
+            <div style="display:flex;gap:10px;margin-bottom:20px;">
+                <button class="btn" style="background:#e74c3c;color:white;" onclick="switchAttendSubTab('classAttend')">📚 课堂考勤</button>
+                <button class="btn" style="background:#2ecc71;color:white;" onclick="switchAttendSubTab('leaveSimple')">📋 请假记录</button>
+            </div>
+            <div id="classAttendSubTab">
+                <div style="background:#f8f9fa;padding:20px;margin-bottom:20px;">
+                    <h3 style="margin-bottom:15px;">课堂考勤操作</h3>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="showAddClassAttendModal()">➕ 添加记录</button>
+                        <button class="btn btn-warning" onclick="showClassAttendImportModal()">📤 批量导入</button>
+                        <button class="btn btn-info" onclick="downloadClassAttendTemplate()">📄 下载模板</button>
+                        <button class="btn btn-success" onclick="exportAllAttendanceToExcel()">📊 导出全部Excel</button>
+                        <button class="btn btn-danger" id="batchDeleteClassAttendBtn" style="display:none;" onclick="batchDeleteClassAttendRecords()">🗑️ 批量删除考勤记录</button>
+                    </div>
+                    <div id="batchClassAttendActionInfo" style="margin-top:10px;display:none;">
+                        <span id="selectedClassAttendCount">0</span> 条考勤记录已选中
+                        <button class="btn" style="padding:4px 8px;font-size:12px;" onclick="clearClassAttendSelection()">清除选择</button>
+                    </div>
+                </div>
+                
+                <!-- 学生累计旷课课时汇总（带批量删除） -->
+                <div style="margin-bottom:20px;">
+                    <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;align-items:center;">
+                        <div style="flex:1;min-width:200px;">
+                            <input type="text" id="absenceSummarySearch" class="form-control" placeholder="搜索学生姓名/班级..." oninput="updateStudentAbsenceSummary(this.value)">
+                        </div>
+                        <button class="btn" onclick="updateStudentAbsenceSummary('')">重置</button>
+                        <button class="btn btn-danger" id="batchDeleteSummaryBtn" style="display:none;" onclick="batchDeleteSummaryRecords()">🗑️ 批量删除选中学生的考勤记录</button>
+                    </div>
+                    <div style="margin-top:20px;">
+                        <h3 style="margin-bottom:15px;color:#2c3e50;">📊 学生累计旷课课时汇总</h3>
+                        <div id="studentAbsenceSummary" style="max-height:500px;overflow-y:auto;"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="leaveSimpleSubTab" style="display:none;">
+                <div style="background:#f8f9fa;padding:20px;margin-bottom:20px;">
+                    <h3 style="margin-bottom:15px;">请假记录操作</h3>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button class="btn btn-primary" onclick="showAddLeaveSimpleModal()">➕ 添加请假</button>
+                        <button class="btn btn-warning" onclick="showLeaveSimpleImportModal()">📤 批量导入</button>
+                        <button class="btn btn-info" onclick="downloadLeaveSimpleTemplate()">📄 下载模板</button>
+                        <button class="btn btn-danger" id="batchDeleteLeaveSimpleBtn" style="display:none;" onclick="batchDeleteLeaveSimpleRecords()">🗑️ 批量删除</button>
+                    </div>
+                    <div id="batchLeaveSimpleActionInfo" style="margin-top:10px;display:none;">
+                        <span id="selectedLeaveSimpleCount">0</span> 条选中 
+                        <button class="btn" style="padding:4px 8px;font-size:12px;" onclick="clearLeaveSimpleSelection()">清除</button>
+                    </div>
+                </div>
+                <div style="display:flex;gap:10px;margin-bottom:20px;">
+                    <input type="text" id="leaveSimpleSearchInput" class="form-control" placeholder="搜索学生姓名/班级..." style="flex:1;" oninput="searchLeaveSimpleRecords()">
+                    <button class="btn" onclick="clearLeaveSimpleSearch()">重置</button>
+                </div>
+                <div>
+                    <label><input type="checkbox" id="selectAllLeaveSimple" onchange="toggleSelectAllLeaveSimple(this)"> 全选</label>
+                </div>
+                <div id="leaveSimpleList" style="max-height:500px;overflow-y:auto;margin-top:10px;"></div>
+            </div>
+        </div>
+    </div>`;
 }
+
 function switchAttendSubTab(tab) {
     document.getElementById('classAttendSubTab').style.display = tab === 'classAttend' ? 'block' : 'none';
     document.getElementById('leaveSimpleSubTab').style.display = tab === 'leaveSimple' ? 'block' : 'none';
@@ -20884,6 +21303,479 @@ window.switchTab = function(tabName) {
         if (originalAttendStatsSwitch) originalAttendStatsSwitch(tabName);
     }
 };
+// ==================== 新增：导出单个学生考勤数据到Excel ====================
+function exportStudentAttendanceToExcel(studentId, studentName) {
+    if (typeof XLSX === 'undefined') {
+        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
+        return;
+    }
+    
+    const records = getAllClassAttendRecords().filter(r => r.studentId === studentId);
+    if (records.length === 0) {
+        showMessage('该学生没有考勤记录', 'error');
+        return;
+    }
+    
+    // 按日期排序
+    records.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    // 计算汇总统计
+    let totalLateCount = 0;
+    let totalAbsentCount = 0;
+    let totalLateHours = 0;
+    let totalAbsentHours = 0;
+    
+    records.forEach(r => {
+        if (r.status === '迟到') {
+            totalLateCount++;
+            totalLateHours += r.absenceHours || 0;
+        } else if (r.status === '旷课') {
+            totalAbsentCount++;
+            totalAbsentHours += r.absenceHours || 0;
+        }
+    });
+    
+    const className = records[0]?.className || '';
+    
+    const exportData = [
+        ['学生考勤记录明细表'],
+        [],
+        ['学生姓名', studentName],
+        ['班级', className],
+        ['导出时间', new Date().toLocaleString()],
+        [],
+        ['一、考勤汇总统计'],
+        ['迟到次数', totalLateCount, '迟到课时', totalLateHours],
+        ['旷课次数', totalAbsentCount, '旷课课时', totalAbsentHours],
+        ['总缺勤课时', totalLateHours + totalAbsentHours],
+        [],
+        ['二、详细考勤记录'],
+        ['序号', '日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']
+    ];
+    
+    records.forEach((r, idx) => {
+        exportData.push([
+            idx + 1,
+            r.date,
+            r.period,
+            r.courseName || '-',
+            r.status,
+            r.status === '迟到' ? r.lateMinutes : '-',
+            r.absenceHours + '课时',
+            r.remark || '-'
+        ]);
+    });
+    
+    // 添加汇总行
+    exportData.push([]);
+    exportData.push(['', '', '', '', `合计`, `迟到${totalLateCount}次 / 旷课${totalAbsentCount}次`, `总课时${totalLateHours + totalAbsentHours}`, '']);
+    
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤记录`);
+    
+    ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:18},{wch:8},{wch:10},{wch:10},{wch:25}];
+    
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${studentName}_考勤记录_${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showMessage(`${studentName} 的考勤数据已导出（共 ${records.length} 条记录）`, 'success');
+}
+
+function exportAllAttendanceToExcel() {
+    if (typeof XLSX === 'undefined') {
+        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
+        return;
+    }
+    
+    const records = getAllClassAttendRecords();
+    if (records.length === 0) {
+        showMessage('没有可导出的考勤记录', 'error');
+        return;
+    }
+    
+    // 按学生分组排序
+    const groupedByStudent = {};
+    records.forEach(record => {
+        const key = record.studentId;
+        if (!groupedByStudent[key]) {
+            groupedByStudent[key] = {
+                studentId: record.studentId,
+                studentName: record.studentName,
+                className: record.className,
+                records: []
+            };
+        }
+        groupedByStudent[key].records.push(record);
+    });
+    
+    // 对每个学生的记录按日期排序
+    Object.values(groupedByStudent).forEach(group => {
+        group.records.sort((a, b) => new Date(a.date) - new Date(b.date));
+    });
+    
+    // 转换为数组并排序（按学生姓名）
+    const studentGroups = Object.values(groupedByStudent).sort((a, b) => 
+        a.studentName.localeCompare(b.studentName)
+    );
+    
+    // 准备导出数据
+    const exportData = [
+        ['课堂考勤记录汇总表'],
+        ['导出时间', new Date().toLocaleString()],
+        ['总记录数', records.length],
+        ['涉及学生数', studentGroups.length],
+        [],
+        ['一、学生考勤汇总统计'],
+        ['序号', '学生姓名', '班级', '迟到次数', '旷课次数', '累计缺勤课时']
+    ];
+    
+    // 添加学生汇总行
+    studentGroups.forEach((group, idx) => {
+        const lateCount = group.records.filter(r => r.status === '迟到').length;
+        const absentCount = group.records.filter(r => r.status === '旷课').length;
+        const totalHours = group.records.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
+        
+        exportData.push([
+            idx + 1,
+            group.studentName,
+            group.className,
+            lateCount,
+            absentCount,
+            totalHours + '课时'
+        ]);
+    });
+    
+    exportData.push([], ['二、详细考勤记录（按学生分组）']);
+    
+    // 按学生分组添加详细记录
+    studentGroups.forEach(group => {
+        // 添加学生分隔行
+        exportData.push([`【${group.studentName}】 ${group.className} - 共 ${group.records.length} 条记录`]);
+        exportData.push(['日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']);
+        
+        group.records.forEach(record => {
+            exportData.push([
+                record.date,
+                record.period,
+                record.courseName || '-',
+                record.status,
+                record.status === '迟到' ? record.lateMinutes : '-',
+                record.absenceHours + '课时',
+                record.remark || '-'
+            ]);
+        });
+        
+        // 添加该学生的汇总行
+        const lateCount = group.records.filter(r => r.status === '迟到').length;
+        const absentCount = group.records.filter(r => r.status === '旷课').length;
+        const totalHours = group.records.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
+        exportData.push(['', '', '', `小计: 迟到${lateCount}次`, `旷课${absentCount}次`, `总课时${totalHours}`, '']);
+        exportData.push([]); // 空行分隔不同学生
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '课堂考勤记录');
+    
+    // 设置列宽
+    ws['!cols'] = [{wch:12},{wch:12},{wch:18},{wch:10},{wch:10},{wch:12},{wch:25}];
+    
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `课堂考勤记录_${new Date().toISOString().slice(0,10)}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showMessage(`成功导出 ${records.length} 条考勤记录，涉及 ${studentGroups.length} 名学生`, 'success');
+}
+
+function exportStudentAttendanceToExcel(studentId, studentName) {
+    if (typeof XLSX === 'undefined') {
+        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
+        return;
+    }
+    
+    const records = getAllClassAttendRecords().filter(r => r.studentId === studentId);
+    if (records.length === 0) {
+        showMessage('该学生没有考勤记录', 'error');
+        return;
+    }
+    
+    records.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    let totalLateCount = 0, totalAbsentCount = 0, totalLateHours = 0, totalAbsentHours = 0;
+    records.forEach(r => {
+        if (r.status === '迟到') { totalLateCount++; totalLateHours += r.absenceHours || 0; }
+        else if (r.status === '旷课') { totalAbsentCount++; totalAbsentHours += r.absenceHours || 0; }
+    });
+    
+    const className = records[0]?.className || '';
+    const exportData = [
+        ['学生考勤记录明细表'], [],
+        ['学生姓名', studentName], ['班级', className], ['导出时间', new Date().toLocaleString()], [],
+        ['一、考勤汇总统计'],
+        ['迟到次数', totalLateCount, '迟到课时', totalLateHours],
+        ['旷课次数', totalAbsentCount, '旷课课时', totalAbsentHours],
+        ['总缺勤课时', totalLateHours + totalAbsentHours], [],
+        ['二、详细考勤记录'],
+        ['序号', '日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']
+    ];
+    
+    records.forEach((r, idx) => {
+        exportData.push([
+            idx + 1, r.date, r.period, r.courseName || '-', r.status,
+            r.status === '迟到' ? r.lateMinutes : '-', r.absenceHours + '课时', r.remark || '-'
+        ]);
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤记录`);
+    ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:18},{wch:8},{wch:10},{wch:10},{wch:25}];
+    
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${studentName}_考勤记录_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showMessage(`${studentName} 的考勤数据已导出`, 'success');
+}
+
+window.exportStudentAttendanceToExcel = exportStudentAttendanceToExcel;
+
+// ==================== 学生考勤详情查看功能 ====================
+function showStudentClassAttendRecords(studentId) {
+    console.log('查看考勤详情, studentId:', studentId);
+    
+    // 获取学生信息
+    let allStudents = [];
+    try {
+        allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    } catch(e) {
+        console.error('读取学生数据失败:', e);
+    }
+    
+    const student = allStudents.find(s => s.studentId === studentId);
+    if (!student) {
+        alert('未找到该学生！');
+        return;
+    }
+    
+    // 获取该学生的所有考勤记录
+    let allRecords = [];
+    try {
+        allRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+    } catch(e) {
+        console.error('读取考勤记录失败:', e);
+    }
+    
+    const records = allRecords.filter(r => r.studentId === studentId);
+    records.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // 统计信息
+    const lateCount = records.filter(r => r.status === '迟到').length;
+    const absentCount = records.filter(r => r.status === '旷课').length;
+    const totalHours = records.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
+    
+    // 生成详情表格HTML
+    let recordsHtml = '';
+    if (records.length === 0) {
+        recordsHtml = '<tr><td colspan="7" style="text-align:center;padding:30px;">暂无考勤记录</td></tr>';
+    } else {
+        records.forEach(record => {
+            let statusColor = record.status === '迟到' ? '#f39c12' : '#e74c3c';
+            recordsHtml += `
+                <tr style="border-bottom:1px solid #eee;">
+                    <td style="padding:8px;">${record.date || '-'}</td>
+                    <td style="padding:8px;">${record.period || '-'}</td>
+                    <td style="padding:8px;">${record.courseName || '-'}</td>
+                    <td style="padding:8px;color:${statusColor};font-weight:bold;">${record.status}</td>
+                    <td style="padding:8px;">${record.status === '迟到' ? (record.lateMinutes || 0) + '分钟' : '-'}</td>
+                    <td style="padding:8px;color:#e74c3c;">${record.absenceHours || 0}课时</td>
+                    <td style="padding:8px;">${record.remark || '-'}</td>
+                </tr>
+            `;
+        });
+    }
+    
+    // 辅助函数
+    function safeStr(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, function(m) {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            return m;
+        });
+    }
+    
+    // 移除旧模态框
+    const oldModal = document.getElementById('studentDetailModal');
+    if (oldModal) oldModal.remove();
+    
+    // 创建新模态框
+    const modal = document.createElement('div');
+    modal.id = 'studentDetailModal';
+    modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10020;display:flex;justify-content:center;align-items:center;';
+    
+    modal.innerHTML = `
+        <div style="background:white;border-radius:12px;max-width:850px;width:90%;max-height:85vh;overflow-y:auto;padding:20px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                <h3 style="margin:0;color:#2c3e50;">📚 ${safeStr(student.name)} 的考勤详情</h3>
+                <button class="btn" style="background:#e74c3c;color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;" onclick="closeStudentDetailModal()">✕ 关闭</button>
+            </div>
+            
+            <div style="background:linear-gradient(135deg,#2c3e50,#3498db);border-radius:10px;padding:20px;margin-bottom:20px;color:white;">
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;text-align:center;">
+                    <div>
+                        <div style="font-size:28px;font-weight:bold;">${lateCount}</div>
+                        <div style="font-size:12px;opacity:0.9;">迟到次数</div>
+                    </div>
+                    <div>
+                        <div style="font-size:28px;font-weight:bold;">${absentCount}</div>
+                        <div style="font-size:12px;opacity:0.9;">旷课次数</div>
+                    </div>
+                    <div>
+                        <div style="font-size:28px;font-weight:bold;">${totalHours}</div>
+                        <div style="font-size:12px;opacity:0.9;">累计旷课课时</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-bottom:15px;">
+                <strong>📋 详细记录（共 ${records.length} 条）</strong>
+            </div>
+            
+            <div style="overflow-x:auto;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;">
+                            <th style="padding:10px;text-align:left;">日期</th>
+                            <th style="padding:10px;text-align:left;">节次</th>
+                            <th style="padding:10px;text-align:left;">课程</th>
+                            <th style="padding:10px;text-align:left;">状态</th>
+                            <th style="padding:10px;text-align:left;">迟到分钟</th>
+                            <th style="padding:10px;text-align:left;">课时</th>
+                            <th style="padding:10px;text-align:left;">备注</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${recordsHtml}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top:20px;text-align:center;">
+                <button class="btn btn-success" style="background:#27ae60;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;" onclick="exportStudentAttendanceToExcel('${studentId}', '${safeStr(student.name)}')">📊 导出该生考勤数据</button>
+                <button class="btn" style="margin-left:10px;background:#95a5a6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;" onclick="closeStudentDetailModal()">关闭</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function closeStudentDetailModal() {
+    const modal = document.getElementById('studentDetailModal');
+    if (modal) modal.remove();
+}
+
+// 导出单个学生考勤数据到Excel
+function exportStudentAttendanceToExcel(studentId, studentName) {
+    if (typeof XLSX === 'undefined') {
+        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
+        return;
+    }
+    
+    let allRecords = [];
+    try {
+        allRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+    } catch(e) {
+        console.error('读取考勤记录失败:', e);
+    }
+    
+    const records = allRecords.filter(r => r.studentId === studentId);
+    if (records.length === 0) {
+        showMessage('该学生没有考勤记录', 'error');
+        return;
+    }
+    
+    records.sort((a, b) => new Date(a.date) - new Date(b.date));
+    
+    let totalLateCount = 0, totalAbsentCount = 0, totalLateHours = 0, totalAbsentHours = 0;
+    records.forEach(r => {
+        if (r.status === '迟到') { 
+            totalLateCount++; 
+            totalLateHours += r.absenceHours || 0; 
+        } else if (r.status === '旷课') { 
+            totalAbsentCount++; 
+            totalAbsentHours += r.absenceHours || 0; 
+        }
+    });
+    
+    const className = records[0]?.className || '';
+    const exportData = [
+        ['学生考勤记录明细表'], [],
+        ['学生姓名', studentName], 
+        ['班级', className], 
+        ['导出时间', new Date().toLocaleString()], [],
+        ['一、考勤汇总统计'],
+        ['迟到次数', totalLateCount, '迟到课时', totalLateHours],
+        ['旷课次数', totalAbsentCount, '旷课课时', totalAbsentHours],
+        ['总缺勤课时', totalLateHours + totalAbsentHours], [],
+        ['二、详细考勤记录'],
+        ['序号', '日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']
+    ];
+    
+    records.forEach((r, idx) => {
+        exportData.push([
+            idx + 1, 
+            r.date, 
+            r.period, 
+            r.courseName || '-', 
+            r.status,
+            r.status === '迟到' ? (r.lateMinutes || 0) : '-', 
+            (r.absenceHours || 0) + '课时', 
+            r.remark || '-'
+        ]);
+    });
+    
+    const ws = XLSX.utils.aoa_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤记录`);
+    ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:18},{wch:8},{wch:10},{wch:10},{wch:25}];
+    
+    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    const blob = new Blob([wbout], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${studentName}_考勤记录_${new Date().toISOString().slice(0,10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showMessage(`${studentName} 的考勤数据已导出`, 'success');
+}
+
+// 暴露导出函数到全局
+window.exportStudentAttendanceToExcel = exportStudentAttendanceToExcel;
+
 function initAttendanceStatsModule() {
     initClassAttendData();
     initLeaveSimpleData();
@@ -21532,12 +22424,13 @@ function loadSupportRecords(searchTerm = '') {
                         ${evaluationHtml}
                         ${remarkHtml}
                     </div>
-                    <div style="display:flex;flex-direction:column;gap:8px;min-width:100px;">
-                        <button class="btn" style="background:#3498db;color:white;padding:6px 12px;" onclick="showSupportDetailModal(${r.id})">📋 查看详情</button>
-                        <button class="btn" style="background:#f39c12;color:white;padding:6px 12px;" onclick="showProgressModal(${r.id})">📆 更新进展</button>
-                        <button class="btn" style="background:#27ae60;color:white;padding:6px 12px;" onclick="editSupportRecord(${r.id})">✏️ 编辑方案</button>
-                        <button class="btn" style="background:#e74c3c;color:white;padding:6px 12px;" onclick="deleteSupportRecord(${r.id})">🗑️ 删除</button>
-                    </div>
+                  <div style="display:flex;flex-direction:column;gap:8px;min-width:100px;">
+    <button class="btn" style="background:#3498db;color:white;padding:6px 12px;" onclick="showSupportDetailModal(${r.id})">📋 查看详情</button>
+    <button class="btn" style="background:#f39c12;color:white;padding:6px 12px;" onclick="showProgressModal(${r.id})">📆 更新进展</button>
+    <button class="btn" style="background:#27ae60;color:white;padding:6px 12px;" onclick="editSupportRecord(${r.id})">✏️ 编辑方案</button>
+    <button class="btn" style="background:#e74c3c;color:white;padding:6px 12px;" onclick="deleteSupportRecord(${r.id})">🗑️ 删除</button>
+    <button class="btn" style="background:#9b59b6;color:white;padding:6px 12px;" onclick="exportSingleSupportReport(${r.id})">📄 导出报告</button>
+</div>
                 </div>
             </div>
         `;
@@ -22350,6 +23243,242 @@ function closeDetailModal() {
     const modal = document.getElementById('detailModal');
     if (modal) modal.remove();
 }
+// ==================== 导出单个学生完整帮扶过程（对齐+垂直居中版） ====================
+function exportSingleSupportReport(recordId) {
+    const record = getAllSupportRecords().find(r => r.id == recordId);
+    if (!record) {
+        if (typeof showMessage === 'function') showMessage('未找到帮扶记录！', 'error');
+        return;
+    }
+
+    const counselorName = getCurrentUserName();
+    const now = new Date();
+    const exportDate = `${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日`;
+    
+    // 风险等级颜色
+    let riskColor = '';
+    if (record.riskLevel === '高风险') riskColor = '#c62828';
+    else if (record.riskLevel === '中风险') riskColor = '#f57f17';
+    else riskColor = '#2e7d32';
+    
+    const failCount = record.failCount || 0;
+    const timeline = record.timeline || '未设置';
+    
+    // 帮扶措施 - 直接分行显示
+    let measuresText = '';
+    if (record.supportMeasures && record.supportMeasures.length > 0) {
+        record.supportMeasures.forEach((measure, idx) => {
+            measuresText += `${idx + 1}. ${escapeHtml(measure)}<br>`;
+        });
+    } else {
+        measuresText = '暂无帮扶措施';
+    }
+    
+    // 关键节点 - 直接分行显示
+    let checkpointsText = '';
+    if (record.checkpoints && record.checkpoints.length > 0) {
+        record.checkpoints.forEach(cp => {
+            const statusText = cp.completed ? '（已完成）' : '（待完成）';
+            checkpointsText += `${cp.date}：${escapeHtml(cp.content)}${statusText}<br>`;
+        });
+    } else {
+        checkpointsText = '暂无关键节点';
+    }
+    
+    // 每月跟进台账 - 直接分行显示
+    let progressText = '';
+    if (record.progressRecords && record.progressRecords.length > 0) {
+        record.progressRecords.forEach(p => {
+            progressText += `${p.month}：${escapeHtml(p.content)}（跟进人：${p.supervisor || counselorName}）<br><br>`;
+        });
+    } else {
+        progressText = '暂无跟进记录';
+    }
+    
+    const finalEvaluation = record.finalEvaluation || '帮扶仍在进行中，待学期末总结';
+    const remark = record.remark || '无';
+    
+    const reportHtml = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${record.studentName}_学业帮扶过程记录</title>
+    <style>
+        body {
+            font-family: "宋体", "SimSun", serif;
+            margin: 2cm;
+            font-size: 12pt;
+            line-height: 1.6;
+        }
+        h1 {
+            text-align: center;
+            font-size: 18pt;
+            margin-bottom: 25px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            table-layout: fixed;
+        }
+        th, td {
+            border: 1px solid #000;
+            padding: 10px 12px;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+        th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+            width: 100px;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: right;
+        }
+        .content-cell {
+            line-height: 1.8;
+        }
+    </style>
+</head>
+<body>
+
+<h1>学业困难帮扶过程记录（一生一策）</h1>
+
+<!-- 基本信息 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col style="width: 35%;">
+        <col style="width: 100px;">
+        <col style="width: 35%;">
+    </colgroup>
+    <tr>
+        <th>姓名</th>
+        <td><strong>${escapeHtml(record.studentName)}</strong></td>
+        <th>班级</th>
+        <td>${escapeHtml(record.className)}</td>
+    </tr>
+    <tr>
+        <th>学号</th>
+        <td>${record.studentId || '未填写'}</td>
+        <th>帮扶周期</th>
+        <td>${timeline}</td>
+    </tr>
+    <tr>
+        <th>挂科数</th>
+        <td>${failCount} 门</td>
+        <th>风险等级</th>
+        <td style="color:${riskColor};font-weight:bold;">${record.riskLevel}</td>
+    </tr>
+</table>
+
+<!-- 主要学业困难 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>主要学业困难</th>
+        <td>${escapeHtml(record.mainIssues)}</td>
+    </tr>
+</table>
+
+<!-- 帮扶目标 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>帮扶目标</th>
+        <td>${escapeHtml(record.supportGoal)}</td>
+    </tr>
+</table>
+
+<!-- 帮扶措施 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>帮扶措施</th>
+        <td class="content-cell">${measuresText}</td>
+    </tr>
+</table>
+
+<!-- 关键节点完成情况 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>关键节点完成情况</th>
+        <td class="content-cell">${checkpointsText}</td>
+    </tr>
+</table>
+
+<!-- 每月跟进台账 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>每月跟进台账</th>
+        <td class="content-cell">${progressText}</td>
+    </tr>
+</table>
+
+<!-- 帮扶成效总结 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>帮扶成效总结</th>
+        <td>${escapeHtml(finalEvaluation)}</td>
+    </tr>
+</table>
+
+<!-- 备注 -->
+<table>
+    <colgroup>
+        <col style="width: 100px;">
+        <col>
+    </colgroup>
+    <tr>
+        <th>备注</th>
+        <td>${escapeHtml(remark)}</td>
+    </tr>
+</table>
+
+<div class="footer">
+    辅导员签名：${counselorName}<br>
+    记录时间：${exportDate}
+</div>
+
+</body>
+</html>`;
+
+    // 导出Word文件
+    const blob = new Blob(['\ufeff' + reportHtml], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${record.studentName}_${record.className}_学业帮扶过程记录.doc`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    if (typeof showMessage === 'function') showMessage('帮扶过程报告已导出', 'success');
+}
 
 // ==================== 导出帮扶总结报告 ====================
 function exportSupportReport() {
@@ -22561,6 +23690,2088 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 console.log('✅ 学业困难帮扶台账模块已加载（含批量导入挂科名单功能）');
+// ==================== 完整版系统增强（最终优化版） ====================
+
+// ==================== 1. 数据初始化 ====================
+const GROWTH_KEY = 'studentGrowthRecords';
+const DORM_KEY = 'dormChangeRecords';
+
+function initGrowthData() {
+    if (localStorage.getItem(GROWTH_KEY) === null) localStorage.setItem(GROWTH_KEY, '[]');
+    if (localStorage.getItem(DORM_KEY) === null) localStorage.setItem(DORM_KEY, '[]');
+}
+
+// ==================== 2. 首页仪表盘 ====================
+
+function getWarningStudents() {
+    const warnings = [];
+    const now = new Date();
+    
+    if (typeof getAllClassAttendRecords === 'function') {
+        const attendRecords = getAllClassAttendRecords();
+        const studentAbsence = {};
+        attendRecords.forEach(r => {
+            if (!studentAbsence[r.studentId]) studentAbsence[r.studentId] = { name: r.studentName, className: r.className, hours: 0 };
+            studentAbsence[r.studentId].hours += r.absenceHours || 0;
+        });
+        Object.values(studentAbsence).forEach(s => {
+            if (s.hours >= 4) warnings.push({ type: 'danger', title: '⚠️ 旷课预警', studentName: s.name, className: s.className, detail: `累计旷课${s.hours}课时`, level: s.hours >= 8 ? '严重' : '一般' });
+        });
+    }
+    
+    if (typeof getAllLatecomeRecords === 'function') {
+        const latecomeRecords = getAllLatecomeRecords();
+        const studentLatecome = {};
+        latecomeRecords.forEach(r => {
+            if (!studentLatecome[r.studentId]) studentLatecome[r.studentId] = { name: r.studentName, className: r.className, count: 0 };
+            studentLatecome[r.studentId].count++;
+        });
+        Object.values(studentLatecome).forEach(s => {
+            if (s.count >= 3) warnings.push({ type: 'warning', title: '🌙 晚归预警', studentName: s.name, className: s.className, detail: `本月晚归${s.count}次`, level: s.count >= 5 ? '严重' : '一般' });
+        });
+    }
+    
+    if (typeof getAllDisciplineRecords === 'function') {
+        const disciplineRecords = getAllDisciplineRecords();
+        disciplineRecords.forEach(r => {
+            if (!r.isResolved && r.punishmentEnd) {
+                const daysLeft = Math.ceil((new Date(r.punishmentEnd) - now) / (1000 * 60 * 60 * 24));
+                if (daysLeft <= 30 && daysLeft > 0) warnings.push({ type: 'warning', title: '📜 处分即将到期', studentName: r.studentName, className: r.className, detail: `${r.punishmentType}处分，${daysLeft}天后到期`, level: daysLeft <= 7 ? '紧急' : '一般' });
+                else if (daysLeft < 0) warnings.push({ type: 'danger', title: '⚠️ 处分已超期', studentName: r.studentName, className: r.className, detail: `${r.punishmentType}处分已超期${Math.abs(daysLeft)}天`, level: '严重' });
+            }
+        });
+    }
+    
+    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const talkedStudents = new Set();
+    talkRecords.forEach(r => { if (new Date(r.talkTime) >= thirtyDaysAgo) talkedStudents.add(r.studentId); });
+    students.forEach(s => {
+        if ((s.riskLevel === 'red' || s.riskLevel === 'yellow') && !talkedStudents.has(s.studentId)) {
+            warnings.push({ type: 'warning', title: '📝 长期未谈话', studentName: s.name, className: s.className, detail: `${s.riskLevel === 'red' ? '红色预警' : '黄色关注'}学生超过30天未谈话`, level: s.riskLevel === 'red' ? '严重' : '一般' });
+        }
+    });
+    return warnings.slice(0, 15);
+}
+
+function renderDashboard() {
+    const dashboardHtml = `
+        <div id="dashboardTab" class="content-tab" style="display:block;">
+            <div class="card">
+                <h2 class="card-title">📊 工作台首页</h2>
+                <div style="background:linear-gradient(135deg,#2c3e50,#3498db);border-radius:12px;padding:25px;margin-bottom:20px;color:white;">
+                    <div style="display:flex;justify-content:space-between;flex-wrap:wrap;">
+                        <div><h3 style="margin:0;">欢迎回来，${getCurrentUserName()}！</h3><p>${new Date().toLocaleString('zh-CN', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p></div>
+                        <div style="text-align:center;"><div style="font-size:36px;font-weight:bold;">${students.length}</div><div>管理学生</div></div>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-bottom:25px;">
+                    <div style="background:#e3f2fd;border-radius:10px;padding:15px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${talkRecords.length}</div><div>总谈话次数</div></div>
+                    <div style="background:#ffebee;border-radius:10px;padding:15px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${students.filter(s=>s.riskLevel==='red').length}</div><div>红色预警</div></div>
+                    <div style="background:#fff8e1;border-radius:10px;padding:15px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${students.filter(s=>s.riskLevel==='yellow').length}</div><div>黄色关注</div></div>
+                    <div style="background:#e8f5e9;border-radius:10px;padding:15px;text-align:center;"><div style="font-size:28px;font-weight:bold;">${students.filter(s=>s.riskLevel==='green').length}</div><div>绿色正常</div></div>
+                </div>
+                <div style="margin-bottom:25px;"><h3>⚠️ 预警提醒 <span style="background:#e74c3c;color:white;padding:2px 8px;border-radius:20px;font-size:12px;">${getWarningStudents().length}</span></h3><div id="warningList" style="max-height:300px;overflow-y:auto;"></div></div>
+                <div style="margin-bottom:25px;"><h3>🚀 快捷入口</h3><div style="display:flex;gap:12px;flex-wrap:wrap;"><button class="btn" style="background:#3498db;color:white;padding:10px 20px;" onclick="switchTab('record')">📝 新建谈话</button><button class="btn" style="background:#27ae60;color:white;padding:10px 20px;" onclick="switchTab('students')">👥 学生管理</button><button class="btn" style="background:#e74c3c;color:white;padding:10px 20px;" onclick="switchTab('attendanceStats')">📊 考勤统计</button><button class="btn" style="background:#9b59b6;color:white;padding:10px 20px;" onclick="switchTab('support')">📚 学业帮扶</button></div></div>
+                <div><h3>📋 近期动态</h3><div id="recentActivities" style="max-height:250px;overflow-y:auto;"></div></div>
+            </div>
+        </div>
+    `;
+    const mainSystem = document.getElementById('mainSystem');
+    if (!document.getElementById('dashboardTab') && mainSystem) {
+        mainSystem.insertAdjacentHTML('afterbegin', dashboardHtml);
+    } else {
+        const existing = document.getElementById('dashboardTab');
+        if (existing) existing.innerHTML = dashboardHtml;
+    }
+    renderWarningList();
+    renderRecentActivities();
+}
+
+function renderWarningList() {
+    const container = document.getElementById('warningList');
+    if (!container) return;
+    const warnings = getWarningStudents();
+    if (warnings.length === 0) { container.innerHTML = '<div style="background:#e8f5e9;padding:20px;text-align:center;border-radius:8px;">✅ 暂无预警信息</div>'; return; }
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    warnings.forEach(w => {
+        const bgColor = w.type === 'danger' ? '#ffebee' : '#fff8e1';
+        const borderColor = w.type === 'danger' ? '#c62828' : '#f57f17';
+        html += `<div style="background:${bgColor};border-left:4px solid ${borderColor};padding:12px;border-radius:6px;display:flex;justify-content:space-between;"><div><div style="font-weight:bold;">${w.title}</div><div><strong>${escapeHtml(w.studentName)}</strong> (${escapeHtml(w.className)})</div><div style="font-size:12px;">${w.detail}</div></div><div><span style="background:${borderColor};color:white;padding:2px 10px;border-radius:12px;">${w.level}</span><button class="btn" style="padding:4px 12px;margin-left:10px;background:${borderColor};color:white;" onclick="goToStudent('${escapeHtml(w.studentName)}')">查看</button></div></div>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function renderRecentActivities() {
+    const container = document.getElementById('recentActivities');
+    if (!container) return;
+    const activities = [];
+    [...talkRecords].sort((a,b)=>new Date(b.talkTime)-new Date(a.talkTime)).slice(0,3).forEach(r => activities.push({ time: formatDate(r.talkTime), content: `与 ${escapeHtml(r.studentName)} 进行了谈话` }));
+    if (typeof getAllDormCheckRecords === 'function') {
+        getAllDormCheckRecords().sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,2).forEach(r => activities.push({ time: formatDate(r.date), content: `查寝：${escapeHtml(r.dormitories)}` }));
+    }
+    activities.sort((a,b)=>b.time.localeCompare(a.time));
+    if (activities.length === 0) { container.innerHTML = '<div style="background:#f8f9fa;padding:20px;text-align:center;">暂无近期动态</div>'; return; }
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    activities.forEach(a => html += `<div style="background:#f8f9fa;padding:10px 15px;border-left:3px solid #3498db;"><div style="font-size:12px;color:#666;">${a.time}</div><div>${a.content}</div></div>`);
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+// 修改前（跳转到学生数据库）
+function goToStudent(studentName) { 
+    switchTab('students'); 
+    setTimeout(() => { 
+        const input = document.getElementById('searchStudentsInput'); 
+        if(input) { 
+            input.value = studentName; 
+            if(typeof simpleSearchStudents === 'function') simpleSearchStudents(); 
+        } 
+    }, 200); 
+}
+
+// 修改后（跳转到成长档案）
+function goToStudent(studentName) {
+    // 先切换到成长档案Tab
+    switchTab('growth');
+    setTimeout(() => {
+        // 在成长档案的搜索框中填入学生姓名并触发查询
+        const searchInput = document.getElementById('growthStudentSearch');
+        const selectEl = document.getElementById('growthStudentSelect');
+        if (searchInput) {
+            searchInput.value = studentName;
+            // 触发搜索匹配
+            if (typeof initGrowthStudentSearch === 'function') {
+                // 手动查找匹配的学生
+                const matchedStudent = students.find(s => s.name === studentName);
+                if (matchedStudent && selectEl) {
+                    selectEl.value = matchedStudent.studentId;
+                    searchInput.value = `${matchedStudent.name} (${matchedStudent.studentId})`;
+                    if (typeof loadGrowthCard === 'function') {
+                        loadGrowthCard();
+                    }
+                }
+            }
+        }
+        // 隐藏全局搜索下拉框（如果有）
+        const dropdown = document.getElementById('globalSearchDropdown');
+        if (dropdown) dropdown.style.display = 'none';
+    }, 300);
+}
+
+// ==================== 3. 全局搜索 ====================
+
+function createGlobalSearch() {
+    const header = document.querySelector('.header');
+    if (!header || document.getElementById('globalSearchInput')) return;
+    
+    const searchHtml = `
+        <div style="position:relative;margin-right:15px;">
+            <input type="text" id="globalSearchInput" class="form-control" placeholder="🔍 搜索学生姓名、学号..." style="width:280px;padding:8px 15px;">
+            <div id="globalSearchDropdown" style="position:absolute;top:100%;left:0;right:0;background:white;border:1px solid #ddd;border-radius:6px;max-height:350px;overflow-y:auto;z-index:1000;display:none;box-shadow:0 2px 10px rgba(0,0,0,0.1);"></div>
+        </div>
+    `;
+    const userInfo = header.querySelector('.user-info');
+    if (userInfo) {
+        const div = document.createElement('div');
+        div.innerHTML = searchHtml;
+        header.insertBefore(div.firstElementChild, userInfo);
+    }
+    
+    const input = document.getElementById('globalSearchInput');
+    const dropdown = document.getElementById('globalSearchDropdown');
+    
+    input.addEventListener('input', function() {
+        const keyword = this.value.trim();
+        if (!keyword) { dropdown.style.display = 'none'; return; }
+        const results = students.filter(s => s.name.includes(keyword) || s.studentId.includes(keyword)).slice(0, 8);
+        if (results.length === 0) {
+            dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">未找到学生</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        dropdown.innerHTML = results.map(s => `
+            <div style="padding:12px;cursor:pointer;border-bottom:1px solid #eee;display:flex;justify-content:space-between;" onclick="showStudentFromSearch('${s.studentId}')">
+                <div><strong>${escapeHtml(s.name)}</strong><br><span style="font-size:11px;color:#666;">${s.studentId} | ${s.className}</span></div>
+                <span style="color:#3498db;">查看档案 →</span>
+            </div>
+        `).join('');
+        dropdown.style.display = 'block';
+    });
+    
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('#globalSearchInput') && !e.target.closest('#globalSearchDropdown')) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function showStudentFromSearch(studentId) {
+    const selectEl = document.getElementById('growthStudentSelect');
+    if (selectEl) {
+        selectEl.value = studentId;
+        loadGrowthCard();
+    }
+    const growthNav = document.getElementById('growthNavItem');
+    if (growthNav) growthNav.click();
+    document.getElementById('globalSearchDropdown').style.display = 'none';
+}
+
+// ==================== 4. 成长档案（卡片式 + 搜索选择） ====================
+
+function renderGrowthTab() {
+    if (document.getElementById('growthTab')) return;
+    
+    // 构建学生选项（带搜索功能）
+    const studentOptions = students.map(s => `<option value="${s.studentId}">${s.name} (${s.className})</option>`).join('');
+    
+    const growthHtml = `
+        <div id="growthTab" class="content-tab" style="display:none;">
+            <div class="card">
+                <h2 class="card-title">📈 学生成长档案</h2>
+                <div style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;align-items:center;">
+                    <div style="position:relative;flex:1;min-width:250px;">
+                        <input type="text" id="growthStudentSearch" class="form-control" placeholder="🔍 输入姓名或学号搜索学生..." autocomplete="off" style="width:100%;">
+                        <div id="growthStudentDropdown" class="search-select-dropdown" style="display:none;max-height:250px;overflow-y:auto;"></div>
+                    </div>
+                    <select id="growthStudentSelect" class="form-control" style="width:200px;display:none;">
+                        <option value="">-- 请选择学生 --</option>
+                        ${studentOptions}
+                    </select>
+                    <button class="btn btn-primary" onclick="loadGrowthCard()">查看档案</button>
+                    <button class="btn btn-info" onclick="showAddHonor()">🏆 添加荣誉</button>
+                    <button class="btn btn-warning" onclick="showAddDorm()">🏠 宿舍调换</button>
+                </div>
+                <div id="growthCardContainer" style="min-height:450px;">
+                    <div style="text-align:center;padding:80px;color:#999;background:#f8f9fa;border-radius:12px;">
+                        <div style="font-size:48px;margin-bottom:15px;">📈</div>
+                        <p>请输入学生姓名或学号搜索，然后点击"查看档案"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    const mainSystem = document.getElementById('mainSystem');
+    if (mainSystem) mainSystem.insertAdjacentHTML('beforeend', growthHtml);
+    
+    // 初始化搜索功能
+    initGrowthStudentSearch();
+}
+
+function initGrowthStudentSearch() {
+    const searchInput = document.getElementById('growthStudentSearch');
+    const dropdown = document.getElementById('growthStudentDropdown');
+    const selectEl = document.getElementById('growthStudentSelect');
+    
+    if (!searchInput || !dropdown) return;
+    
+    const searchStudents = (keyword) => {
+        if (!keyword.trim()) {
+            dropdown.style.display = 'none';
+            return;
+        }
+        const results = students.filter(s => 
+            s.name.includes(keyword) || 
+            s.studentId.includes(keyword) ||
+            s.className.includes(keyword)
+        ).slice(0, 10);
+        
+        if (results.length === 0) {
+            dropdown.innerHTML = '<div style="padding:12px;text-align:center;color:#999;">未找到学生</div>';
+            dropdown.style.display = 'block';
+            return;
+        }
+        
+        dropdown.innerHTML = results.map(s => `
+            <div class="search-select-item" style="padding:10px;cursor:pointer;border-bottom:1px solid #eee;" onclick="selectGrowthStudent('${s.studentId}', '${escapeHtml(s.name)} (${s.studentId})')">
+                <div><strong>${escapeHtml(s.name)}</strong><br><span style="font-size:11px;color:#666;">${s.studentId} | ${s.className}</span></div>
+            </div>
+        `).join('');
+        dropdown.style.display = 'block';
+    };
+    
+    searchInput.addEventListener('input', function(e) {
+        searchStudents(e.target.value);
+    });
+    
+    searchInput.addEventListener('focus', function() {
+        if (this.value.trim()) searchStudents(this.value);
+    });
+    
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+}
+
+function selectGrowthStudent(studentId, displayName) {
+    const searchInput = document.getElementById('growthStudentSearch');
+    const selectEl = document.getElementById('growthStudentSelect');
+    searchInput.value = displayName;
+    selectEl.value = studentId;
+    document.getElementById('growthStudentDropdown').style.display = 'none';
+    loadGrowthCard();
+}
+
+function loadGrowthCard() {
+    const selectEl = document.getElementById('growthStudentSelect');
+    const studentId = selectEl.value;
+    const searchInput = document.getElementById('growthStudentSearch');
+    
+    if (!studentId && !searchInput.value) {
+        document.getElementById('growthCardContainer').innerHTML = `
+            <div style="text-align:center;padding:80px;color:#999;background:#f8f9fa;border-radius:12px;">
+                <div style="font-size:48px;margin-bottom:15px;">📈</div>
+                <p>请输入学生姓名或学号搜索，然后点击"查看档案"</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let finalStudentId = studentId;
+    if (!finalStudentId && searchInput.value) {
+        const matched = students.find(s => 
+            s.name.includes(searchInput.value) || 
+            s.studentId.includes(searchInput.value)
+        );
+        if (matched) finalStudentId = matched.studentId;
+    }
+    
+    if (!finalStudentId) {
+        showMessage('未找到该学生，请重新搜索', 'error');
+        return;
+    }
+    
+    const student = students.find(s => s.studentId === finalStudentId);
+    if (!student) return;
+    
+    selectEl.value = finalStudentId;
+    searchInput.value = `${student.name} (${student.studentId})`;
+    
+    // 获取各类数据
+    const talks = talkRecords.filter(r => r.studentId === finalStudentId).sort((a,b) => new Date(b.talkTime) - new Date(a.talkTime));
+    const attends = (typeof getAllClassAttendRecords === 'function' ? getAllClassAttendRecords() : JSON.parse(localStorage.getItem('classAttendRecords')||'[]')).filter(r => r.studentId === finalStudentId);
+    const disciplines = (typeof getStudentDisciplineRecords === 'function' ? getStudentDisciplineRecords(finalStudentId) : []);
+    const latecomes = (typeof getStudentLatecomeRecords === 'function' ? getStudentLatecomeRecords(finalStudentId) : []);
+    const supports = (typeof getAllSupportRecords === 'function' ? getAllSupportRecords() : []).filter(r => r.studentId === finalStudentId);
+    const psychs = (typeof getStudentPsychologicalRecords === 'function' ? getStudentPsychologicalRecords(finalStudentId) : []);
+    const growth = JSON.parse(localStorage.getItem(GROWTH_KEY) || '[]').filter(r => r.studentId === finalStudentId);
+    const dormChanges = JSON.parse(localStorage.getItem(DORM_KEY) || '[]').filter(r => r.studentId === finalStudentId);
+    
+    // 统计数据
+    const talkCount = talks.length;
+    const totalHours = attends.reduce((s,a) => s + (a.absenceHours || 0), 0);
+    const lateCount = attends.filter(a => a.status === '迟到').length;
+    const absentCount = attends.filter(a => a.status === '旷课').length;
+    const disciplineCount = disciplines.length;
+    const latecomeCount = latecomes.length;
+    const honorCount = growth.length;
+    const psychCount = psychs.length;
+    
+    let riskColor = '#2e7d32', riskText = '绿色正常';
+    if (student.riskLevel === 'red') { riskColor = '#c62828'; riskText = '红色预警'; }
+    else if (student.riskLevel === 'yellow') { riskColor = '#f57f17'; riskText = '黄色关注'; }
+    
+    // 荣誉分类
+    let awardsHtml = '', certificatesHtml = '', positionsHtml = '', volunteersHtml = '';
+    growth.forEach(g => {
+        if (g.type === 'award') awardsHtml += `<div class="honor-item award">🏆 ${g.awardName}<span class="honor-date">${g.date||''}</span></div>`;
+        if (g.type === 'certificate') certificatesHtml += `<div class="honor-item certificate">📜 ${g.certName}<span class="honor-date">${g.date||''}</span></div>`;
+        if (g.type === 'position') positionsHtml += `<div class="honor-item position">👔 ${g.positionName}<span class="honor-date">${g.period||''}</span></div>`;
+        if (g.type === 'volunteer') volunteersHtml += `<div class="honor-item volunteer">🤝 ${g.activityName}<span class="honor-date">${g.hours}小时</span></div>`;
+    });
+    
+    // 谈话记录
+    let talkItemsHtml = '';
+    if (talks.length === 0) {
+        talkItemsHtml = '<div class="empty-tip">暂无谈话记录</div>';
+    } else {
+        talks.slice(0,5).forEach(t => {
+            let tRiskColor = t.riskLevel === 'red' ? '#c62828' : (t.riskLevel === 'yellow' ? '#f57f17' : '#2e7d32');
+            let tRiskText = t.riskLevel === 'red' ? '红色预警' : (t.riskLevel === 'yellow' ? '黄色关注' : '绿色正常');
+            talkItemsHtml += `
+                <div class="talk-item">
+                    <div class="talk-time">${formatDate(t.talkTime)}</div>
+                    <div class="talk-topics">${t.topics ? t.topics.join('、') : '-'}</div>
+                    <div class="talk-risk" style="color:${tRiskColor};">${tRiskText}</div>
+                    <div class="talk-feedback">${escapeHtml((t.talkFeedback || '').substring(0,40))}</div>
+                </div>
+            `;
+        });
+    }
+    
+    // 处分记录
+    let disciplineItemsHtml = '';
+    if (disciplines.length === 0) {
+        disciplineItemsHtml = '<div class="empty-tip">暂无处分记录</div>';
+    } else {
+        disciplines.forEach(d => {
+            let dStatus = d.isResolved ? '已解除' : '未解除';
+            let dColor = d.isResolved ? '#27ae60' : '#c62828';
+            disciplineItemsHtml += `
+                <div class="discipline-item">
+                    <div class="discipline-type">${d.punishmentType}</div>
+                    <div class="discipline-reason">${d.violation}</div>
+                    <div class="discipline-date">${d.punishmentStart || '-'} 至 ${d.punishmentEnd || '-'}</div>
+                    <div class="discipline-status" style="color:${dColor};">${dStatus}</div>
+                </div>
+            `;
+        });
+    }
+    
+    // 考勤记录
+    let attendItemsHtml = '';
+    if (attends.length === 0) {
+        attendItemsHtml = '<div class="empty-tip">暂无考勤记录</div>';
+    } else {
+        attends.slice(0,5).forEach(a => {
+            let aColor = a.status === '迟到' ? '#f39c12' : '#c62828';
+            attendItemsHtml += `
+                <div class="attend-item">
+                    <div class="attend-date">${a.date}</div>
+                    <div class="attend-period">${a.period}</div>
+                    <div class="attend-status" style="color:${aColor};">${a.status}</div>
+                    <div class="attend-hours">${a.absenceHours || 0}课时</div>
+                </div>
+            `;
+        });
+    }
+    
+    // 晚归记录
+    let lateItemsHtml = '';
+    if (latecomes.length === 0) {
+        lateItemsHtml = '<div class="empty-tip">暂无晚归记录</div>';
+    } else {
+        latecomes.slice(0,5).forEach(l => {
+            lateItemsHtml += `
+                <div class="late-item">
+                    <div class="late-time">${l.lateDate || '-'}</div>
+                    <div class="late-reason">${escapeHtml(l.reason)}</div>
+                    <div class="late-expected">${escapeHtml(l.expectedTime || '-')}</div>
+                </div>
+            `;
+        });
+    }
+    
+    // 学业帮扶
+    let supportHtml = supports[0] ? 
+        `<div class="support-card">
+            <div class="support-status">状态：${supports[0].status || '进行中'}</div>
+            <div class="support-issues">📖 ${escapeHtml((supports[0].mainIssues || '').substring(0,100))}</div>
+            <div class="support-goal">🎯 ${escapeHtml((supports[0].supportGoal || '').substring(0,100))}</div>
+        </div>` : '<div class="empty-tip">未纳入学业帮扶台账</div>';
+    
+    // 心理档案
+    let psychItemsHtml = '';
+    if (psychs.length === 0) {
+        psychItemsHtml = '<div class="empty-tip">暂无心理档案</div>';
+    } else {
+        psychs.slice(0,3).forEach(p => {
+            psychItemsHtml += `
+                <div class="psych-item">
+                    <div class="psych-type">${p.type === 'assessment' ? '📋 心理测评' : '📞 咨询转介'}</div>
+                    <div class="psych-content">${p.type === 'assessment' ? `${p.scaleName || ''}：${p.result || ''}` : `转介至${p.counselor || ''}`}</div>
+                    <div class="psych-date">${new Date(p.recordDate).toLocaleDateString()}</div>
+                </div>
+            `;
+        });
+    }
+    
+    // 宿舍调换
+    let dormItemsHtml = '';
+    if (dormChanges.length === 0) {
+        dormItemsHtml = '<div class="empty-tip">暂无宿舍调换记录</div>';
+    } else {
+        dormChanges.forEach(d => {
+            dormItemsHtml += `
+                <div class="dorm-item">
+                    <div class="dorm-date">${d.changeDate}</div>
+                    <div class="dorm-change">${d.oldDorm || '原宿舍'} → ${d.newDorm}</div>
+                    <div class="dorm-reason">${d.reason || '未填写'}</div>
+                </div>
+            `;
+        });
+    }
+    
+    const cardHtml = `
+        <style>
+            .growth-archive-card {
+                background: white;
+                border-radius: 20px;
+                overflow: hidden;
+                box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            }
+            .growth-header {
+                background: linear-gradient(135deg, #2c3e50, #3498db);
+                padding: 25px 30px;
+                color: white;
+            }
+            .growth-header h2 {
+                margin: 0 0 5px 0;
+                font-size: 24px;
+            }
+            .growth-header p {
+                margin: 0;
+                opacity: 0.85;
+                font-size: 14px;
+            }
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(6, 1fr);
+                gap: 15px;
+                padding: 25px 30px;
+                background: #f8f9fa;
+                border-bottom: 1px solid #eee;
+            }
+            .stat-box {
+                background: white;
+                border-radius: 16px;
+                padding: 15px;
+                text-align: center;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+                transition: transform 0.2s;
+            }
+            .stat-box:hover { transform: translateY(-2px); }
+            .stat-number { font-size: 32px; font-weight: bold; color: #2c3e50; }
+            .stat-label { font-size: 12px; color: #666; margin-top: 5px; }
+            
+            .three-col {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 25px;
+                padding: 25px 30px;
+                background: white;
+            }
+            .col {
+                background: #f8f9fa;
+                border-radius: 16px;
+                overflow: hidden;
+            }
+            .col-header {
+                background: linear-gradient(135deg, #3498db, #2980b9);
+                color: white;
+                padding: 12px 16px;
+                font-weight: bold;
+                font-size: 15px;
+            }
+            .col-content {
+                padding: 15px;
+                max-height: 400px;
+                overflow-y: auto;
+            }
+            
+            /* 谈话记录样式 */
+            .talk-item {
+                background: white;
+                border-radius: 10px;
+                padding: 12px;
+                margin-bottom: 10px;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            }
+            .talk-time { font-size: 11px; color: #999; margin-bottom: 5px; }
+            .talk-topics { font-weight: bold; font-size: 13px; margin-bottom: 4px; }
+            .talk-risk { font-size: 11px; font-weight: bold; display: inline-block; }
+            .talk-feedback { font-size: 12px; color: #666; margin-top: 6px; }
+            
+            /* 处分记录样式 */
+            .discipline-item {
+                background: #ffebee;
+                border-radius: 10px;
+                padding: 10px 12px;
+                margin-bottom: 8px;
+                border-left: 3px solid #c62828;
+            }
+            .discipline-type { font-weight: bold; font-size: 13px; color: #c62828; }
+            .discipline-reason { font-size: 12px; margin: 4px 0; }
+            .discipline-date { font-size: 11px; color: #666; }
+            .discipline-status { font-size: 11px; font-weight: bold; margin-top: 4px; }
+            
+            /* 考勤记录样式 */
+            .attend-item {
+                display: flex;
+                justify-content: space-between;
+                background: white;
+                padding: 8px 12px;
+                border-radius: 8px;
+                margin-bottom: 6px;
+                font-size: 12px;
+            }
+            .attend-date { width: 80px; color: #666; }
+            .attend-period { width: 70px; }
+            .attend-status { width: 50px; font-weight: bold; }
+            .attend-hours { width: 50px; text-align: right; }
+            
+            /* 晚归记录样式 */
+            .late-item {
+                background: #fff8e1;
+                border-radius: 10px;
+                padding: 10px 12px;
+                margin-bottom: 8px;
+                border-left: 3px solid #f39c12;
+            }
+            .late-time { font-weight: bold; font-size: 13px; }
+            .late-reason { font-size: 12px; margin: 4px 0; color: #e67e22; }
+            .late-expected { font-size: 11px; color: #666; }
+            
+            /* 荣誉样式 */
+            .honor-item {
+                background: white;
+                border-radius: 8px;
+                padding: 8px 12px;
+                margin-bottom: 6px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-size: 13px;
+            }
+            .honor-item.award { border-left: 3px solid #27ae60; }
+            .honor-item.certificate { border-left: 3px solid #3498db; }
+            .honor-item.position { border-left: 3px solid #9b59b6; }
+            .honor-item.volunteer { border-left: 3px solid #e67e22; }
+            .honor-date { font-size: 11px; color: #999; }
+            
+            /* 学业帮扶样式 */
+            .support-card {
+                background: #e8f5e9;
+                border-radius: 12px;
+                padding: 12px;
+            }
+            .support-status { font-weight: bold; color: #2e7d32; margin-bottom: 8px; }
+            .support-issues { font-size: 13px; margin-bottom: 6px; }
+            .support-goal { font-size: 13px; color: #555; }
+            
+            /* 心理档案样式 */
+            .psych-item {
+                background: #f3e5f5;
+                border-radius: 10px;
+                padding: 10px 12px;
+                margin-bottom: 8px;
+            }
+            .psych-type { font-weight: bold; font-size: 12px; color: #9b59b6; }
+            .psych-content { font-size: 12px; margin: 4px 0; }
+            .psych-date { font-size: 10px; color: #999; }
+            
+            /* 宿舍调换样式 */
+            .dorm-item {
+                background: white;
+                border-radius: 10px;
+                padding: 10px 12px;
+                margin-bottom: 8px;
+                border-left: 3px solid #3498db;
+            }
+            .dorm-date { font-weight: bold; font-size: 12px; }
+            .dorm-change { font-size: 13px; margin: 4px 0; }
+            .dorm-reason { font-size: 11px; color: #666; }
+            
+            .empty-tip { text-align: center; color: #999; padding: 20px; font-size: 13px; }
+            .dorm-section {
+                padding: 20px 30px;
+                border-top: 1px solid #eee;
+                background: #f8f9fa;
+            }
+            .dorm-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 15px;
+            }
+            .dorm-header strong { font-size: 15px; }
+            .btn-sm { padding: 4px 12px; font-size: 12px; background: #3498db; color: white; border: none; border-radius: 6px; cursor: pointer; }
+            .btn-sm:hover { background: #2980b9; }
+        </style>
+        
+        <div class="growth-archive-card">
+            <div class="growth-header">
+                <h2>${student.name} 综合成长档案</h2>
+                <p>${student.className} | 学号：${student.studentId} | 风险等级：<span style="color:${riskColor};">${riskText}</span></p>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box"><div class="stat-number">${talkCount}</div><div class="stat-label">谈话次数</div></div>
+                <div class="stat-box"><div class="stat-number">${totalHours}</div><div class="stat-label">旷课课时</div></div>
+                <div class="stat-box"><div class="stat-number">${latecomeCount}</div><div class="stat-label">晚归次数</div></div>
+                <div class="stat-box"><div class="stat-number">${disciplineCount}</div><div class="stat-label">处分记录</div></div>
+                <div class="stat-box"><div class="stat-number">${honorCount}</div><div class="stat-label">荣誉证书</div></div>
+                <div class="stat-box"><div class="stat-number">${psychCount}</div><div class="stat-label">心理档案</div></div>
+            </div>
+            
+            <div class="three-col">
+                <div class="col">
+                    <div class="col-header">📝 行为记录</div>
+                    <div class="col-content">
+                        <div style="margin-bottom: 20px;"><strong style="font-size:13px;">📋 谈心谈话</strong>${talkItemsHtml}</div>
+                        <div><strong style="font-size:13px;">⚠️ 处分记录</strong>${disciplineItemsHtml}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="col-header">📚 学业表现</div>
+                    <div class="col-content">
+                        <div style="margin-bottom: 20px;">
+                            <strong style="font-size:13px;">📊 考勤统计</strong>
+                            <div style="background:#e8f5e9;padding:8px;border-radius:8px;margin:8px 0;font-size:12px;">迟到${lateCount}次，旷课${absentCount}次，累计旷课课时${totalHours}</div>
+                            ${attendItemsHtml}
+                        </div>
+                        <div style="margin-bottom: 20px;"><strong style="font-size:13px;">🌙 晚归记录</strong>${lateItemsHtml}</div>
+                        <div><strong style="font-size:13px;">📖 学业帮扶</strong>${supportHtml}</div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="col-header">🏆 荣誉成长</div>
+                    <div class="col-content">
+                        ${awardsHtml || ''}
+                        ${certificatesHtml || ''}
+                        ${positionsHtml || ''}
+                        ${volunteersHtml || ''}
+                        ${!awardsHtml && !certificatesHtml && !positionsHtml && !volunteersHtml ? '<div class="empty-tip">暂无荣誉记录</div>' : ''}
+                        <div style="margin-top: 15px;"><strong style="font-size:13px;">🧠 心理档案</strong>${psychItemsHtml}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="dorm-section">
+                <div class="dorm-header">
+                    <strong>🏠 宿舍调换记录</strong>
+                    <button class="btn-sm" onclick="showAddDorm()">+ 添加调换</button>
+                </div>
+                <div style="max-height: 200px; overflow-y: auto;">
+                    ${dormItemsHtml}
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('growthCardContainer').innerHTML = cardHtml;
+}
+
+// ==================== 5. 添加荣誉记录 ====================
+
+function showAddHonor() {
+    const selectEl = document.getElementById('growthStudentSelect');
+    const studentId = selectEl.value;
+    if (!studentId) { showMessage('请先选择学生', 'error'); return; }
+    const student = students.find(s => s.studentId === studentId);
+    if (!student) return;
+    
+    const modalHtml = `
+        <div class="modal" id="honorModal" style="display:flex;z-index:10032;">
+            <div class="modal-content" style="max-width:450px;">
+                <h3>🏆 添加荣誉记录 - ${student.name}</h3>
+                <div class="form-group"><label>记录类型</label><select id="honorType" class="form-control" onchange="toggleHonorForm()"><option value="award">获奖记录</option><option value="certificate">证书考取</option><option value="position">担任职务</option><option value="volunteer">志愿服务</option></select></div>
+                <div id="awardForm"><div class="form-group"><label>获奖名称</label><input type="text" id="awardName" class="form-control"></div><div class="form-group"><label>获奖级别</label><select id="awardLevel"><option>校级</option><option>市级</option><option>省级</option><option>国家级</option></select></div><div class="form-group"><label>获奖日期</label><input type="date" id="awardDate"></div></div>
+                <div id="certForm" style="display:none;"><div class="form-group"><label>证书名称</label><input type="text" id="certName"></div><div class="form-group"><label>成绩</label><input type="text" id="certScore"></div><div class="form-group"><label>获得日期</label><input type="date" id="certDate"></div></div>
+                <div id="positionForm" style="display:none;"><div class="form-group"><label>职务名称</label><input type="text" id="positionName"></div><div class="form-group"><label>任职期限</label><input type="text" id="positionPeriod"></div></div>
+                <div id="volunteerForm" style="display:none;"><div class="form-group"><label>活动名称</label><input type="text" id="volunteerName"></div><div class="form-group"><label>服务时长</label><input type="number" id="volunteerHours"></div><div class="form-group"><label>活动日期</label><input type="date" id="volunteerDate"></div></div>
+                <div style="margin-top:15px;"><button class="btn btn-primary" onclick="saveHonorRecord('${studentId}')">保存</button><button class="btn" onclick="closeHonorModal()">取消</button></div>
+            </div>
+        </div>
+    `;
+    const old = document.getElementById('honorModal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'honorModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+    toggleHonorForm();
+}
+
+function toggleHonorForm() {
+    const type = document.getElementById('honorType').value;
+    document.getElementById('awardForm').style.display = type === 'award' ? 'block' : 'none';
+    document.getElementById('certForm').style.display = type === 'certificate' ? 'block' : 'none';
+    document.getElementById('positionForm').style.display = type === 'position' ? 'block' : 'none';
+    document.getElementById('volunteerForm').style.display = type === 'volunteer' ? 'block' : 'none';
+}
+
+function saveHonorRecord(studentId) {
+    const type = document.getElementById('honorType').value;
+    let data = {};
+    if (type === 'award') data = { awardName: document.getElementById('awardName').value, level: document.getElementById('awardLevel').value, date: document.getElementById('awardDate').value };
+    else if (type === 'certificate') data = { certName: document.getElementById('certName').value, score: document.getElementById('certScore').value, date: document.getElementById('certDate').value };
+    else if (type === 'position') data = { positionName: document.getElementById('positionName').value, period: document.getElementById('positionPeriod').value };
+    else if (type === 'volunteer') data = { activityName: document.getElementById('volunteerName').value, hours: document.getElementById('volunteerHours').value, date: document.getElementById('volunteerDate').value };
+    
+    const records = JSON.parse(localStorage.getItem(GROWTH_KEY) || '[]');
+    records.push({ id: Date.now(), studentId, type, ...data, createTime: new Date().toISOString() });
+    localStorage.setItem(GROWTH_KEY, JSON.stringify(records));
+    closeHonorModal();
+    loadGrowthCard();
+    showMessage('荣誉记录已添加', 'success');
+}
+
+function closeHonorModal() { const modal = document.getElementById('honorModal'); if (modal) modal.remove(); }
+
+// ==================== 6. 宿舍调换记录（详细版） ====================
+
+function showAddDorm() {
+    const selectEl = document.getElementById('growthStudentSelect');
+    const studentId = selectEl.value;
+    if (!studentId) { showMessage('请先选择学生', 'error'); return; }
+    const student = students.find(s => s.studentId === studentId);
+    if (!student) return;
+    
+    const modalHtml = `
+        <div class="modal" id="dormModal" style="display:flex;z-index:10031;">
+            <div class="modal-content" style="max-width:450px;">
+                <h3>🏠 宿舍调换 - ${student.name}</h3>
+                <div class="form-group"><label>调换日期 *</label><input type="date" id="dormDate" class="form-control" value="${new Date().toISOString().slice(0,10)}" required></div>
+                <div class="form-group"><label>原宿舍</label><input type="text" id="oldDorm" class="form-control" value="${student.dormitory||''}" readonly style="background:#f5f5f5;"></div>
+                <div class="form-group"><label>新宿舍 *</label><input type="text" id="newDorm" class="form-control" placeholder="如：10栋205" required></div>
+                <div class="form-group"><label>调换原因 *</label><select id="dormReason" class="form-control" required><option value="">请选择</option><option value="主动申请">主动申请</option><option value="违纪调换">违纪调换</option><option value="室友矛盾">室友矛盾</option><option value="班级调整">班级调整</option><option value="其他">其他</option></select></div>
+                <div class="form-group"><label>备注</label><textarea id="dormRemark" class="form-control" rows="2" placeholder="其他需要记录的信息..."></textarea></div>
+                <div style="margin-top:15px;"><button class="btn btn-primary" onclick="saveDormRecord('${studentId}')">保存</button><button class="btn" onclick="closeDormModal()">取消</button></div>
+            </div>
+        </div>
+    `;
+    const old = document.getElementById('dormModal');
+    if (old) old.remove();
+    const modal = document.createElement('div');
+    modal.id = 'dormModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+}
+
+function saveDormRecord(studentId) {
+    const newDorm = document.getElementById('newDorm').value;
+    const reason = document.getElementById('dormReason').value;
+    if (!newDorm) { showMessage('请填写新宿舍', 'error'); return; }
+    if (!reason) { showMessage('请选择调换原因', 'error'); return; }
+    
+    const records = JSON.parse(localStorage.getItem(DORM_KEY) || '[]');
+    records.push({
+        id: Date.now(),
+        studentId: studentId,
+        changeDate: document.getElementById('dormDate').value,
+        oldDorm: document.getElementById('oldDorm').value,
+        newDorm: newDorm,
+        reason: reason,
+        remark: document.getElementById('dormRemark').value,
+        createTime: new Date().toISOString()
+    });
+    localStorage.setItem(DORM_KEY, JSON.stringify(records));
+    
+    // 更新学生的当前宿舍
+    const idx = students.findIndex(s => s.studentId === studentId);
+    if (idx !== -1) {
+        students[idx].dormitory = newDorm;
+        localStorage.setItem('students', JSON.stringify(students));
+    }
+    closeDormModal();
+    loadGrowthCard();
+    showMessage('宿舍调换记录已保存', 'success');
+}
+
+function closeDormModal() { const modal = document.getElementById('dormModal'); if (modal) modal.remove(); }
+
+// ==================== 7. 添加导航菜单 ====================
+
+function addNavigationMenus() {
+    const navMenu = document.querySelector('.nav-menu');
+    if (!navMenu) return;
+    
+    // 创建首页菜单（如果不存在）
+    if (!document.getElementById('homeNavItem')) {
+        const homeNav = document.createElement('div');
+        homeNav.id = 'homeNavItem';
+        homeNav.className = 'nav-item';
+        homeNav.innerHTML = '🏠 工作台首页';
+        homeNav.onclick = () => {
+            document.querySelectorAll('.content-tab').forEach(tab => tab.style.display = 'none');
+            const dash = document.getElementById('dashboardTab');
+            if (dash) dash.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            homeNav.classList.add('active');
+            document.getElementById('pageTitle').textContent = '工作台首页';
+        };
+        navMenu.insertBefore(homeNav, navMenu.firstChild);
+    }
+    
+    // 创建成长档案菜单
+    if (!document.getElementById('growthNavItem')) {
+        const growthNav = document.createElement('div');
+        growthNav.id = 'growthNavItem';
+        growthNav.className = 'nav-item';
+        growthNav.innerHTML = '📈 成长档案';
+        growthNav.onclick = () => {
+            document.querySelectorAll('.content-tab').forEach(tab => tab.style.display = 'none');
+            const growthTab = document.getElementById('growthTab');
+            if (growthTab) growthTab.style.display = 'block';
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            growthNav.classList.add('active');
+            document.getElementById('pageTitle').textContent = '学生成长档案';
+        };
+        const homeNav = document.getElementById('homeNavItem');
+        if (homeNav && homeNav.nextSibling) {
+            navMenu.insertBefore(growthNav, homeNav.nextSibling);
+        } else {
+            navMenu.appendChild(growthNav);
+        }
+    }
+}
+
+// ==================== 8. 初始化 ====================
+
+function initModules() {
+    initGrowthData();
+    renderGrowthTab();
+    addNavigationMenus();
+    createGlobalSearch();
+    renderDashboard();
+}
+
+// 修改showMainSystem
+const originalShowMain = window.showMainSystem;
+window.showMainSystem = function() {
+    if (originalShowMain) originalShowMain();
+    initModules();
+    document.querySelectorAll('.content-tab').forEach(t => t.style.display = 'none');
+    const dash = document.getElementById('dashboardTab');
+    if (dash) dash.style.display = 'block';
+    const homeNav = document.getElementById('homeNavItem');
+    if (homeNav) homeNav.classList.add('active');
+    document.getElementById('pageTitle').textContent = '工作台首页';
+};
+
+// 辅助函数
+function escapeHtml(str) { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
+function formatDate(dateStr) { try { const d = new Date(dateStr); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; } catch(e) { return dateStr; } }
+function getCurrentUserName() { try { const u = JSON.parse(localStorage.getItem('currentUser') || '{}'); return u.fullname || '辅导员'; } catch(e) { return '辅导员'; } }
+function showMessage(msg, type) { alert(msg); }
+
+console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全局搜索 + 宿舍调换 + 荣誉记录');
+// ==================== 考勤识别模块（修复版：学生姓名精确匹配 + 查课记录导出） ====================
+(function() {
+    // ========== 1. 数据库操作 ==========
+    function getAllClassesFromDB() {
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        return [...new Set(students.map(s => s.className).filter(c => c))];
+    }
+    
+    function getStudentsByClass(className) {
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        return students.filter(s => s.className === className);
+    }
+    
+    // ========== 2. 智能节次识别（增强版） ==========
+    function smartPeriodRecognizer(text) {
+        // 中文数字映射
+        const chineseNum = {
+            '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
+            '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
+            '十一': 11, '十二': 12, '两': 2
+        };
+        
+        function toNumber(cn) {
+            if (!cn) return null;
+            if (chineseNum[cn]) return chineseNum[cn];
+            if (cn.includes('十')) {
+                const parts = cn.split('十');
+                if (parts.length === 2) {
+                    const first = chineseNum[parts[0]] || 1;
+                    const second = chineseNum[parts[1]] || 0;
+                    return first * 10 + second;
+                }
+            }
+            return parseInt(cn) || null;
+        }
+        
+        let periodText = '';
+        
+        const fieldPatterns = [
+            /时间[：:]\s*([^\n]+)/,
+            /节次[：:]\s*([^\n]+)/,
+            /上课时间[：:]\s*([^\n]+)/
+        ];
+        
+        for (const pattern of fieldPatterns) {
+            const match = text.match(pattern);
+            if (match && match[1]) {
+                periodText = match[1];
+                break;
+            }
+        }
+        
+        if (!periodText) {
+            const generalMatch = text.match(/(?:第|节)[^。\n]{0,50}(?:节|第)[^。\n]{0,50}/);
+            if (generalMatch) periodText = generalMatch[0];
+        }
+        
+        if (!periodText) return '';
+        
+        const rules = [
+            { regex: /第([一二三四五六七八九十两]+)([一二三四五六七八九十两]+)节/, handler: (m) => {
+                const start = toNumber(m[1]);
+                const end = toNumber(m[2]);
+                return start && end ? `第${start}-${end}节` : null;
+            }},
+            { regex: /第([一二三四五六七八九十两]+)[、，]([一二三四五六七八九十两]+)节/, handler: (m) => {
+                const start = toNumber(m[1]);
+                const end = toNumber(m[2]);
+                return start && end ? `第${start}-${end}节` : null;
+            }},
+            { regex: /第([一二三四五六七八九十两]+)节至第([一二三四五六七八九十两]+)节/, handler: (m) => {
+                const start = toNumber(m[1]);
+                const end = toNumber(m[2]);
+                return start && end ? `第${start}-${end}节` : null;
+            }},
+            { regex: /第(\d+)[-~](\d+)节/, handler: (m) => `第${m[1]}-${m[2]}节` },
+            { regex: /第(\d+)[、，](\d+)节/, handler: (m) => `第${m[1]}-${m[2]}节` },
+            { regex: /(\d+)[-~](\d+)\s*节/, handler: (m) => `第${m[1]}-${m[2]}节` },
+            { regex: /第(\d+)\s*节(?![-~])/, handler: (m) => {
+                const num = parseInt(m[1]);
+                return `第${num}-${num+1}节`;
+            }},
+            { regex: /第([一二三四五六七八九十两]+)\s*节(?![-~])/, handler: (m) => {
+                const num = toNumber(m[1]);
+                return num ? `第${num}-${num+1}节` : null;
+            }},
+            { regex: /周[一二三四五六日]?\s*([一二三四五六七八九十两]+)([一二三四五六七八九十两]+)节/, handler: (m) => {
+                const start = toNumber(m[1]);
+                const end = toNumber(m[2]);
+                return start && end ? `第${start}-${end}节` : null;
+            }},
+            { regex: /周[一二三四五六日]?\s*第(\d+)[-~](\d+)节/, handler: (m) => `第${m[1]}-${m[2]}节` }
+        ];
+        
+        for (const rule of rules) {
+            const match = periodText.match(rule.regex);
+            if (match) {
+                const result = rule.handler(match);
+                if (result) return result;
+            }
+        }
+        
+        return '';
+    }
+    
+    // ========== 3. 智能解析：提取学生及其状态（修复版：精确匹配数据库） ==========
+    function extractStudentsWithStatus(text, className) {
+        const dbStudents = getStudentsByClass(className);
+        const dbNames = dbStudents.map(s => s.name);
+        
+        const result = {
+            leave: [],
+            late: [],
+            absence: [],
+            unknown: [],
+            lateMinutes: {}
+        };
+        
+        const lines = text.split('\n');
+        
+        // 提取所有可能的人名（2-4个中文字符）
+        const allChineseNames = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+        const exclude = ['请假', '缺勤', '迟到', '旷课', '手机', '入袋', '特别', '提醒', 
+                         '本次', '考勤', '生效', '证明', '沟通', '处理', '异议', '早退', 
+                         '辅导员', '老师', '班级', '课程', '地点', '时间', '应到', '实到', 
+                         '任课', '备注', '附件', '图片', '收到', '回复', '好的', '明白',
+                         '收到请', '全体', '同学', '通知', '请查看', '请填写', '请确认',
+                         '好的收到', '已收到', '谢谢', '老师好', '你好', '各位', '大家'];
+        
+        const candidateNames = allChineseNames.filter(n => !exclude.includes(n) && n.length >= 2);
+        
+        // 精确匹配函数
+        function findBestMatch(name) {
+            // 1. 完全匹配
+            let matched = dbNames.find(dbName => dbName === name);
+            if (matched) return matched;
+            
+            // 2. 包含匹配（如"陈俊谦"包含"俊谦"）
+            matched = dbNames.find(dbName => dbName.includes(name) || name.includes(dbName));
+            if (matched) return matched;
+            
+            // 3. 姓氏+名字首字匹配
+            if (name.length >= 2) {
+                const prefix = name.substring(0, 2);
+                matched = dbNames.find(dbName => dbName.startsWith(prefix));
+                if (matched) return matched;
+            }
+            
+            // 4. 忽略姓氏匹配（如"俊谦"匹配"陈俊谦"）
+            if (name.length === 2) {
+                matched = dbNames.find(dbName => dbName.includes(name));
+                if (matched) return matched;
+            }
+            
+            return null;
+        }
+        
+        // 逐行解析状态
+        for (const line of lines) {
+            let type = null;
+            if (line.includes('请假')) type = 'leave';
+            else if (line.includes('迟到')) type = 'late';
+            else if (line.includes('缺勤') || line.includes('旷课')) type = 'absence';
+            
+            if (!type) continue;
+            
+            const lineNames = line.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+            const filteredNames = lineNames.filter(n => !exclude.includes(n));
+            
+            for (const rawName of filteredNames) {
+                const matchedName = findBestMatch(rawName);
+                if (matchedName) {
+                    if (type === 'leave' && !result.leave.includes(matchedName)) {
+                        result.leave.push(matchedName);
+                    } else if (type === 'late' && !result.late.includes(matchedName)) {
+                        result.late.push(matchedName);
+                        const minuteMatch = line.match(/(\d+)\s*分钟/);
+                        if (minuteMatch) {
+                            result.lateMinutes[matchedName] = parseInt(minuteMatch[1]);
+                        }
+                    } else if (type === 'absence' && !result.absence.includes(matchedName)) {
+                        result.absence.push(matchedName);
+                    }
+                }
+            }
+        }
+        
+        // 检查未明确标注状态但出现在消息中的学生
+        for (const candidate of candidateNames) {
+            const matchedName = findBestMatch(candidate);
+            if (matchedName && !result.leave.includes(matchedName) && 
+                !result.late.includes(matchedName) && !result.absence.includes(matchedName)) {
+                if (!result.unknown.includes(matchedName)) {
+                    result.unknown.push(matchedName);
+                }
+            }
+        }
+        
+        return result;
+    }
+    
+    function extractAllStudentsWithStatus(text, className) {
+        const dbStudents = getStudentsByClass(className);
+        const dbNames = dbStudents.map(s => s.name);
+        
+        const smartResult = extractStudentsWithStatus(text, className);
+        const allFound = [...smartResult.leave, ...smartResult.late, ...smartResult.absence];
+        
+        if (allFound.length === 0) {
+            const allChinese = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
+            const exclude = ['请假', '缺勤', '迟到', '旷课', '手机', '入袋', '特别', '提醒', 
+                             '本次', '考勤', '生效', '证明', '沟通', '处理', '异议', '早退',
+                             '辅导员', '老师', '班级', '课程', '地点', '时间', '应到', '实到', '任课'];
+            const candidates = allChinese.filter(n => !exclude.includes(n) && n.length >= 2);
+            
+            for (const name of candidates) {
+                let matchedName = dbNames.find(dbName => dbName === name);
+                if (!matchedName) {
+                    const prefix = name.substring(0, 2);
+                    matchedName = dbNames.find(dbName => dbName.startsWith(prefix));
+                }
+                if (matchedName && !allFound.includes(matchedName)) {
+                    smartResult.unknown.push(matchedName);
+                }
+            }
+        }
+        
+        return smartResult;
+    }
+    
+    // ========== 4. 提取其他字段 ==========
+    function extractOtherFields(text) {
+        const result = {
+            course: '',
+            teacher: '',
+            location: '',
+            date: '',
+            period: '',
+            shouldArrive: '',
+            actualArrive: '',
+            phoneStatus: ''
+        };
+        
+        const courseMatch = text.match(/课程[：:]\s*([^\n]+)/);
+        if (courseMatch) result.course = courseMatch[1].trim();
+        
+        const teacherMatch = text.match(/任课老师[：:]\s*([^\n]+?)(?:老师)?[\s\n]/);
+        if (teacherMatch) result.teacher = teacherMatch[1].trim().replace(/老师$/, '');
+        
+        const locationMatch = text.match(/地点[：:]\s*([^\n]+)/);
+        if (locationMatch) result.location = locationMatch[1].trim();
+        
+        let dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+        if (dateMatch) {
+            const year = new Date().getFullYear();
+            result.date = `${year}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
+        } else {
+            dateMatch = text.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/);
+            if (dateMatch) result.date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+        }
+        
+        result.period = smartPeriodRecognizer(text);
+        
+        const shouldMatch = text.match(/应到[：:]\s*(\d+)/);
+        if (shouldMatch) result.shouldArrive = shouldMatch[1];
+        const actualMatch = text.match(/实到[：:]\s*(\d+)/);
+        if (actualMatch) result.actualArrive = actualMatch[1];
+        
+        if (text.includes('手机入袋：有') || text.includes('手机入袋:有')) result.phoneStatus = '有';
+        else if (text.includes('手机入袋：无') || text.includes('手机入袋:无')) result.phoneStatus = '无';
+        
+        return result;
+    }
+    
+    // ========== 5. 检查重复 ==========
+    function isDuplicateAttendance(className, date, period) {
+        const records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+        if (!date || !period) return false;
+        return records.some(r => {
+            const rDate = r.date ? r.date.split(' ')[0] : '';
+            return r.className === className && rDate === date && r.period === period;
+        });
+    }
+    
+    // ========== 6. 导入记录 ==========
+    function importRecord(record, inspector) {
+        const shouldArrive = record.shouldArrive || '0';
+        const actualArrive = record.actualArrive || '0';
+        
+        const attendanceRecord = {
+            id: Date.now(),
+            date: record.date ? `${record.date} 00:00` : new Date().toISOString().slice(0,16).replace('T', ' '),
+            period: record.period || '未指定节次',
+            teacher: record.teacher || '',
+            inspector: inspector,
+            className: record.className,
+            course: record.course || '',
+            classroom: record.location || '',
+            situation: record.phoneStatus ? `手机入袋：${record.phoneStatus}` : '',
+            absence: record.absenceList?.length > 0 ? `${record.absenceList.length}人（${record.absenceList.join('、')}）` : '0人',
+            leave: record.leaveList?.length > 0 ? `${record.leaveList.length}人（${record.leaveList.join('、')}）` : '0人',
+            late: record.lateList?.length > 0 ? `${record.lateList.length}人（${record.lateList.join('、')}）` : '0人',
+            remark: `应到${shouldArrive}人，实到${actualArrive}人`,
+            shouldArrive: shouldArrive,
+            actualArrive: actualArrive,
+            attendanceRate: shouldArrive && actualArrive ? Math.round((parseInt(actualArrive) / parseInt(shouldArrive)) * 100) + '%' : '',
+            phoneStatus: record.phoneStatus || '',
+            photos: [],
+            createTime: new Date().toISOString()
+        };
+        
+        let attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+        attendanceRecords.push(attendanceRecord);
+        localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
+        
+        let classAttendRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+        let lateCount = 0, absenceCount = 0;
+        const classStudents = getStudentsByClass(record.className);
+        
+        for (const item of record.lateList) {
+            let name = item, minutes = 5;
+            if (typeof item === 'object') {
+                name = item.name;
+                minutes = item.minutes || 5;
+            }
+            const student = classStudents.find(s => s.name === name);
+            if (student) {
+                const existing = classAttendRecords.find(r => 
+                    r.studentId === student.studentId && r.date === record.date && r.period === record.period
+                );
+                if (!existing) {
+                    const absenceHours = minutes <= 10 ? 0.5 : 1;
+                    classAttendRecords.push({
+                        id: Date.now() + Math.random(),
+                        studentId: student.studentId,
+                        studentName: student.name,
+                        className: record.className,
+                        date: record.date,
+                        period: record.period || '未指定节次',
+                        status: '迟到',
+                        lateMinutes: minutes,
+                        absenceHours: absenceHours,
+                        courseName: record.course || '',
+                        remark: `从考勤消息导入`,
+                        createTime: new Date().toISOString(),
+                        updateTime: new Date().toISOString()
+                    });
+                    lateCount++;
+                }
+            }
+        }
+        
+        for (const name of record.absenceList) {
+            const student = classStudents.find(s => s.name === name);
+            if (student) {
+                const existing = classAttendRecords.find(r => 
+                    r.studentId === student.studentId && r.date === record.date && r.period === record.period
+                );
+                if (!existing) {
+                    classAttendRecords.push({
+                        id: Date.now() + Math.random(),
+                        studentId: student.studentId,
+                        studentName: student.name,
+                        className: record.className,
+                        date: record.date,
+                        period: record.period || '未指定节次',
+                        status: '旷课',
+                        lateMinutes: 0,
+                        absenceHours: 2,
+                        courseName: record.course || '',
+                        remark: `从考勤消息导入`,
+                        createTime: new Date().toISOString(),
+                        updateTime: new Date().toISOString()
+                    });
+                    absenceCount++;
+                }
+            }
+        }
+        
+        localStorage.setItem('classAttendRecords', JSON.stringify(classAttendRecords));
+        return { success: true, lateCount: lateCount, absenceCount: absenceCount };
+    }
+    
+    // ========== 7. 单条导入 UI ==========
+    let currentSingleData = null;
+    let currentStudentStatuses = {};
+    
+    function renderSingleStudentList() {
+        const container = document.getElementById('singleStudentList');
+        if (!container) return;
+        
+        const allStudents = [
+            ...currentSingleData.students.leave.map(n => ({ name: n, status: 'leave' })),
+            ...currentSingleData.students.late.map(n => ({ name: n, status: 'late' })),
+            ...currentSingleData.students.absence.map(n => ({ name: n, status: 'absence' })),
+            ...currentSingleData.students.unknown.map(n => ({ name: n, status: 'unknown' }))
+        ];
+        
+        if (allStudents.length === 0) {
+            container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">未识别到学生</div>';
+            return;
+        }
+        
+        let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
+        for (const student of allStudents) {
+            const currentStatus = currentStudentStatuses[student.name] || student.status;
+            html += `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#f8f9fa;border-radius:6px;">
+                    <div style="font-weight:bold;width:100px;">${student.name}</div>
+                    <div style="display:flex;gap:10px;">
+                        <label style="display:flex;align-items:center;gap:5px;">
+                            <input type="radio" name="single_status_${student.name}" value="leave" ${currentStatus === 'leave' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'leave')">
+                            <span style="color:#27ae60;">📋 请假</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:5px;">
+                            <input type="radio" name="single_status_${student.name}" value="late" ${currentStatus === 'late' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'late')">
+                            <span style="color:#f39c12;">⏰ 迟到</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:5px;">
+                            <input type="radio" name="single_status_${student.name}" value="absence" ${currentStatus === 'absence' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'absence')">
+                            <span style="color:#e74c3c;">⚠️ 缺勤</span>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    window.updateSingleStudentStatus = function(name, status) {
+        currentStudentStatuses[name] = status;
+    };
+    
+    function parseSingleMessage() {
+        const rawText = document.getElementById('attendanceRawText').value.trim();
+        const selectedClass = document.getElementById('classSelect').value;
+        
+        if (!rawText) { alert('请粘贴考勤消息！'); return; }
+        if (!selectedClass) { alert('请先选择班级！'); return; }
+        
+        const students = extractAllStudentsWithStatus(rawText, selectedClass);
+        const otherFields = extractOtherFields(rawText);
+        
+        currentSingleData = {
+            className: selectedClass,
+            students: students,
+            otherFields: otherFields
+        };
+        
+        currentStudentStatuses = {};
+        for (const name of students.leave) currentStudentStatuses[name] = 'leave';
+        for (const name of students.late) currentStudentStatuses[name] = 'late';
+        for (const name of students.absence) currentStudentStatuses[name] = 'absence';
+        for (const name of students.unknown) currentStudentStatuses[name] = 'unknown';
+        
+        const matchedCount = students.leave.length + students.late.length + students.absence.length;
+        const unknownCount = students.unknown.length;
+        
+        if (isDuplicateAttendance(selectedClass, otherFields.date, otherFields.period)) {
+            alert('⚠️ 该考勤记录已存在，请勿重复导入！');
+            document.getElementById('singlePreviewArea').style.display = 'none';
+            return;
+        }
+        
+        let matchInfo = '';
+        if (matchedCount > 0) {
+            matchInfo = `<div style="margin-top:10px;padding:8px;background:#e8f5e9;border-radius:6px;color:#2e7d32;">
+                ✅ 成功匹配 ${matchedCount} 名学生
+                ${unknownCount > 0 ? `<span style="margin-left:10px;color:#f57f17;">⚠️ ${unknownCount} 人未匹配到数据库</span>` : ''}
+            </div>`;
+        } else if (unknownCount > 0) {
+            matchInfo = `<div style="margin-top:10px;padding:8px;background:#ffebee;border-radius:6px;color:#c62828;">
+                ⚠️ 未匹配到数据库中的学生！请检查班级选择是否正确，或学生姓名是否在数据库中
+            </div>`;
+        }
+        
+        document.getElementById('singleOtherFields').innerHTML = `
+            <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;font-size:13px;">
+                <div><strong>🏫 班级：</strong> ${selectedClass}</div>
+                <div><strong>📚 课程：</strong> ${otherFields.course || '未识别'}</div>
+                <div><strong>👨‍🏫 老师：</strong> ${otherFields.teacher || '未识别'}</div>
+                <div><strong>📍 地点：</strong> ${otherFields.location || '未识别'}</div>
+                <div><strong>📅 日期：</strong> ${otherFields.date || '未识别'}</div>
+                <div><strong>⏰ 节次：</strong> <span style="color:${otherFields.period ? '#2e7d32' : '#e74c3c'}; font-weight:bold;">${otherFields.period || '未识别'}</span></div>
+                <div><strong>👥 应到/实到：</strong> ${otherFields.shouldArrive || '?'}/${otherFields.actualArrive || '?'}</div>
+                <div><strong>📱 手机入袋：</strong> ${otherFields.phoneStatus || '未识别'}</div>
+            </div>
+            ${matchInfo}
+            ${!otherFields.period ? '<div style="margin-top:10px; padding:8px; background:#ffebee; border-radius:6px; color:#c62828;">⚠️ 未能自动识别节次，请检查消息格式或手动补充节次信息</div>' : ''}
+        `;
+        
+        renderSingleStudentList();
+        document.getElementById('singlePreviewArea').style.display = 'block';
+    }
+    
+    async function confirmSingleImport() {
+        if (!currentSingleData) { alert('请先解析消息'); return; }
+        
+        if (!currentSingleData.otherFields.period) {
+            alert('❌ 未能识别节次，请检查考勤消息中是否包含节次信息（如：第1-2节、第一二节等）');
+            return;
+        }
+        
+        const leaveList = [];
+        const lateList = [];
+        const absenceList = [];
+        
+        for (const [name, status] of Object.entries(currentStudentStatuses)) {
+            if (status === 'leave') leaveList.push(name);
+            else if (status === 'late') lateList.push(name);
+            else if (status === 'absence') absenceList.push(name);
+        }
+        
+        const record = {
+            className: currentSingleData.className,
+            course: currentSingleData.otherFields.course,
+            teacher: currentSingleData.otherFields.teacher,
+            location: currentSingleData.otherFields.location,
+            date: currentSingleData.otherFields.date,
+            period: currentSingleData.otherFields.period,
+            shouldArrive: currentSingleData.otherFields.shouldArrive,
+            actualArrive: currentSingleData.otherFields.actualArrive,
+            phoneStatus: currentSingleData.otherFields.phoneStatus,
+            leaveList: leaveList,
+            lateList: lateList,
+            absenceList: absenceList
+        };
+        
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const inspector = currentUser.fullname || '赵梦婷';
+        const result = importRecord(record, inspector);
+        
+        if (result.success) {
+            alert(`✅ 导入成功！迟到 ${result.lateCount} 人，缺勤 ${result.absenceCount} 人`);
+            if (typeof loadAttendanceRecords === 'function') await loadAttendanceRecords();
+            if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+            closeModal();
+        } else {
+            alert(`❌ 导入失败：${result.reason}`);
+        }
+    }
+    
+    // ========== 8. 批量导入 ==========
+    let batchData = [];
+    let batchCurrentStatuses = {};
+    
+    function renderBatchStudentList(index) {
+        const container = document.getElementById(`batchStudentList_${index}`);
+        if (!container) return;
+        
+        const item = batchData[index];
+        if (!item) return;
+        
+        const allStudents = [
+            ...item.students.leave.map(n => ({ name: n, status: 'leave' })),
+            ...item.students.late.map(n => ({ name: n, status: 'late' })),
+            ...item.students.absence.map(n => ({ name: n, status: 'absence' })),
+            ...item.students.unknown.map(n => ({ name: n, status: 'unknown' }))
+        ];
+        
+        if (allStudents.length === 0) {
+            container.innerHTML = '<div style="padding:10px;color:#999;">未识别到学生</div>';
+            return;
+        }
+        
+        let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+        for (const student of allStudents) {
+            const key = `${index}_${student.name}`;
+            const currentStatus = batchCurrentStatuses[key] || student.status;
+            html += `
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:#f8f9fa;border-radius:6px;">
+                    <div style="font-weight:bold;width:80px;">${student.name}</div>
+                    <div style="display:flex;gap:8px;">
+                        <label style="display:flex;align-items:center;gap:3px;">
+                            <input type="radio" name="batch_status_${key}" value="leave" ${currentStatus === 'leave' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'leave')">
+                            <span style="font-size:12px;">请假</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:3px;">
+                            <input type="radio" name="batch_status_${key}" value="late" ${currentStatus === 'late' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'late')">
+                            <span style="font-size:12px;">迟到</span>
+                        </label>
+                        <label style="display:flex;align-items:center;gap:3px;">
+                            <input type="radio" name="batch_status_${key}" value="absence" ${currentStatus === 'absence' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'absence')">
+                            <span style="font-size:12px;">缺勤</span>
+                        </label>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    }
+    
+    window.updateBatchStudentStatus = function(key, status) {
+        batchCurrentStatuses[key] = status;
+    };
+    
+    function parseBatchMessages() {
+        const rawText = document.getElementById('batchRawText').value.trim();
+        const selectedClass = document.getElementById('batchClassSelect').value;
+        
+        if (!rawText) { alert('请粘贴考勤消息！'); return; }
+        if (!selectedClass) { alert('请先选择班级！'); return; }
+        
+        const blocks = rawText.split(/\n\s*\n/).filter(b => b.trim().length > 30);
+        batchData = [];
+        batchCurrentStatuses = {};
+        
+        for (let i = 0; i < blocks.length; i++) {
+            const students = extractAllStudentsWithStatus(blocks[i], selectedClass);
+            const otherFields = extractOtherFields(blocks[i]);
+            const isDuplicate = isDuplicateAttendance(selectedClass, otherFields.date, otherFields.period);
+            
+            batchData.push({
+                index: i,
+                text: blocks[i],
+                className: selectedClass,
+                students: students,
+                otherFields: otherFields,
+                isDuplicate: isDuplicate
+            });
+        }
+        
+        let html = '<div style="max-height:500px;overflow-y:auto;">';
+        for (let i = 0; i < batchData.length; i++) {
+            const item = batchData[i];
+            const statusColor = item.isDuplicate ? '#f39c12' : '#27ae60';
+            const statusText = item.isDuplicate ? '⚠️ 重复' : '✅ 待导入';
+            
+            const matchedCount = item.students.leave.length + item.students.late.length + item.students.absence.length;
+            const unknownCount = item.students.unknown.length;
+            
+            html += `
+                <div style="border:1px solid #ddd;border-radius:8px;margin-bottom:15px;padding:15px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                        <div>
+                            <strong>📋 记录 ${i + 1}</strong>
+                            <span style="margin-left:10px;font-size:12px;color:#666;">${item.otherFields.date || '日期未识别'} ${item.otherFields.period || ''}</span>
+                            <span style="margin-left:10px;padding:2px 8px;border-radius:12px;background:${statusColor};color:white;font-size:11px;">${statusText}</span>
+                            ${matchedCount > 0 ? `<span style="margin-left:10px;color:#2e7d32;">✅匹配${matchedCount}人</span>` : ''}
+                            ${unknownCount > 0 ? `<span style="margin-left:10px;color:#f57f17;">⚠️未匹配${unknownCount}人</span>` : ''}
+                            ${!item.otherFields.period ? '<span style="margin-left:10px;color:#e74c3c;">⚠️节次未识别</span>' : ''}
+                        </div>
+                        <div>
+                            <button class="btn" style="padding:4px 12px;background:#3498db;color:white;" onclick="toggleBatchDetail(${i})">展开/收起</button>
+                        </div>
+                    </div>
+                    <div style="font-size:12px;color:#666;margin-bottom:5px;">
+                        课程: ${item.otherFields.course || '-'} | 老师: ${item.otherFields.teacher || '-'} | 地点: ${item.otherFields.location || '-'}
+                    </div>
+                    <div id="batchDetail_${i}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #eee;">
+                        ${!item.otherFields.period ? '<div style="margin-bottom:10px;padding:6px;background:#ffebee;color:#c62828;border-radius:4px;">⚠️ 该记录节次未识别，请检查消息格式后重试</div>' : ''}
+                        <div id="batchStudentList_${i}"></div>
+                    </div>
+                </div>
+            `;
+        }
+        html += '</div>';
+        
+        document.getElementById('batchPreviewContent').innerHTML = html;
+        document.getElementById('batchPreviewArea').style.display = 'block';
+        
+        for (let i = 0; i < batchData.length; i++) {
+            if (!batchData[i].isDuplicate && batchData[i].otherFields.period) {
+                renderBatchStudentList(i);
+            }
+        }
+    }
+    
+    window.toggleBatchDetail = function(index) {
+        const detail = document.getElementById(`batchDetail_${index}`);
+        if (detail) {
+            detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
+            if (detail.style.display === 'block' && batchData[index] && !batchData[index].isDuplicate && batchData[index].otherFields.period) {
+                renderBatchStudentList(index);
+            }
+        }
+    };
+    
+    async function confirmBatchImport() {
+        if (batchData.length === 0) {
+            alert('没有可导入的数据');
+            return;
+        }
+        
+        const validItems = batchData.filter(item => !item.isDuplicate && item.otherFields.period);
+        const invalidItems = batchData.filter(item => !item.isDuplicate && !item.otherFields.period);
+        const duplicateCount = batchData.length - validItems.length - invalidItems.length;
+        
+        if (invalidItems.length > 0) {
+            alert(`⚠️ 有 ${invalidItems.length} 条记录节次未识别，已跳过。请检查消息格式后重试。`);
+        }
+        
+        if (validItems.length === 0) {
+            alert(`没有可导入的有效记录（重复: ${duplicateCount}条，节次未识别: ${invalidItems.length}条）`);
+            return;
+        }
+        
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        const inspector = currentUser.fullname || '赵梦婷';
+        
+        const progressDiv = document.getElementById('batchImportProgress');
+        const progressFill = document.getElementById('batchProgressFill');
+        const progressText = document.getElementById('batchProgressText');
+        if (progressDiv) progressDiv.style.display = 'block';
+        
+        let successCount = 0;
+        let totalLate = 0;
+        let totalAbsence = 0;
+        
+        for (let i = 0; i < validItems.length; i++) {
+            const item = validItems[i];
+            
+            const leaveList = [];
+            const lateList = [];
+            const absenceList = [];
+            
+            const allStudents = [
+                ...item.students.leave.map(n => ({ name: n, status: 'leave' })),
+                ...item.students.late.map(n => ({ name: n, status: 'late' })),
+                ...item.students.absence.map(n => ({ name: n, status: 'absence' })),
+                ...item.students.unknown.map(n => ({ name: n, status: 'unknown' }))
+            ];
+            
+            for (const student of allStudents) {
+                const key = `${item.index}_${student.name}`;
+                const status = batchCurrentStatuses[key] || student.status;
+                if (status === 'leave') leaveList.push(student.name);
+                else if (status === 'late') lateList.push(student.name);
+                else if (status === 'absence') absenceList.push(student.name);
+            }
+            
+            const record = {
+                className: item.className,
+                course: item.otherFields.course,
+                teacher: item.otherFields.teacher,
+                location: item.otherFields.location,
+                date: item.otherFields.date,
+                period: item.otherFields.period,
+                shouldArrive: item.otherFields.shouldArrive,
+                actualArrive: item.otherFields.actualArrive,
+                phoneStatus: item.otherFields.phoneStatus,
+                leaveList: leaveList,
+                lateList: lateList,
+                absenceList: absenceList
+            };
+            
+            const result = importRecord(record, inspector);
+            if (result.success) {
+                successCount++;
+                totalLate += result.lateCount;
+                totalAbsence += result.absenceCount;
+            }
+            
+            if (progressFill) {
+                const percent = Math.round(((i + 1) / validItems.length) * 100);
+                progressFill.style.width = percent + '%';
+                if (progressText) progressText.textContent = `进度: ${i + 1}/${validItems.length} (${percent}%)`;
+            }
+            await new Promise(r => setTimeout(r, 10));
+        }
+        
+        alert(`✅ 批量导入完成！\n成功: ${successCount} 条\n跳过(重复): ${duplicateCount} 条\n跳过(节次未识别): ${invalidItems.length} 条\n迟到记录: ${totalLate} 条\n旷课记录: ${totalAbsence} 条`);
+        
+        if (typeof loadAttendanceRecords === 'function') await loadAttendanceRecords();
+        if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+        
+        batchData = [];
+        document.getElementById('batchPreviewArea').style.display = 'none';
+        if (progressDiv) progressDiv.style.display = 'none';
+        document.getElementById('batchRawText').value = '';
+    }
+    
+    // ========== 9. 查课记录导出功能 ==========
+    
+    function exportAttendanceRecords() {
+        const records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+        if (records.length === 0) {
+            alert('没有可导出的查课记录！');
+            return;
+        }
+        
+        const modalHtml = `
+            <div class="modal" id="exportAttendanceModal" style="display:flex;z-index:10060;">
+                <div class="modal-content" style="max-width:450px;">
+                    <h3 style="margin-bottom:20px;">📤 导出查课记录</h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">导出方式</label>
+                        <select id="exportAttendanceType" class="form-control" onchange="toggleAttendanceExportOptions()">
+                            <option value="all">全部记录</option>
+                            <option value="month">按月导出</option>
+                            <option value="class">按班级导出</option>
+                            <option value="dateRange">自定义日期范围</option>
+                        </select>
+                    </div>
+                    
+                    <div id="exportMonthOption" style="display:none;" class="form-group">
+                        <label class="form-label">选择月份</label>
+                        <input type="month" id="exportMonth" class="form-control">
+                    </div>
+                    
+                    <div id="exportClassOption" style="display:none;" class="form-group">
+                        <label class="form-label">选择班级</label>
+                        <select id="exportClass" class="form-control">
+                            <option value="">-- 请选择班级 --</option>
+                            ${getAllClassesFromDB().map(c => `<option value="${c}">${c}</option>`).join('')}
+                        </select>
+                    </div>
+                    
+                    <div id="exportDateRangeOption" style="display:none;" class="form-group">
+                        <label class="form-label">日期范围</label>
+                        <div style="display:flex;gap:10px;">
+                            <input type="date" id="exportDateFrom" class="form-control" placeholder="开始日期">
+                            <span>至</span>
+                            <input type="date" id="exportDateTo" class="form-control" placeholder="结束日期">
+                        </div>
+                    </div>
+                    
+                    <div style="display:flex;gap:15px;margin-top:20px;">
+                        <button class="btn btn-primary" onclick="doExportAttendance()">确认导出</button>
+                        <button class="btn" onclick="closeExportAttendanceModal()">取消</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('exportAttendanceModal');
+        if (oldModal) oldModal.remove();
+        const modal = document.createElement('div');
+        modal.id = 'exportAttendanceModal';
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+    }
+    
+    window.toggleAttendanceExportOptions = function() {
+        const type = document.getElementById('exportAttendanceType').value;
+        document.getElementById('exportMonthOption').style.display = type === 'month' ? 'block' : 'none';
+        document.getElementById('exportClassOption').style.display = type === 'class' ? 'block' : 'none';
+        document.getElementById('exportDateRangeOption').style.display = type === 'dateRange' ? 'block' : 'none';
+    };
+    
+    window.closeExportAttendanceModal = function() {
+        const modal = document.getElementById('exportAttendanceModal');
+        if (modal) modal.remove();
+    };
+    
+    window.doExportAttendance = function() {
+        if (typeof XLSX === 'undefined') {
+            alert('Excel处理库未加载，请刷新页面重试');
+            return;
+        }
+        
+        let records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+        const type = document.getElementById('exportAttendanceType').value;
+        let fileName = '查课记录';
+        
+        if (type === 'month') {
+            const month = document.getElementById('exportMonth').value;
+            if (!month) {
+                alert('请选择月份！');
+                return;
+            }
+            records = records.filter(r => r.date && r.date.substring(0, 7) === month);
+            fileName = `查课记录_${month}`;
+        } else if (type === 'class') {
+            const className = document.getElementById('exportClass').value;
+            if (!className) {
+                alert('请选择班级！');
+                return;
+            }
+            records = records.filter(r => r.className === className);
+            fileName = `查课记录_${className}`;
+        } else if (type === 'dateRange') {
+            const dateFrom = document.getElementById('exportDateFrom').value;
+            const dateTo = document.getElementById('exportDateTo').value;
+            if (dateFrom) {
+                records = records.filter(r => r.date >= dateFrom);
+            }
+            if (dateTo) {
+                records = records.filter(r => r.date <= dateTo + ' 23:59');
+            }
+            fileName = `查课记录_${dateFrom || '起始'}_至_${dateTo || '结束'}`;
+        }
+        
+        if (records.length === 0) {
+            alert('没有符合条件的查课记录！');
+            return;
+        }
+        
+        const exportData = [
+            ['序号', '日期', '节次', '班级', '课程', '任课老师', '查课人', '教室', '上课情况', '缺勤记录', '请假', '迟到', '手机入袋', '应到', '实到', '出勤率', '备注', '记录时间']
+        ];
+        
+        records.forEach((record, index) => {
+            exportData.push([
+                index + 1,
+                record.date || '',
+                record.period || '',
+                record.className || '',
+                record.course || '',
+                record.teacher || '',
+                record.inspector || '',
+                record.classroom || '',
+                record.situation || '',
+                record.absence || '',
+                record.leave || '',
+                record.late || '',
+                record.phoneStatus || '',
+                record.shouldArrive || '',
+                record.actualArrive || '',
+                record.attendanceRate || '',
+                record.remark || '',
+                record.createTime ? new Date(record.createTime).toLocaleString() : ''
+            ]);
+        });
+        
+        const totalRecords = records.length;
+        const totalAbsence = records.reduce((sum, r) => {
+            const match = (r.absence || '').match(/\d+/);
+            return sum + (match ? parseInt(match[0]) : 0);
+        }, 0);
+        const totalLate = records.reduce((sum, r) => {
+            const match = (r.late || '').match(/\d+/);
+            return sum + (match ? parseInt(match[0]) : 0);
+        }, 0);
+        
+        exportData.push([]);
+        exportData.push(['', '', '', '', '', '', '', '', '【汇总统计】', '', '', '', '', '', '', '', '', '']);
+        exportData.push(['', '', '', '', '', '', '', '', `总查课次数: ${totalRecords}次`, `总缺勤: ${totalAbsence}人次`, `总迟到: ${totalLate}人次`, '', '', '', '', '', '', '']);
+        
+        const ws = XLSX.utils.aoa_to_sheet(exportData);
+        ws['!cols'] = [
+            {wch:6},{wch:18},{wch:12},{wch:18},{wch:15},{wch:12},{wch:12},{wch:12},
+            {wch:20},{wch:18},{wch:12},{wch:12},{wch:10},{wch:8},{wch:8},{wch:10},{wch:20},{wch:18}
+        ];
+        
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, '查课记录');
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${fileName}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        alert(`成功导出 ${records.length} 条查课记录`);
+        closeExportAttendanceModal();
+    };
+    
+    // ========== 10. UI 辅助 ==========
+    function updateClassSelect() {
+        const select = document.getElementById('classSelect');
+        if (!select) return;
+        const classes = getAllClassesFromDB();
+        select.innerHTML = '<option value="">-- 请选择班级 --</option>';
+        for (const cls of classes) select.appendChild(new Option(cls, cls));
+    }
+    
+    function updateBatchClassSelect() {
+        const select = document.getElementById('batchClassSelect');
+        if (!select) return;
+        const classes = getAllClassesFromDB();
+        select.innerHTML = '<option value="">-- 请选择班级 --</option>';
+        for (const cls of classes) select.appendChild(new Option(cls, cls));
+    }
+    
+    function clearSingle() {
+        document.getElementById('attendanceRawText').value = '';
+        document.getElementById('classSelect').value = '';
+        document.getElementById('singlePreviewArea').style.display = 'none';
+        document.getElementById('singleOtherFields').innerHTML = '';
+        document.getElementById('singleStudentList').innerHTML = '';
+        currentSingleData = null;
+        currentStudentStatuses = {};
+    }
+    
+    function clearBatch() {
+        document.getElementById('batchRawText').value = '';
+        document.getElementById('batchClassSelect').value = '';
+        document.getElementById('batchPreviewArea').style.display = 'none';
+        batchData = [];
+        batchCurrentStatuses = {};
+    }
+    
+    function closeModal() {
+        const modal = document.getElementById('attendanceModal');
+        if (modal) modal.remove();
+    }
+    
+    // ========== 11. 模态框 ==========
+    window.switchAttendanceTab = function(tab) {
+        const singlePanel = document.getElementById('singlePanel');
+        const batchPanel = document.getElementById('batchPanel');
+        const singleBtn = document.getElementById('singleTabBtn');
+        const batchBtn = document.getElementById('batchTabBtn');
+        
+        if (tab === 'single') {
+            singlePanel.style.display = 'block';
+            batchPanel.style.display = 'none';
+            singleBtn.style.background = '#3498db';
+            batchBtn.style.background = '#95a5a6';
+            updateClassSelect();
+        } else {
+            singlePanel.style.display = 'none';
+            batchPanel.style.display = 'block';
+            singleBtn.style.background = '#95a5a6';
+            batchBtn.style.background = '#3498db';
+            updateBatchClassSelect();
+        }
+    };
+    
+    function showAttendanceModal() {
+        document.getElementById('attendanceModal')?.remove();
+        
+        const modalHtml = `
+            <div class="modal" id="attendanceModal" style="display:flex;z-index:10050;">
+                <div class="modal-content" style="max-width:900px;width:90%;max-height:85vh;overflow-y:auto;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;color:#2c3e50;">📋 考勤识别</h3>
+                        <button class="btn" style="background:#e74c3c;color:white;padding:5px 12px;" onclick="closeModal()">✕ 关闭</button>
+                    </div>
+                    
+                    <div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid #ddd;">
+                        <button id="singleTabBtn" class="btn" style="background:#3498db;color:white;" onclick="switchAttendanceTab('single')">单条导入</button>
+                        <button id="batchTabBtn" class="btn" style="background:#95a5a6;color:white;" onclick="switchAttendanceTab('batch')">批量导入</button>
+                    </div>
+                    
+                    <div id="singlePanel">
+                        <div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;">
+                            <p style="margin:0;font-size:13px;">📌 选择班级，粘贴考勤消息，系统自动识别学生状态和节次</p>
+                            <p style="margin:5px 0 0;font-size:12px;color:#666;">💡 支持的节次格式：第1-2节、第一二节、第1、2节、1-2节等</p>
+                        </div>
+                        <div class="form-group"><label class="form-label">选择班级 *</label><select id="classSelect" class="form-control"></select></div>
+                        <div class="form-group"><label class="form-label">📝 考勤消息</label><textarea id="attendanceRawText" class="form-control" rows="6" placeholder="粘贴考勤消息..."></textarea></div>
+                        <div style="display:flex;gap:15px;margin-bottom:20px;">
+                            <button class="btn btn-primary" onclick="parseSingleMessage()">🔍 识别</button>
+                            <button class="btn" onclick="clearSingle()">清空</button>
+                        </div>
+                        <div id="singlePreviewArea" style="display:none;">
+                            <div id="singleOtherFields" style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;"></div>
+                            <h4>👥 学生状态（可点击修改）</h4>
+                            <div id="singleStudentList" style="max-height:400px;overflow-y:auto;margin-bottom:15px;"></div>
+                            <button class="btn btn-success" onclick="confirmSingleImport()">✅ 确认导入</button>
+                        </div>
+                    </div>
+                    
+                    <div id="batchPanel" style="display:none;">
+                        <div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;">
+                            <p style="margin:0;font-size:13px;">📌 选择班级，粘贴多条消息，每条用空行分隔</p>
+                            <p style="margin:5px 0 0;font-size:12px;color:#666;">💡 支持多种节次格式，自动识别</p>
+                        </div>
+                        <div class="form-group"><label class="form-label">选择班级 *</label><select id="batchClassSelect" class="form-control"></select></div>
+                        <div class="form-group"><label class="form-label">📝 多条考勤消息</label><textarea id="batchRawText" class="form-control" rows="8" placeholder="粘贴多条消息，每条之间用空行分隔..."></textarea></div>
+                        <div style="display:flex;gap:15px;margin-bottom:20px;">
+                            <button class="btn btn-primary" onclick="parseBatchMessages()">🔍 批量识别</button>
+                            <button class="btn" onclick="clearBatch()">清空</button>
+                        </div>
+                        <div id="batchPreviewArea" style="display:none;">
+                            <div id="batchPreviewContent" style="margin-bottom:15px;"></div>
+                            <div id="batchImportProgress" style="display:none;margin-bottom:15px;">
+                                <div class="progress-bar"><div class="progress-fill" id="batchProgressFill"></div></div>
+                                <div class="progress-text" id="batchProgressText">0%</div>
+                            </div>
+                            <button class="btn btn-success" onclick="confirmBatchImport()">✅ 确认批量导入</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const modal = document.createElement('div');
+        modal.id = 'attendanceModal';
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+        updateClassSelect();
+        updateBatchClassSelect();
+    }
+    
+    // ========== 12. 添加按钮 ==========
+    function addButtonToAttendance() {
+        const btnGroup = document.querySelector('#attendanceTab .card > div[style*="background:#f8f9fa"] div[style*="display:flex;gap:15px"]');
+        if (btnGroup) {
+            if (!document.getElementById('attendanceModalBtn')) {
+                const btn = document.createElement('button');
+                btn.id = 'attendanceModalBtn';
+                btn.className = 'btn';
+                btn.innerHTML = '📋 考勤识别';
+                btn.style.background = '#9b59b6';
+                btn.style.color = 'white';
+                btn.onclick = showAttendanceModal;
+                btnGroup.appendChild(btn);
+            }
+            if (!document.getElementById('attendanceExportBtn')) {
+                const exportBtn = document.createElement('button');
+                exportBtn.id = 'attendanceExportBtn';
+                exportBtn.className = 'btn btn-success';
+                exportBtn.innerHTML = '📥 导出查课记录';
+                exportBtn.onclick = exportAttendanceRecords;
+                btnGroup.appendChild(exportBtn);
+            }
+            return true;
+        }
+        return false;
+    }
+    
+    const originalSwitchTab = window.switchTab;
+    if (originalSwitchTab) {
+        window.switchTab = function(tabName) {
+            originalSwitchTab(tabName);
+            if (tabName === 'attendance') setTimeout(() => addButtonToAttendance() || setTimeout(addButtonToAttendance, 500), 300);
+        };
+    }
+    setTimeout(addButtonToAttendance, 1000);
+    
+    window.showAttendanceModal = showAttendanceModal;
+    window.parseSingleMessage = parseSingleMessage;
+    window.confirmSingleImport = confirmSingleImport;
+    window.clearSingle = clearSingle;
+    window.parseBatchMessages = parseBatchMessages;
+    window.confirmBatchImport = confirmBatchImport;
+    window.clearBatch = clearBatch;
+    window.switchAttendanceTab = switchAttendanceTab;
+    window.closeModal = closeModal;
+    window.updateSingleStudentStatus = updateSingleStudentStatus;
+    window.updateBatchStudentStatus = updateBatchStudentStatus;
+    window.toggleBatchDetail = toggleBatchDetail;
+    window.exportAttendanceRecords = exportAttendanceRecords;
+})();
+console.log('✅ 考勤识别模块已加载（修复：学生姓名精确匹配 + 查课记录导出）');
 </script>
 </body>
 </html>
