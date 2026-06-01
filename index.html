@@ -20247,7 +20247,7 @@ window.closeDormCheckPhotoViewModal = closeDormCheckPhotoViewModal;
 initDormCheckModule();
 console.log('✅ 查寝台账模块已加载（完整修复版）');
 </script>
-<!-- ==================== 考勤统计模块（完整版：累计课时汇总 + 批量导入 + 销假/取消销假） ==================== -->
+<!-- ==================== 考勤统计模块（完整修复版） ==================== -->
 <script>
 // ==================== 课堂记录模块（迟到/旷课，记录日期+节次，自动计算旷课课时） ====================
 const CLASS_ATTEND_STORAGE_KEY = 'classAttendRecords';
@@ -20255,7 +20255,7 @@ const CLASS_ATTEND_STORAGE_KEY = 'classAttendRecords';
 // 节次选项
 const PERIOD_OPTIONS = ['第1-2节', '第3-4节', '第5-6节', '第7-8节', '第9-10节'];
 
-// 计算旷课课时：迟到≤10分钟=0.5课时，迟到>10分钟=1课时，旷课=2课时
+// 计算旷课课时
 function calculateAbsenceHours(status, lateMinutes = 0) {
     if (status === '旷课') return 2;
     if (status === '迟到') return lateMinutes <= 10 ? 0.5 : 1;
@@ -20277,15 +20277,13 @@ function initClassAttendData() {
 
 function getAllClassAttendRecords() { return JSON.parse(localStorage.getItem(CLASS_ATTEND_STORAGE_KEY) || '[]'); }
 
-// 找到 calculateAbsenceHours 函数后面的 addClassAttendRecord 函数
-// 在记录对象中增加 courseName 字段
 function addClassAttendRecord(record) {
     const records = getAllClassAttendRecords();
     const absenceHours = calculateAbsenceHours(record.status, record.lateMinutes || 0);
     const newRecord = { 
         id: Date.now(), 
         ...record, 
-        courseName: record.courseName || '',  // 新增
+        courseName: record.courseName || '',
         absenceHours, 
         createTime: new Date().toISOString(), 
         updateTime: new Date().toISOString() 
@@ -20328,17 +20326,11 @@ function batchDeleteClassAttendRecords() {
         showMessage('请先勾选要删除的记录！', 'error');
         return;
     }
-    
-    // 保持字符串类型
     const selectedIds = Array.from(checkboxes).map(cb => cb.value);
-    
     if (!confirm(`确定删除选中的 ${selectedIds.length} 条记录吗？`)) return;
-    
     let records = getAllClassAttendRecords();
-    // 使用字符串比较
     records = records.filter(r => !selectedIds.includes(String(r.id)));
     localStorage.setItem(CLASS_ATTEND_STORAGE_KEY, JSON.stringify(records));
-    
     loadClassAttendRecords();
     updateStudentAbsenceSummary();
     clearClassAttendSelection();
@@ -20444,17 +20436,17 @@ function handleClassAttendFileSelect(event) {
 function processClassAttendExcelData(jsonData) {
     const headers = jsonData[0];
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-   const headerMapping = {
-    'studentName': ['学生姓名', '姓名', 'name'],
-    'studentId': ['学号', 'studentId'],
-    'className': ['班级', 'class'],
-    'date': ['日期', 'date'],
-    'period': ['节次', 'period'],
-    'courseName': ['课程名称', '课程', 'course'],  // 新增
-    'status': ['状态', 'status'],
-    'lateMinutes': ['迟到分钟', '分钟', 'lateMinutes'],
-    'remark': ['备注', 'remark']
-};
+    const headerMapping = {
+        'studentName': ['学生姓名', '姓名', 'name'],
+        'studentId': ['学号', 'studentId'],
+        'className': ['班级', 'class'],
+        'date': ['日期', 'date'],
+        'period': ['节次', 'period'],
+        'courseName': ['课程名称', '课程', 'course'],
+        'status': ['状态', 'status'],
+        'lateMinutes': ['迟到分钟', '分钟', 'lateMinutes'],
+        'remark': ['备注', 'remark']
+    };
     const headerMap = {};
     if (!headers) { showMessage('Excel格式错误', 'error'); return; }
     headers.forEach((header, index) => {
@@ -20506,7 +20498,7 @@ function generateClassAttendPreviewTable() {
     classAttendImportPreviewData.forEach(record => {
         const hours = calculateAbsenceHours(record.status, record.lateMinutes);
         let statusColor = record.status === '迟到' ? '#f39c12' : '#e74c3c';
-        html += `<tr class="valid"><td><strong>${escapeHtml(record.studentName)}</strong></td><td>${escapeHtml(record.studentId)}</td><td>${escapeHtml(record.className)}</td><td>${record.date}</td><td>${record.period}</td><td style="color:${statusColor};">${record.status}</td><td>${record.status === '迟到' ? record.lateMinutes : '-'}</td><td style="font-weight:bold;">${hours}课时</td><td><span style="color:#2e7d32;">✅ 待导入</span></td></tr>`;
+        html += `<tr class="valid"><td><strong>${escapeHtml(record.studentName)}</strong></td><td>${escapeHtml(record.studentId)}</strong></td><td>${escapeHtml(record.className)}</strong></td><td>${record.date}</td><td>${record.period}</td><td style="color:${statusColor};">${record.status}</td><td>${record.status === '迟到' ? record.lateMinutes : '-'}</td><td style="font-weight:bold;">${hours}课时</td><td style="color:#2e7d32;">✅ 待导入</span></td></tr>`;
     });
     html += '</tbody></table>';
     if (classAttendImportData.length > 10) html += `<p style="text-align:center;">仅显示前10行，共 ${classAttendImportData.length} 行</p>`;
@@ -20607,7 +20599,6 @@ function updateStudentAbsenceSummary(searchTerm = '') {
         return;
     }
     
-    // 添加表头，带复选框
     let html = `
         <table style="width:100%;border-collapse:collapse;">
             <thead>
@@ -20622,7 +20613,7 @@ function updateStudentAbsenceSummary(searchTerm = '') {
                     <th style="padding:10px;text-align:center;">累计旷课课时</th>
                     <th style="padding:10px;text-align:center;">记录次数</th>
                     <th style="padding:10px;text-align:center;">操作</th>
-                </tr>
+                </td>
             </thead>
             <tbody>
     `;
@@ -20634,7 +20625,7 @@ function updateStudentAbsenceSummary(searchTerm = '') {
         html += `<tr style="border-bottom:1px solid #eee;">
             <td style="padding:10px;text-align:center;">
                 <input type="checkbox" class="summary-checkbox" value="${s.studentId}" data-student-id="${s.studentId}" data-student-name="${escapeHtml(s.studentName)}" onchange="updateSummaryBatchState()">
-            </td>
+            </strong></td>
             <td style="padding:10px;"><strong>${escapeHtml(s.studentName)}</strong></td>
             <td style="padding:10px;">${escapeHtml(s.className)}</strong></td>
             <td style="padding:10px;text-align:center;"><span style="color:#f39c12;">${s.lateCount}</span></td>
@@ -20642,7 +20633,8 @@ function updateStudentAbsenceSummary(searchTerm = '') {
             <td style="padding:10px;text-align:center;"><span ${warningClass}>${hoursDisplay}</span></td>
             <td style="padding:10px;text-align:center;">${s.recordCount}</td>
             <td style="padding:10px;text-align:center;">
-                <button class="btn" style="padding:4px 10px;background:#3498db;color:white;font-size:12px;" onclick="showStudentClassAttendRecords('${s.studentId}')">查看详情</button>
+                <button class="btn" style="padding:4px 10px;background:#3498db;color:white;font-size:12px;margin-right:5px;" onclick="showStudentClassAttendRecords('${s.studentId}')">查看详情</button>
+                <button class="btn" style="padding:4px 10px;background:#e74c3c;color:white;font-size:12px;" onclick="deleteAllRecordsForStudent('${s.studentId}', '${escapeHtml(s.studentName)}', ${s.recordCount})">🗑️ 清空</button>
             </td>
         </tr>`;
     });
@@ -20654,10 +20646,10 @@ function updateStudentAbsenceSummary(searchTerm = '') {
     
     html += `<tr style="background:#f8f9fa;border-top:2px solid #dee2e6;font-weight:bold;">
         <td style="padding:10px;text-align:center;"></td>
-        <td style="padding:10px;" colspan="2">合计</td>
+        <td style="padding:10px;" colspan="2">合计</strong></td>
         <td style="padding:10px;text-align:center;">${totalLate}</td>
         <td style="padding:10px;text-align:center;">${totalAbsent}</td>
-        <td style="padding:10px;text-align:center;color:#9b59b6;">${totalHours}课时</td>
+        <td style="padding:10px;text-align:center;color:#9b59b6;">${totalHours}课时</strong></td>
         <td style="padding:10px;text-align:center;">${totalRecords}</td>
         <td style="padding:10px;text-align:center;"></td>
     </tr></tbody></table>`;
@@ -20666,13 +20658,11 @@ function updateStudentAbsenceSummary(searchTerm = '') {
     updateSummaryBatchState();
 }
 
-// 全选/取消全选汇总表格
 function toggleSelectAllSummary(checkbox) {
     document.querySelectorAll('.summary-checkbox').forEach(cb => cb.checked = checkbox.checked);
     updateSummaryBatchState();
 }
 
-// 更新汇总表格批量删除按钮状态
 function updateSummaryBatchState() {
     const selected = document.querySelectorAll('.summary-checkbox:checked');
     const selectedCount = selected.length;
@@ -20685,38 +20675,26 @@ function updateSummaryBatchState() {
     }
 }
 
-// 批量删除选中学生的所有考勤记录
 function batchDeleteSummaryRecords() {
     const checkboxes = document.querySelectorAll('.summary-checkbox:checked');
     if (checkboxes.length === 0) {
         showMessage('请先勾选要删除的学生！', 'error');
         return;
     }
-    
     const selectedStudentIds = Array.from(checkboxes).map(cb => cb.value);
     const selectedStudentNames = Array.from(checkboxes).map(cb => cb.getAttribute('data-student-name'));
-    
     if (!confirm(`确定要删除 ${selectedStudentNames.join('、')} 等 ${selectedStudentIds.length} 名学生的所有考勤记录吗？\n此操作不可恢复！`)) {
         return;
     }
-    
     let records = getAllClassAttendRecords();
-    // 删除选中学生的所有记录
     records = records.filter(r => !selectedStudentIds.includes(r.studentId));
     localStorage.setItem(CLASS_ATTEND_STORAGE_KEY, JSON.stringify(records));
-    
-    // 刷新页面
     loadClassAttendRecords();
     updateStudentAbsenceSummary();
-    
-    // 清除全选复选框
     const selectAll = document.getElementById('selectAllSummary');
     if (selectAll) selectAll.checked = false;
-    
-    showMessage(`成功删除 ${selectedStudentIds.length} 名学生的 ${records.filter(r => !selectedStudentIds.includes(r.studentId)).length} 条考勤记录`, 'success');
+    showMessage(`成功删除 ${selectedStudentIds.length} 名学生的考勤记录`, 'success');
 }
-
-function closeStudentDetailModal() { const modal = document.getElementById('studentDetailModal'); if (modal) modal.remove(); }
 
 // ==================== 课堂记录增删改查UI ====================
 let editClassAttendId = null;
@@ -20753,7 +20731,6 @@ function showAddClassAttendModal(recordId = null) {
                 <label>节次 *</label>
                 <select id="classAttendPeriod" class="form-control">${periodOptions}</select>
             </div>
-            <!-- 新增：课程名称输入框 -->
             <div class="form-group">
                 <label>课程名称</label>
                 <input type="text" id="classAttendCourseName" class="form-control" value="${record ? escapeHtml(record.courseName || '') : ''}" placeholder="选填，如：高等数学">
@@ -20826,7 +20803,7 @@ function saveClassAttendFromModal() {
     const status = document.getElementById('classAttendStatus').value;
     const lateMinutes = parseInt(document.getElementById('classAttendLateMinutes')?.value) || 0;
     const remark = document.getElementById('classAttendRemark').value.trim();
-    const courseName = document.getElementById('classAttendCourseName')?.value.trim() || '';  // 新增：读取课程名称
+    const courseName = document.getElementById('classAttendCourseName')?.value.trim() || '';
     
     if (!studentName || !date) { 
         showMessage('请填写学生姓名和日期！', 'error'); 
@@ -20847,7 +20824,7 @@ function saveClassAttendFromModal() {
         status, 
         lateMinutes: status === '迟到' ? lateMinutes : 0, 
         remark,
-        courseName  // 新增：保存课程名称
+        courseName
     };
     
     if (editClassAttendId) updateClassAttendRecord(editClassAttendId, recordData);
@@ -20906,7 +20883,7 @@ function toggleSelectAllClassAttend(checkbox) { document.querySelectorAll('.clas
 function updateClassAttendBatchState() { const selected = document.querySelectorAll('.classAttend-checkbox:checked').length; const batchBtn = document.getElementById('batchDeleteClassAttendBtn'); const batchInfo = document.getElementById('batchClassAttendActionInfo'); const countSpan = document.getElementById('selectedClassAttendCount'); if (selected > 0) { if (batchBtn) batchBtn.style.display = 'inline-block'; if (batchInfo) batchInfo.style.display = 'block'; if (countSpan) countSpan.textContent = selected; } else { if (batchBtn) batchBtn.style.display = 'none'; if (batchInfo) batchInfo.style.display = 'none'; } }
 function clearClassAttendSelection() { document.querySelectorAll('.classAttend-checkbox').forEach(cb => cb.checked = false); const selectAll = document.getElementById('selectAllClassAttend'); if (selectAll) selectAll.checked = false; updateClassAttendBatchState(); }
 
-// ==================== 请假记录模块（支持销假/取消销假切换，家长联系方式选填） ====================
+// ==================== 请假记录模块 ====================
 const LEAVE_SIMPLE_STORAGE_KEY = 'leaveSimpleRecords';
 
 function initLeaveSimpleData() {
@@ -20925,27 +20902,17 @@ function updateLeaveSimpleRecord(recordId, updatedData) { let all = getAllLeaveS
 function deleteLeaveSimpleRecord(recordId) { if (!confirm('确定删除这条请假记录吗？')) return; let all = getAllLeaveSimpleRecords(); all = all.filter(r => r.id != recordId); localStorage.setItem(LEAVE_SIMPLE_STORAGE_KEY, JSON.stringify(all)); showMessage('记录已删除', 'success'); loadLeaveSimpleRecords(); }
 function batchDeleteLeaveSimpleRecords() {
     const checkboxes = document.querySelectorAll('.leaveSimple-checkbox:checked');
-    if (checkboxes.length === 0) {
-        showMessage('请先勾选要删除的记录！', 'error');
-        return;
-    }
-    
-    // 保持字符串类型
+    if (checkboxes.length === 0) { showMessage('请先勾选要删除的记录！', 'error'); return; }
     const selectedIds = Array.from(checkboxes).map(cb => cb.value);
-    
     if (!confirm(`确定删除选中的 ${selectedIds.length} 条记录吗？`)) return;
-    
     let all = getAllLeaveSimpleRecords();
-    // 使用字符串比较
     all = all.filter(r => !selectedIds.includes(String(r.id)));
     localStorage.setItem(LEAVE_SIMPLE_STORAGE_KEY, JSON.stringify(all));
-    
     loadLeaveSimpleRecords();
     clearLeaveSimpleSelection();
     showMessage(`成功删除 ${selectedIds.length} 条记录`, 'success');
 }
 
-// 销假/取消销假切换函数（类似处分统计的解除/未解除）
 function toggleLeaveCancel(recordId) {
     let all = getAllLeaveSimpleRecords();
     const idx = all.findIndex(r => r.id == recordId);
@@ -20953,7 +20920,6 @@ function toggleLeaveCancel(recordId) {
         const record = all[idx];
         const isCurrentlyCanceled = record.cancelStatus === '已销假';
         if (isCurrentlyCanceled) {
-            // 取消销假
             if (confirm('确定取消销假吗？将恢复为未销假状态')) {
                 record.cancelStatus = '未销假';
                 record.cancelTime = '';
@@ -20964,7 +20930,6 @@ function toggleLeaveCancel(recordId) {
                 loadLeaveSimpleRecords();
             }
         } else {
-            // 销假
             if (confirm('确定销假吗？销假后表示学生已返校')) {
                 const now = new Date().toISOString().slice(0, 16).replace('T', ' ');
                 record.cancelStatus = '已销假';
@@ -21072,8 +21037,8 @@ function processLeaveSimpleExcelData(jsonData) {
     document.getElementById('leaveSimpleValidCount').textContent = validCount;
     document.getElementById('leaveSimpleInvalidCount').textContent = invalidCount;
     let previewHtml = '<table class="preview-table"><thead><tr><th>姓名</th><th>学号</th><th>班级</th><th>开始</th><th>结束</th><th>原因</th><th>家长知情</th><th>状态</th></tr></thead><tbody>';
-    leaveSimpleImportPreviewData.forEach(r => { previewHtml += `<tr><td>${escapeHtml(r.studentName)}</td><td>${escapeHtml(r.studentId)}</td><td>${escapeHtml(r.className)}</td><td>${r.startDate}</td><td>${r.endDate}</td><td>${escapeHtml(r.reason)}</td><td>${r.parentKnow ? '是' : '否'}</td><td><span style="color:#2e7d32;">待导入</span></td>`; });
-    previewHtml += '</tbody></table>';
+    leaveSimpleImportPreviewData.forEach(r => { previewHtml += `<tr class="valid"><td><strong>${escapeHtml(r.studentName)}</strong></td><td>${escapeHtml(r.studentId)}</strong></td><td>${escapeHtml(r.className)}</strong></td><td>${r.startDate}</strong></td><td>${r.endDate}</strong></td><td>${escapeHtml(r.reason)}</strong></td><td>${r.parentKnow ? '是' : '否'}</td><td style="color:#2e7d32;">待导入</span></td></tr>`; });
+    previewHtml += '</tbody>｜｜DSML｜｜';
     document.getElementById('leaveSimplePreviewTableContainer').innerHTML = previewHtml;
     document.getElementById('leaveSimpleUploadStep').style.display = 'none';
     document.getElementById('leaveSimplePreviewStep').style.display = 'block';
@@ -21203,7 +21168,7 @@ function getAttendanceStatsModuleHTML() {
                 <button class="btn" style="background:#e74c3c;color:white;" onclick="switchAttendSubTab('classAttend')">📚 课堂考勤</button>
                 <button class="btn" style="background:#2ecc71;color:white;" onclick="switchAttendSubTab('leaveSimple')">📋 请假记录</button>
             </div>
-            <div id="classAttendSubTab">
+            <div id="classAttendSubTab" style="display:block;">
                 <div style="background:#f8f9fa;padding:20px;margin-bottom:20px;">
                     <h3 style="margin-bottom:15px;">课堂考勤操作</h3>
                     <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -21212,14 +21177,13 @@ function getAttendanceStatsModuleHTML() {
                         <button class="btn btn-info" onclick="downloadClassAttendTemplate()">📄 下载模板</button>
                         <button class="btn btn-success" onclick="exportAllAttendanceToExcel()">📊 导出全部Excel</button>
                         <button class="btn btn-danger" id="batchDeleteClassAttendBtn" style="display:none;" onclick="batchDeleteClassAttendRecords()">🗑️ 批量删除考勤记录</button>
+                        <button class="btn" style="background:#9b59b6;color:white;" onclick="showStatAttendanceModal()">📋 考勤识别</button>
                     </div>
                     <div id="batchClassAttendActionInfo" style="margin-top:10px;display:none;">
                         <span id="selectedClassAttendCount">0</span> 条考勤记录已选中
                         <button class="btn" style="padding:4px 8px;font-size:12px;" onclick="clearClassAttendSelection()">清除选择</button>
                     </div>
                 </div>
-                
-                <!-- 学生累计旷课课时汇总（带批量删除） -->
                 <div style="margin-bottom:20px;">
                     <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;align-items:center;">
                         <div style="flex:1;min-width:200px;">
@@ -21232,6 +21196,13 @@ function getAttendanceStatsModuleHTML() {
                         <h3 style="margin-bottom:15px;color:#2c3e50;">📊 学生累计旷课课时汇总</h3>
                         <div id="studentAbsenceSummary" style="max-height:500px;overflow-y:auto;"></div>
                     </div>
+                </div>
+                <div style="margin-top:20px;">
+                    <h3 style="margin-bottom:15px;">📚 课堂考勤明细</h3>
+                    <div style="margin-bottom:10px;">
+                        <label><input type="checkbox" id="selectAllClassAttend" onchange="toggleSelectAllClassAttend(this)"> 全选</label>
+                    </div>
+                    <div id="classAttendList" style="max-height:400px;overflow-y:auto;"></div>
                 </div>
             </div>
             <div id="leaveSimpleSubTab" style="display:none;">
@@ -21262,11 +21233,20 @@ function getAttendanceStatsModuleHTML() {
 }
 
 function switchAttendSubTab(tab) {
-    document.getElementById('classAttendSubTab').style.display = tab === 'classAttend' ? 'block' : 'none';
-    document.getElementById('leaveSimpleSubTab').style.display = tab === 'leaveSimple' ? 'block' : 'none';
-    if (tab === 'classAttend') { loadClassAttendRecords(); updateStudentAbsenceSummary(); }
-    else { loadLeaveSimpleRecords(); }
+    const classSubTab = document.getElementById('classAttendSubTab');
+    const leaveSubTab = document.getElementById('leaveSimpleSubTab');
+    if (tab === 'classAttend') {
+        if (classSubTab) classSubTab.style.display = 'block';
+        if (leaveSubTab) leaveSubTab.style.display = 'none';
+        loadClassAttendRecords();
+        updateStudentAbsenceSummary();
+    } else {
+        if (classSubTab) classSubTab.style.display = 'none';
+        if (leaveSubTab) leaveSubTab.style.display = 'block';
+        loadLeaveSimpleRecords();
+    }
 }
+
 function addAttendanceStatsMenu() {
     const nav = document.querySelector('.nav-menu');
     if (!nav || document.getElementById('attendanceStatsNavItem')) return;
@@ -21277,6 +21257,7 @@ function addAttendanceStatsMenu() {
     item.onclick = () => switchTab('attendanceStats');
     nav.appendChild(item);
 }
+
 const originalAttendStatsSwitch = window.switchTab;
 window.switchTab = function(tabName) {
     if (tabName === 'attendanceStats') {
@@ -21303,106 +21284,27 @@ window.switchTab = function(tabName) {
         if (originalAttendStatsSwitch) originalAttendStatsSwitch(tabName);
     }
 };
-// ==================== 新增：导出单个学生考勤数据到Excel ====================
-function exportStudentAttendanceToExcel(studentId, studentName) {
-    if (typeof XLSX === 'undefined') {
-        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
-        return;
-    }
-    
-    const records = getAllClassAttendRecords().filter(r => r.studentId === studentId);
-    if (records.length === 0) {
-        showMessage('该学生没有考勤记录', 'error');
-        return;
-    }
-    
-    // 按日期排序
-    records.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    // 计算汇总统计
-    let totalLateCount = 0;
-    let totalAbsentCount = 0;
-    let totalLateHours = 0;
-    let totalAbsentHours = 0;
-    
-    records.forEach(r => {
-        if (r.status === '迟到') {
-            totalLateCount++;
-            totalLateHours += r.absenceHours || 0;
-        } else if (r.status === '旷课') {
-            totalAbsentCount++;
-            totalAbsentHours += r.absenceHours || 0;
-        }
-    });
-    
-    const className = records[0]?.className || '';
-    
-    const exportData = [
-        ['学生考勤记录明细表'],
-        [],
-        ['学生姓名', studentName],
-        ['班级', className],
-        ['导出时间', new Date().toLocaleString()],
-        [],
-        ['一、考勤汇总统计'],
-        ['迟到次数', totalLateCount, '迟到课时', totalLateHours],
-        ['旷课次数', totalAbsentCount, '旷课课时', totalAbsentHours],
-        ['总缺勤课时', totalLateHours + totalAbsentHours],
-        [],
-        ['二、详细考勤记录'],
-        ['序号', '日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']
-    ];
-    
-    records.forEach((r, idx) => {
-        exportData.push([
-            idx + 1,
-            r.date,
-            r.period,
-            r.courseName || '-',
-            r.status,
-            r.status === '迟到' ? r.lateMinutes : '-',
-            r.absenceHours + '课时',
-            r.remark || '-'
-        ]);
-    });
-    
-    // 添加汇总行
-    exportData.push([]);
-    exportData.push(['', '', '', '', `合计`, `迟到${totalLateCount}次 / 旷课${totalAbsentCount}次`, `总课时${totalLateHours + totalAbsentHours}`, '']);
-    
-    const ws = XLSX.utils.aoa_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤记录`);
-    
-    ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:18},{wch:8},{wch:10},{wch:10},{wch:25}];
-    
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${studentName}_考勤记录_${new Date().toISOString().slice(0,10)}.xlsx`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showMessage(`${studentName} 的考勤数据已导出（共 ${records.length} 条记录）`, 'success');
-}
 
+// 考勤识别按钮函数
+window.showStatAttendanceModal = function() {
+    if (typeof showAttendanceModal === 'function') {
+        showAttendanceModal();
+    } else {
+        alert('考勤识别功能加载中，请稍后重试');
+    }
+};
+
+// ==================== 导出功能 ====================
 function exportAllAttendanceToExcel() {
     if (typeof XLSX === 'undefined') {
         showMessage('Excel处理库未加载，请刷新页面重试', 'error');
         return;
     }
-    
     const records = getAllClassAttendRecords();
     if (records.length === 0) {
         showMessage('没有可导出的考勤记录', 'error');
         return;
     }
-    
-    // 按学生分组排序
     const groupedByStudent = {};
     records.forEach(record => {
         const key = record.studentId;
@@ -21416,18 +21318,10 @@ function exportAllAttendanceToExcel() {
         }
         groupedByStudent[key].records.push(record);
     });
-    
-    // 对每个学生的记录按日期排序
     Object.values(groupedByStudent).forEach(group => {
         group.records.sort((a, b) => new Date(a.date) - new Date(b.date));
     });
-    
-    // 转换为数组并排序（按学生姓名）
-    const studentGroups = Object.values(groupedByStudent).sort((a, b) => 
-        a.studentName.localeCompare(b.studentName)
-    );
-    
-    // 准备导出数据
+    const studentGroups = Object.values(groupedByStudent).sort((a, b) => a.studentName.localeCompare(b.studentName));
     const exportData = [
         ['课堂考勤记录汇总表'],
         ['导出时间', new Date().toLocaleString()],
@@ -21437,58 +21331,29 @@ function exportAllAttendanceToExcel() {
         ['一、学生考勤汇总统计'],
         ['序号', '学生姓名', '班级', '迟到次数', '旷课次数', '累计缺勤课时']
     ];
-    
-    // 添加学生汇总行
     studentGroups.forEach((group, idx) => {
         const lateCount = group.records.filter(r => r.status === '迟到').length;
         const absentCount = group.records.filter(r => r.status === '旷课').length;
         const totalHours = group.records.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
-        
-        exportData.push([
-            idx + 1,
-            group.studentName,
-            group.className,
-            lateCount,
-            absentCount,
-            totalHours + '课时'
-        ]);
+        exportData.push([idx + 1, group.studentName, group.className, lateCount, absentCount, totalHours + '课时']);
     });
-    
     exportData.push([], ['二、详细考勤记录（按学生分组）']);
-    
-    // 按学生分组添加详细记录
     studentGroups.forEach(group => {
-        // 添加学生分隔行
         exportData.push([`【${group.studentName}】 ${group.className} - 共 ${group.records.length} 条记录`]);
         exportData.push(['日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']);
-        
         group.records.forEach(record => {
-            exportData.push([
-                record.date,
-                record.period,
-                record.courseName || '-',
-                record.status,
-                record.status === '迟到' ? record.lateMinutes : '-',
-                record.absenceHours + '课时',
-                record.remark || '-'
-            ]);
+            exportData.push([record.date, record.period, record.courseName || '-', record.status, record.status === '迟到' ? record.lateMinutes : '-', record.absenceHours + '课时', record.remark || '-']);
         });
-        
-        // 添加该学生的汇总行
         const lateCount = group.records.filter(r => r.status === '迟到').length;
         const absentCount = group.records.filter(r => r.status === '旷课').length;
         const totalHours = group.records.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
         exportData.push(['', '', '', `小计: 迟到${lateCount}次`, `旷课${absentCount}次`, `总课时${totalHours}`, '']);
-        exportData.push([]); // 空行分隔不同学生
+        exportData.push([]);
     });
-    
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, '课堂考勤记录');
-    
-    // 设置列宽
     ws['!cols'] = [{wch:12},{wch:12},{wch:18},{wch:10},{wch:10},{wch:12},{wch:25}];
-    
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
@@ -21499,7 +21364,6 @@ function exportAllAttendanceToExcel() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    
     showMessage(`成功导出 ${records.length} 条考勤记录，涉及 ${studentGroups.length} 名学生`, 'success');
 }
 
@@ -21508,21 +21372,18 @@ function exportStudentAttendanceToExcel(studentId, studentName) {
         showMessage('Excel处理库未加载，请刷新页面重试', 'error');
         return;
     }
-    
-    const records = getAllClassAttendRecords().filter(r => r.studentId === studentId);
+    let allRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+    const records = allRecords.filter(r => r.studentId === studentId);
     if (records.length === 0) {
         showMessage('该学生没有考勤记录', 'error');
         return;
     }
-    
     records.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
     let totalLateCount = 0, totalAbsentCount = 0, totalLateHours = 0, totalAbsentHours = 0;
     records.forEach(r => {
         if (r.status === '迟到') { totalLateCount++; totalLateHours += r.absenceHours || 0; }
         else if (r.status === '旷课') { totalAbsentCount++; totalAbsentHours += r.absenceHours || 0; }
     });
-    
     const className = records[0]?.className || '';
     const exportData = [
         ['学生考勤记录明细表'], [],
@@ -21534,19 +21395,14 @@ function exportStudentAttendanceToExcel(studentId, studentName) {
         ['二、详细考勤记录'],
         ['序号', '日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']
     ];
-    
     records.forEach((r, idx) => {
-        exportData.push([
-            idx + 1, r.date, r.period, r.courseName || '-', r.status,
-            r.status === '迟到' ? r.lateMinutes : '-', r.absenceHours + '课时', r.remark || '-'
-        ]);
+        exportData.push([idx + 1, r.date, r.period, r.courseName || '-', r.status,
+            r.status === '迟到' ? r.lateMinutes : '-', r.absenceHours + '课时', r.remark || '-']);
     });
-    
     const ws = XLSX.utils.aoa_to_sheet(exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤记录`);
     ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:18},{wch:8},{wch:10},{wch:10},{wch:25}];
-    
     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([wbout], { type: 'application/octet-stream' });
     const url = URL.createObjectURL(blob);
@@ -21562,219 +21418,101 @@ window.exportStudentAttendanceToExcel = exportStudentAttendanceToExcel;
 
 // ==================== 学生考勤详情查看功能 ====================
 function showStudentClassAttendRecords(studentId) {
-    console.log('查看考勤详情, studentId:', studentId);
-    
-    // 获取学生信息
-    let allStudents = [];
-    try {
-        allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    } catch(e) {
-        console.error('读取学生数据失败:', e);
-    }
-    
+    let allStudents = JSON.parse(localStorage.getItem('students') || '[]');
     const student = allStudents.find(s => s.studentId === studentId);
-    if (!student) {
-        alert('未找到该学生！');
-        return;
-    }
-    
-    // 获取该学生的所有考勤记录
-    let allRecords = [];
-    try {
-        allRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
-    } catch(e) {
-        console.error('读取考勤记录失败:', e);
-    }
-    
+    if (!student) { alert('未找到该学生！'); return; }
+    let allRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
     const records = allRecords.filter(r => r.studentId === studentId);
     records.sort((a, b) => new Date(b.date) - new Date(a.date));
-    
-    // 统计信息
     const lateCount = records.filter(r => r.status === '迟到').length;
     const absentCount = records.filter(r => r.status === '旷课').length;
     const totalHours = records.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
-    
-    // 生成详情表格HTML
     let recordsHtml = '';
     if (records.length === 0) {
-        recordsHtml = '<tr><td colspan="7" style="text-align:center;padding:30px;">暂无考勤记录</td></tr>';
+        recordsHtml = '<tr><td colspan="8" style="text-align:center;padding:30px;">暂无考勤记录</td></tr>';
     } else {
         records.forEach(record => {
             let statusColor = record.status === '迟到' ? '#f39c12' : '#e74c3c';
-            recordsHtml += `
-                <tr style="border-bottom:1px solid #eee;">
-                    <td style="padding:8px;">${record.date || '-'}</td>
-                    <td style="padding:8px;">${record.period || '-'}</td>
-                    <td style="padding:8px;">${record.courseName || '-'}</td>
-                    <td style="padding:8px;color:${statusColor};font-weight:bold;">${record.status}</td>
-                    <td style="padding:8px;">${record.status === '迟到' ? (record.lateMinutes || 0) + '分钟' : '-'}</td>
-                    <td style="padding:8px;color:#e74c3c;">${record.absenceHours || 0}课时</td>
-                    <td style="padding:8px;">${record.remark || '-'}</td>
-                </tr>
-            `;
+            recordsHtml += `<tr style="border-bottom:1px solid #eee;">
+                <td style="padding:8px;">${record.date || '-'}</td>
+                <td style="padding:8px;">${record.period || '-'}</td>
+                <td style="padding:8px;">${record.courseName || '-'}</td>
+                <td style="padding:8px;color:${statusColor};font-weight:bold;">${record.status}</td>
+                <td style="padding:8px;">${record.status === '迟到' ? (record.lateMinutes || 0) + '分钟' : '-'}</td>
+                <td style="padding:8px;color:#e74c3c;">${record.absenceHours || 0}课时</td>
+                <td style="padding:8px;">${record.remark || '-'}</td>
+                <td style="padding:8px;text-align:center;">
+                    <button class="btn" style="padding:4px 10px;background:#e74c3c;color:white;font-size:12px;border:none;border-radius:4px;cursor:pointer;" 
+                            onclick="deleteSingleAttendRecord('${record.id}', '${studentId}', '${escapeHtml(student.name)}')">删除</button>
+                </td>
+            </tr>`;
         });
     }
-    
-    // 辅助函数
-    function safeStr(str) {
-        if (!str) return '';
-        return String(str).replace(/[&<>]/g, function(m) {
-            if (m === '&') return '&amp;';
-            if (m === '<') return '&lt;';
-            if (m === '>') return '&gt;';
-            return m;
-        });
-    }
-    
-    // 移除旧模态框
+    function safeStr(str) { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
     const oldModal = document.getElementById('studentDetailModal');
     if (oldModal) oldModal.remove();
-    
-    // 创建新模态框
     const modal = document.createElement('div');
     modal.id = 'studentDetailModal';
     modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10020;display:flex;justify-content:center;align-items:center;';
-    
     modal.innerHTML = `
-        <div style="background:white;border-radius:12px;max-width:850px;width:90%;max-height:85vh;overflow-y:auto;padding:20px;">
+        <div style="background:white;border-radius:12px;max-width:900px;width:90%;max-height:85vh;overflow-y:auto;padding:20px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
                 <h3 style="margin:0;color:#2c3e50;">📚 ${safeStr(student.name)} 的考勤详情</h3>
                 <button class="btn" style="background:#e74c3c;color:white;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;" onclick="closeStudentDetailModal()">✕ 关闭</button>
             </div>
-            
             <div style="background:linear-gradient(135deg,#2c3e50,#3498db);border-radius:10px;padding:20px;margin-bottom:20px;color:white;">
                 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:15px;text-align:center;">
-                    <div>
-                        <div style="font-size:28px;font-weight:bold;">${lateCount}</div>
-                        <div style="font-size:12px;opacity:0.9;">迟到次数</div>
-                    </div>
-                    <div>
-                        <div style="font-size:28px;font-weight:bold;">${absentCount}</div>
-                        <div style="font-size:12px;opacity:0.9;">旷课次数</div>
-                    </div>
-                    <div>
-                        <div style="font-size:28px;font-weight:bold;">${totalHours}</div>
-                        <div style="font-size:12px;opacity:0.9;">累计旷课课时</div>
-                    </div>
+                    <div><div style="font-size:28px;font-weight:bold;">${lateCount}</div><div style="font-size:12px;opacity:0.9;">迟到次数</div></div>
+                    <div><div style="font-size:28px;font-weight:bold;">${absentCount}</div><div style="font-size:12px;opacity:0.9;">旷课次数</div></div>
+                    <div><div style="font-size:28px;font-weight:bold;">${totalHours}</div><div style="font-size:12px;opacity:0.9;">累计旷课课时</div></div>
                 </div>
             </div>
-            
-            <div style="margin-bottom:15px;">
-                <strong>📋 详细记录（共 ${records.length} 条）</strong>
-            </div>
-            
+            <div style="margin-bottom:15px;"><strong>📋 详细记录（共 ${records.length} 条）</strong><span style="margin-left:15px;font-size:12px;color:#e74c3c;">💡 点击记录右侧的"删除"按钮可删除单条记录</span></div>
             <div style="overflow-x:auto;">
                 <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                    <thead>
-                        <tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;">
-                            <th style="padding:10px;text-align:left;">日期</th>
-                            <th style="padding:10px;text-align:left;">节次</th>
-                            <th style="padding:10px;text-align:left;">课程</th>
-                            <th style="padding:10px;text-align:left;">状态</th>
-                            <th style="padding:10px;text-align:left;">迟到分钟</th>
-                            <th style="padding:10px;text-align:left;">课时</th>
-                            <th style="padding:10px;text-align:left;">备注</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${recordsHtml}
-                    </tbody>
+                    <thead><tr style="background:#f8f9fa;border-bottom:2px solid #dee2e6;">
+                        <th style="padding:10px;text-align:left;">日期</th><th style="padding:10px;text-align:left;">节次</th>
+                        <th style="padding:10px;text-align:left;">课程</th><th style="padding:10px;text-align:left;">状态</th>
+                        <th style="padding:10px;text-align:left;">迟到分钟</th><th style="padding:10px;text-align:left;">课时</th>
+                        <th style="padding:10px;text-align:left;">备注</th><th style="padding:10px;text-align:center;">操作</th>
+                    </tr></thead>
+                    <tbody>${recordsHtml}</tbody>
                 </table>
             </div>
-            
             <div style="margin-top:20px;text-align:center;">
-                <button class="btn btn-success" style="background:#27ae60;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;" onclick="exportStudentAttendanceToExcel('${studentId}', '${safeStr(student.name)}')">📊 导出该生考勤数据</button>
-                <button class="btn" style="margin-left:10px;background:#95a5a6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;" onclick="closeStudentDetailModal()">关闭</button>
+                <button class="btn btn-success" style="background:#27ae60;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;" 
+                        onclick="exportStudentAttendanceToExcel('${studentId}', '${safeStr(student.name)}')">📊 导出该生考勤数据</button>
+                <button class="btn" style="margin-left:10px;background:#95a5a6;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;" 
+                        onclick="closeStudentDetailModal()">关闭</button>
             </div>
         </div>
     `;
-    
     document.body.appendChild(modal);
 }
 
-function closeStudentDetailModal() {
+function closeStudentDetailModal() { const modal = document.getElementById('studentDetailModal'); if (modal) modal.remove(); }
+
+function deleteSingleAttendRecord(recordId, studentId, studentName) {
+    if (!confirm(`确定要删除 ${studentName} 的这条考勤记录吗？\n此操作不可恢复！`)) return;
+    let records = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+    const originalLength = records.length;
+    records = records.filter(r => r.id != recordId);
+    if (records.length === originalLength) { alert('未找到要删除的记录！'); return; }
+    localStorage.setItem('CLASS_ATTEND_STORAGE_KEY', JSON.stringify(records));
+    updateStudentAbsenceSummary();
+    alert('✅ 考勤记录已删除！');
+}
+
+function deleteAllRecordsForStudent(studentId, studentName, recordCount) {
+    if (!confirm(`⚠️ 确定要删除 ${studentName} 的【全部】考勤记录吗？\n共 ${recordCount} 条记录，不可恢复！`)) return;
+    let records = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+    records = records.filter(r => r.studentId !== studentId);
+    localStorage.setItem('classAttendRecords', JSON.stringify(records));
+    updateStudentAbsenceSummary();
     const modal = document.getElementById('studentDetailModal');
-    if (modal) modal.remove();
+    if (modal) modal.style.display = 'none';
+    alert(`✅ 已删除 ${studentName} 的所有考勤记录！`);
 }
-
-// 导出单个学生考勤数据到Excel
-function exportStudentAttendanceToExcel(studentId, studentName) {
-    if (typeof XLSX === 'undefined') {
-        showMessage('Excel处理库未加载，请刷新页面重试', 'error');
-        return;
-    }
-    
-    let allRecords = [];
-    try {
-        allRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
-    } catch(e) {
-        console.error('读取考勤记录失败:', e);
-    }
-    
-    const records = allRecords.filter(r => r.studentId === studentId);
-    if (records.length === 0) {
-        showMessage('该学生没有考勤记录', 'error');
-        return;
-    }
-    
-    records.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    let totalLateCount = 0, totalAbsentCount = 0, totalLateHours = 0, totalAbsentHours = 0;
-    records.forEach(r => {
-        if (r.status === '迟到') { 
-            totalLateCount++; 
-            totalLateHours += r.absenceHours || 0; 
-        } else if (r.status === '旷课') { 
-            totalAbsentCount++; 
-            totalAbsentHours += r.absenceHours || 0; 
-        }
-    });
-    
-    const className = records[0]?.className || '';
-    const exportData = [
-        ['学生考勤记录明细表'], [],
-        ['学生姓名', studentName], 
-        ['班级', className], 
-        ['导出时间', new Date().toLocaleString()], [],
-        ['一、考勤汇总统计'],
-        ['迟到次数', totalLateCount, '迟到课时', totalLateHours],
-        ['旷课次数', totalAbsentCount, '旷课课时', totalAbsentHours],
-        ['总缺勤课时', totalLateHours + totalAbsentHours], [],
-        ['二、详细考勤记录'],
-        ['序号', '日期', '节次', '课程名称', '状态', '迟到分钟', '缺勤课时', '备注']
-    ];
-    
-    records.forEach((r, idx) => {
-        exportData.push([
-            idx + 1, 
-            r.date, 
-            r.period, 
-            r.courseName || '-', 
-            r.status,
-            r.status === '迟到' ? (r.lateMinutes || 0) : '-', 
-            (r.absenceHours || 0) + '课时', 
-            r.remark || '-'
-        ]);
-    });
-    
-    const ws = XLSX.utils.aoa_to_sheet(exportData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤记录`);
-    ws['!cols'] = [{wch:6},{wch:12},{wch:10},{wch:18},{wch:8},{wch:10},{wch:10},{wch:25}];
-    
-    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([wbout], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${studentName}_考勤记录_${new Date().toISOString().slice(0,10)}.xlsx`;
-    a.click();
-    URL.revokeObjectURL(url);
-    showMessage(`${studentName} 的考勤数据已导出`, 'success');
-}
-
-// 暴露导出函数到全局
-window.exportStudentAttendanceToExcel = exportStudentAttendanceToExcel;
 
 function initAttendanceStatsModule() {
     initClassAttendData();
@@ -21790,6 +21528,7 @@ function initAttendanceStatsModule() {
         }
     }, 500);
 }
+
 // 暴露全局函数
 window.showAddClassAttendModal = showAddClassAttendModal;
 window.editClassAttendRecord = editClassAttendRecord;
@@ -21827,8 +21566,9 @@ window.switchAttendSubTab = switchAttendSubTab;
 window.updateStudentAbsenceSummary = updateStudentAbsenceSummary;
 window.showStudentClassAttendRecords = showStudentClassAttendRecords;
 window.closeStudentDetailModal = closeStudentDetailModal;
+
 document.addEventListener('DOMContentLoaded', function() { initAttendanceStatsModule(); });
-console.log('✅ 考勤统计模块已加载（完整版：累计课时汇总+批量导入+销假/取消销假切换）');
+console.log('✅ 考勤统计模块已加载（完整修复版，含考勤识别按钮）');
 </script>
 <script>
 // ==================== 学生日常管理折叠菜单 + 子模块收纳 ====================
@@ -24639,7 +24379,7 @@ function getCurrentUserName() { try { const u = JSON.parse(localStorage.getItem(
 function showMessage(msg, type) { alert(msg); }
 
 console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全局搜索 + 宿舍调换 + 荣誉记录');
-// ==================== 考勤识别模块（修复版：学生姓名精确匹配 + 查课记录导出） ====================
+// ==================== 考勤识别模块（修复版：增加请假记录同步 + 查课记录导出） ====================
 (function() {
     // ========== 1. 数据库操作 ==========
     function getAllClassesFromDB() {
@@ -24652,15 +24392,18 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
         return students.filter(s => s.className === className);
     }
     
-    // ========== 2. 智能节次识别（增强版） ==========
+    function getCurrentUserName() {
+        try {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            return currentUser.fullname || '辅导员';
+        } catch(e) {
+            return '辅导员';
+        }
+    }
+    
+    // ========== 2. 智能节次识别 ==========
     function smartPeriodRecognizer(text) {
-        // 中文数字映射
-        const chineseNum = {
-            '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
-            '六': 6, '七': 7, '八': 8, '九': 9, '十': 10,
-            '十一': 11, '十二': 12, '两': 2
-        };
-        
+        const chineseNum = { '一':1, '二':2, '三':3, '四':4, '五':5, '六':6, '七':7, '八':8, '九':9, '十':10, '十一':11, '十二':12, '两':2 };
         function toNumber(cn) {
             if (!cn) return null;
             if (chineseNum[cn]) return chineseNum[cn];
@@ -24674,242 +24417,135 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
             }
             return parseInt(cn) || null;
         }
-        
         let periodText = '';
-        
-        const fieldPatterns = [
-            /时间[：:]\s*([^\n]+)/,
-            /节次[：:]\s*([^\n]+)/,
-            /上课时间[：:]\s*([^\n]+)/
-        ];
-        
+        const fieldPatterns = [/时间[：:]\s*([^\n]+)/, /节次[：:]\s*([^\n]+)/, /上课时间[：:]\s*([^\n]+)/];
         for (const pattern of fieldPatterns) {
             const match = text.match(pattern);
-            if (match && match[1]) {
-                periodText = match[1];
-                break;
-            }
+            if (match && match[1]) { periodText = match[1]; break; }
         }
-        
         if (!periodText) {
             const generalMatch = text.match(/(?:第|节)[^。\n]{0,50}(?:节|第)[^。\n]{0,50}/);
             if (generalMatch) periodText = generalMatch[0];
         }
-        
         if (!periodText) return '';
-        
         const rules = [
-            { regex: /第([一二三四五六七八九十两]+)([一二三四五六七八九十两]+)节/, handler: (m) => {
-                const start = toNumber(m[1]);
-                const end = toNumber(m[2]);
-                return start && end ? `第${start}-${end}节` : null;
-            }},
-            { regex: /第([一二三四五六七八九十两]+)[、，]([一二三四五六七八九十两]+)节/, handler: (m) => {
-                const start = toNumber(m[1]);
-                const end = toNumber(m[2]);
-                return start && end ? `第${start}-${end}节` : null;
-            }},
-            { regex: /第([一二三四五六七八九十两]+)节至第([一二三四五六七八九十两]+)节/, handler: (m) => {
-                const start = toNumber(m[1]);
-                const end = toNumber(m[2]);
-                return start && end ? `第${start}-${end}节` : null;
-            }},
+            { regex: /第([一二三四五六七八九十两]+)([一二三四五六七八九十两]+)节/, handler: (m) => { const s=toNumber(m[1]), e=toNumber(m[2]); return s&&e?`第${s}-${e}节`:null; } },
+            { regex: /第([一二三四五六七八九十两]+)[、，]([一二三四五六七八九十两]+)节/, handler: (m) => { const s=toNumber(m[1]), e=toNumber(m[2]); return s&&e?`第${s}-${e}节`:null; } },
+            { regex: /第([一二三四五六七八九十两]+)节至第([一二三四五六七八九十两]+)节/, handler: (m) => { const s=toNumber(m[1]), e=toNumber(m[2]); return s&&e?`第${s}-${e}节`:null; } },
             { regex: /第(\d+)[-~](\d+)节/, handler: (m) => `第${m[1]}-${m[2]}节` },
             { regex: /第(\d+)[、，](\d+)节/, handler: (m) => `第${m[1]}-${m[2]}节` },
             { regex: /(\d+)[-~](\d+)\s*节/, handler: (m) => `第${m[1]}-${m[2]}节` },
-            { regex: /第(\d+)\s*节(?![-~])/, handler: (m) => {
-                const num = parseInt(m[1]);
-                return `第${num}-${num+1}节`;
-            }},
-            { regex: /第([一二三四五六七八九十两]+)\s*节(?![-~])/, handler: (m) => {
-                const num = toNumber(m[1]);
-                return num ? `第${num}-${num+1}节` : null;
-            }},
-            { regex: /周[一二三四五六日]?\s*([一二三四五六七八九十两]+)([一二三四五六七八九十两]+)节/, handler: (m) => {
-                const start = toNumber(m[1]);
-                const end = toNumber(m[2]);
-                return start && end ? `第${start}-${end}节` : null;
-            }},
+            { regex: /第(\d+)\s*节(?![-~])/, handler: (m) => { const num=parseInt(m[1]); return `第${num}-${num+1}节`; } },
+            { regex: /第([一二三四五六七八九十两]+)\s*节(?![-~])/, handler: (m) => { const num=toNumber(m[1]); return num?`第${num}-${num+1}节`:null; } },
+            { regex: /周[一二三四五六日]?\s*([一二三四五六七八九十两]+)([一二三四五六七八九十两]+)节/, handler: (m) => { const s=toNumber(m[1]), e=toNumber(m[2]); return s&&e?`第${s}-${e}节`:null; } },
             { regex: /周[一二三四五六日]?\s*第(\d+)[-~](\d+)节/, handler: (m) => `第${m[1]}-${m[2]}节` }
         ];
-        
         for (const rule of rules) {
             const match = periodText.match(rule.regex);
-            if (match) {
-                const result = rule.handler(match);
-                if (result) return result;
-            }
+            if (match) { const result = rule.handler(match); if (result) return result; }
         }
-        
         return '';
     }
     
-    // ========== 3. 智能解析：提取学生及其状态（修复版：精确匹配数据库） ==========
+    // ========== 3. 提取学生及其状态 ==========
     function extractStudentsWithStatus(text, className) {
         const dbStudents = getStudentsByClass(className);
         const dbNames = dbStudents.map(s => s.name);
-        
-        const result = {
-            leave: [],
-            late: [],
-            absence: [],
-            unknown: [],
-            lateMinutes: {}
-        };
-        
+        const result = { leave: [], late: [], absence: [], unknown: [], lateMinutes: {} };
         const lines = text.split('\n');
-        
-        // 提取所有可能的人名（2-4个中文字符）
         const allChineseNames = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
-        const exclude = ['请假', '缺勤', '迟到', '旷课', '手机', '入袋', '特别', '提醒', 
-                         '本次', '考勤', '生效', '证明', '沟通', '处理', '异议', '早退', 
-                         '辅导员', '老师', '班级', '课程', '地点', '时间', '应到', '实到', 
-                         '任课', '备注', '附件', '图片', '收到', '回复', '好的', '明白',
-                         '收到请', '全体', '同学', '通知', '请查看', '请填写', '请确认',
-                         '好的收到', '已收到', '谢谢', '老师好', '你好', '各位', '大家'];
-        
+        const exclude = ['请假', '缺勤', '迟到', '旷课', '手机', '入袋', '特别', '提醒', '本次', '考勤', '生效', '证明', '沟通', '处理', '异议', '早退', '辅导员', '老师', '班级', '课程', '地点', '时间', '应到', '实到', '任课', '备注', '附件', '图片', '收到', '回复', '好的', '明白', '收到请', '全体', '同学', '通知', '请查看', '请填写', '请确认', '好的收到', '已收到', '谢谢', '老师好', '你好', '各位', '大家'];
         const candidateNames = allChineseNames.filter(n => !exclude.includes(n) && n.length >= 2);
-        
-        // 精确匹配函数
         function findBestMatch(name) {
-            // 1. 完全匹配
             let matched = dbNames.find(dbName => dbName === name);
             if (matched) return matched;
-            
-            // 2. 包含匹配（如"陈俊谦"包含"俊谦"）
             matched = dbNames.find(dbName => dbName.includes(name) || name.includes(dbName));
             if (matched) return matched;
-            
-            // 3. 姓氏+名字首字匹配
             if (name.length >= 2) {
                 const prefix = name.substring(0, 2);
                 matched = dbNames.find(dbName => dbName.startsWith(prefix));
                 if (matched) return matched;
             }
-            
-            // 4. 忽略姓氏匹配（如"俊谦"匹配"陈俊谦"）
             if (name.length === 2) {
                 matched = dbNames.find(dbName => dbName.includes(name));
                 if (matched) return matched;
             }
-            
             return null;
         }
-        
-        // 逐行解析状态
         for (const line of lines) {
             let type = null;
             if (line.includes('请假')) type = 'leave';
             else if (line.includes('迟到')) type = 'late';
             else if (line.includes('缺勤') || line.includes('旷课')) type = 'absence';
-            
             if (!type) continue;
-            
             const lineNames = line.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
             const filteredNames = lineNames.filter(n => !exclude.includes(n));
-            
             for (const rawName of filteredNames) {
                 const matchedName = findBestMatch(rawName);
                 if (matchedName) {
-                    if (type === 'leave' && !result.leave.includes(matchedName)) {
-                        result.leave.push(matchedName);
-                    } else if (type === 'late' && !result.late.includes(matchedName)) {
+                    if (type === 'leave' && !result.leave.includes(matchedName)) result.leave.push(matchedName);
+                    else if (type === 'late' && !result.late.includes(matchedName)) {
                         result.late.push(matchedName);
                         const minuteMatch = line.match(/(\d+)\s*分钟/);
-                        if (minuteMatch) {
-                            result.lateMinutes[matchedName] = parseInt(minuteMatch[1]);
-                        }
-                    } else if (type === 'absence' && !result.absence.includes(matchedName)) {
-                        result.absence.push(matchedName);
-                    }
+                        if (minuteMatch) result.lateMinutes[matchedName] = parseInt(minuteMatch[1]);
+                    } else if (type === 'absence' && !result.absence.includes(matchedName)) result.absence.push(matchedName);
                 }
             }
         }
-        
-        // 检查未明确标注状态但出现在消息中的学生
         for (const candidate of candidateNames) {
             const matchedName = findBestMatch(candidate);
-            if (matchedName && !result.leave.includes(matchedName) && 
-                !result.late.includes(matchedName) && !result.absence.includes(matchedName)) {
-                if (!result.unknown.includes(matchedName)) {
-                    result.unknown.push(matchedName);
-                }
+            if (matchedName && !result.leave.includes(matchedName) && !result.late.includes(matchedName) && !result.absence.includes(matchedName)) {
+                if (!result.unknown.includes(matchedName)) result.unknown.push(matchedName);
             }
         }
-        
         return result;
     }
     
     function extractAllStudentsWithStatus(text, className) {
         const dbStudents = getStudentsByClass(className);
         const dbNames = dbStudents.map(s => s.name);
-        
         const smartResult = extractStudentsWithStatus(text, className);
         const allFound = [...smartResult.leave, ...smartResult.late, ...smartResult.absence];
-        
         if (allFound.length === 0) {
             const allChinese = text.match(/[\u4e00-\u9fa5]{2,4}/g) || [];
-            const exclude = ['请假', '缺勤', '迟到', '旷课', '手机', '入袋', '特别', '提醒', 
-                             '本次', '考勤', '生效', '证明', '沟通', '处理', '异议', '早退',
-                             '辅导员', '老师', '班级', '课程', '地点', '时间', '应到', '实到', '任课'];
+            const exclude = ['请假', '缺勤', '迟到', '旷课', '手机', '入袋', '特别', '提醒', '本次', '考勤', '生效', '证明', '沟通', '处理', '异议', '早退', '辅导员', '老师', '班级', '课程', '地点', '时间', '应到', '实到', '任课'];
             const candidates = allChinese.filter(n => !exclude.includes(n) && n.length >= 2);
-            
             for (const name of candidates) {
                 let matchedName = dbNames.find(dbName => dbName === name);
                 if (!matchedName) {
                     const prefix = name.substring(0, 2);
                     matchedName = dbNames.find(dbName => dbName.startsWith(prefix));
                 }
-                if (matchedName && !allFound.includes(matchedName)) {
-                    smartResult.unknown.push(matchedName);
-                }
+                if (matchedName && !allFound.includes(matchedName)) smartResult.unknown.push(matchedName);
             }
         }
-        
         return smartResult;
     }
     
     // ========== 4. 提取其他字段 ==========
     function extractOtherFields(text) {
-        const result = {
-            course: '',
-            teacher: '',
-            location: '',
-            date: '',
-            period: '',
-            shouldArrive: '',
-            actualArrive: '',
-            phoneStatus: ''
-        };
-        
+        const result = { course: '', teacher: '', location: '', date: '', period: '', shouldArrive: '', actualArrive: '', phoneStatus: '' };
         const courseMatch = text.match(/课程[：:]\s*([^\n]+)/);
         if (courseMatch) result.course = courseMatch[1].trim();
-        
         const teacherMatch = text.match(/任课老师[：:]\s*([^\n]+?)(?:老师)?[\s\n]/);
         if (teacherMatch) result.teacher = teacherMatch[1].trim().replace(/老师$/, '');
-        
         const locationMatch = text.match(/地点[：:]\s*([^\n]+)/);
         if (locationMatch) result.location = locationMatch[1].trim();
-        
         let dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
         if (dateMatch) {
             const year = new Date().getFullYear();
-            result.date = `${year}-${dateMatch[1].padStart(2, '0')}-${dateMatch[2].padStart(2, '0')}`;
+            result.date = `${year}-${dateMatch[1].padStart(2,'0')}-${dateMatch[2].padStart(2,'0')}`;
         } else {
             dateMatch = text.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/);
-            if (dateMatch) result.date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+            if (dateMatch) result.date = `${dateMatch[1]}-${dateMatch[2].padStart(2,'0')}-${dateMatch[3].padStart(2,'0')}`;
         }
-        
         result.period = smartPeriodRecognizer(text);
-        
         const shouldMatch = text.match(/应到[：:]\s*(\d+)/);
         if (shouldMatch) result.shouldArrive = shouldMatch[1];
         const actualMatch = text.match(/实到[：:]\s*(\d+)/);
         if (actualMatch) result.actualArrive = actualMatch[1];
-        
         if (text.includes('手机入袋：有') || text.includes('手机入袋:有')) result.phoneStatus = '有';
         else if (text.includes('手机入袋：无') || text.includes('手机入袋:无')) result.phoneStatus = '无';
-        
         return result;
     }
     
@@ -24917,205 +24553,164 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
     function isDuplicateAttendance(className, date, period) {
         const records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
         if (!date || !period) return false;
-        return records.some(r => {
-            const rDate = r.date ? r.date.split(' ')[0] : '';
-            return r.className === className && rDate === date && r.period === period;
-        });
+        return records.some(r => { const rDate = r.date ? r.date.split(' ')[0] : ''; return r.className === className && rDate === date && r.period === period; });
     }
     
-    // ========== 6. 导入记录 ==========
-    function importRecord(record, inspector) {
-        const shouldArrive = record.shouldArrive || '0';
-        const actualArrive = record.actualArrive || '0';
-        
-        const attendanceRecord = {
-            id: Date.now(),
-            date: record.date ? `${record.date} 00:00` : new Date().toISOString().slice(0,16).replace('T', ' '),
-            period: record.period || '未指定节次',
-            teacher: record.teacher || '',
-            inspector: inspector,
-            className: record.className,
-            course: record.course || '',
-            classroom: record.location || '',
-            situation: record.phoneStatus ? `手机入袋：${record.phoneStatus}` : '',
-            absence: record.absenceList?.length > 0 ? `${record.absenceList.length}人（${record.absenceList.join('、')}）` : '0人',
-            leave: record.leaveList?.length > 0 ? `${record.leaveList.length}人（${record.leaveList.join('、')}）` : '0人',
-            late: record.lateList?.length > 0 ? `${record.lateList.length}人（${record.lateList.join('、')}）` : '0人',
-            remark: `应到${shouldArrive}人，实到${actualArrive}人`,
-            shouldArrive: shouldArrive,
-            actualArrive: actualArrive,
-            attendanceRate: shouldArrive && actualArrive ? Math.round((parseInt(actualArrive) / parseInt(shouldArrive)) * 100) + '%' : '',
-            phoneStatus: record.phoneStatus || '',
-            photos: [],
-            createTime: new Date().toISOString()
-        };
-        
-        let attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
-        attendanceRecords.push(attendanceRecord);
-        localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
-        
-        let classAttendRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+    // ========== 6. 同步请假记录 ==========
+    function syncLeaveToLeaveSimple(leaveList, className, dateStr, period, course, inspector) {
+        const LEAVE_STORAGE_KEY = 'leaveSimpleRecords';
+        let leaveRecords = JSON.parse(localStorage.getItem(LEAVE_STORAGE_KEY) || '[]');
+        const today = new Date().toISOString().slice(0, 10);
+        let leaveCount = 0;
+        for (const studentName of leaveList) {
+            const student = getStudentsByClass(className).find(s => s.name === studentName);
+            if (!student) continue;
+            const existingLeaveIndex = leaveRecords.findIndex(r => r.studentId === student.studentId && r.startDate === dateStr && r.endDate === dateStr);
+            if (existingLeaveIndex !== -1) {
+                const existing = leaveRecords[existingLeaveIndex];
+                let existingPeriods = existing.remark || '';
+                if (existingPeriods && !existingPeriods.includes(period)) existing.remark = `${existingPeriods}；${period}请假`;
+                else if (!existingPeriods) existing.remark = `${period}请假`;
+                existing.updateTime = new Date().toISOString();
+                leaveRecords[existingLeaveIndex] = existing;
+                leaveCount++;
+            } else {
+                const newLeave = {
+                    id: Date.now() + Math.random(), studentId: student.studentId, studentName: student.name, className: className,
+                    startDate: dateStr, endDate: dateStr, reason: course ? `课程请假（${course}）` : '考勤识别导入',
+                    parentKnow: false, parentPhone: student.parentPhone || '', remark: `${period}请假`,
+                    cancelStatus: new Date(dateStr) < new Date(today) ? '已销假' : '未销假',
+                    cancelTime: new Date(dateStr) < new Date(today) ? new Date().toISOString().slice(0,16).replace('T', ' ') : '',
+                    cancelRemark: new Date(dateStr) < new Date(today) ? '系统自动销假（日期已过）' : '',
+                    createTime: new Date().toISOString(), updateTime: new Date().toISOString()
+                };
+                leaveRecords.push(newLeave);
+                leaveCount++;
+            }
+        }
+        localStorage.setItem(LEAVE_STORAGE_KEY, JSON.stringify(leaveRecords));
+        return leaveCount;
+    }
+    
+    // ========== 7. 导入课堂考勤 ==========
+    function importToClassAttend(record) {
+        const CLASS_ATTEND_KEY = 'classAttendRecords';
+        let classAttendRecords = JSON.parse(localStorage.getItem(CLASS_ATTEND_KEY) || '[]');
         let lateCount = 0, absenceCount = 0;
         const classStudents = getStudentsByClass(record.className);
-        
         for (const item of record.lateList) {
             let name = item, minutes = 5;
-            if (typeof item === 'object') {
-                name = item.name;
-                minutes = item.minutes || 5;
-            }
+            if (typeof item === 'object') { name = item.name; minutes = item.minutes || 5; }
             const student = classStudents.find(s => s.name === name);
             if (student) {
-                const existing = classAttendRecords.find(r => 
-                    r.studentId === student.studentId && r.date === record.date && r.period === record.period
-                );
+                const existing = classAttendRecords.find(r => r.studentId === student.studentId && r.date === record.date && r.period === record.period);
                 if (!existing) {
                     const absenceHours = minutes <= 10 ? 0.5 : 1;
                     classAttendRecords.push({
-                        id: Date.now() + Math.random(),
-                        studentId: student.studentId,
-                        studentName: student.name,
-                        className: record.className,
-                        date: record.date,
-                        period: record.period || '未指定节次',
-                        status: '迟到',
-                        lateMinutes: minutes,
-                        absenceHours: absenceHours,
-                        courseName: record.course || '',
-                        remark: `从考勤消息导入`,
-                        createTime: new Date().toISOString(),
-                        updateTime: new Date().toISOString()
+                        id: Date.now() + Math.random(), studentId: student.studentId, studentName: student.name,
+                        className: record.className, date: record.date, period: record.period, status: '迟到',
+                        lateMinutes: minutes, absenceHours: absenceHours, courseName: record.course || '',
+                        remark: `从考勤识别导入`, createTime: new Date().toISOString(), updateTime: new Date().toISOString()
                     });
                     lateCount++;
                 }
             }
         }
-        
         for (const name of record.absenceList) {
             const student = classStudents.find(s => s.name === name);
             if (student) {
-                const existing = classAttendRecords.find(r => 
-                    r.studentId === student.studentId && r.date === record.date && r.period === record.period
-                );
+                const existing = classAttendRecords.find(r => r.studentId === student.studentId && r.date === record.date && r.period === record.period);
                 if (!existing) {
                     classAttendRecords.push({
-                        id: Date.now() + Math.random(),
-                        studentId: student.studentId,
-                        studentName: student.name,
-                        className: record.className,
-                        date: record.date,
-                        period: record.period || '未指定节次',
-                        status: '旷课',
-                        lateMinutes: 0,
-                        absenceHours: 2,
-                        courseName: record.course || '',
-                        remark: `从考勤消息导入`,
-                        createTime: new Date().toISOString(),
-                        updateTime: new Date().toISOString()
+                        id: Date.now() + Math.random(), studentId: student.studentId, studentName: student.name,
+                        className: record.className, date: record.date, period: record.period, status: '旷课',
+                        lateMinutes: 0, absenceHours: 2, courseName: record.course || '',
+                        remark: `从考勤识别导入`, createTime: new Date().toISOString(), updateTime: new Date().toISOString()
                     });
                     absenceCount++;
                 }
             }
         }
-        
-        localStorage.setItem('classAttendRecords', JSON.stringify(classAttendRecords));
-        return { success: true, lateCount: lateCount, absenceCount: absenceCount };
+        localStorage.setItem(CLASS_ATTEND_KEY, JSON.stringify(classAttendRecords));
+        return { lateCount, absenceCount };
     }
     
-    // ========== 7. 单条导入 UI ==========
+    // ========== 8. 导入查课记录 ==========
+    function importAttendanceRecord(record, inspector) {
+        const shouldArrive = record.shouldArrive || '0';
+        const actualArrive = record.actualArrive || '0';
+        const attendanceRecord = {
+            id: Date.now(), date: record.date ? `${record.date} 00:00` : new Date().toISOString().slice(0,16).replace('T', ' '),
+            period: record.period || '未指定节次', teacher: record.teacher || '', inspector: inspector,
+            className: record.className, course: record.course || '', classroom: record.location || '',
+            situation: record.phoneStatus ? `手机入袋：${record.phoneStatus}` : '',
+            absence: record.absenceList?.length > 0 ? `${record.absenceList.length}人（${record.absenceList.join('、')}）` : '0人',
+            leave: record.leaveList?.length > 0 ? `${record.leaveList.length}人（${record.leaveList.join('、')}）` : '0人',
+            late: record.lateList?.length > 0 ? `${record.lateList.length}人（${record.lateList.join('、')}）` : '0人',
+            remark: `应到${shouldArrive}人，实到${actualArrive}人`, shouldArrive: shouldArrive, actualArrive: actualArrive,
+            attendanceRate: shouldArrive && actualArrive ? Math.round((parseInt(actualArrive) / parseInt(shouldArrive)) * 100) + '%' : '',
+            phoneStatus: record.phoneStatus || '', photos: [], createTime: new Date().toISOString()
+        };
+        let attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+        attendanceRecords.push(attendanceRecord);
+        localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
+        const classResult = importToClassAttend(record);
+        let leaveCount = 0;
+        if (record.leaveList && record.leaveList.length > 0) leaveCount = syncLeaveToLeaveSimple(record.leaveList, record.className, record.date, record.period, record.course, inspector);
+        return { success: true, lateCount: classResult.lateCount, absenceCount: classResult.absenceCount, leaveCount: leaveCount };
+    }
+    
+    // ========== 9. 单条导入 UI ==========
     let currentSingleData = null;
     let currentStudentStatuses = {};
-    
     function renderSingleStudentList() {
         const container = document.getElementById('singleStudentList');
         if (!container) return;
-        
         const allStudents = [
             ...currentSingleData.students.leave.map(n => ({ name: n, status: 'leave' })),
             ...currentSingleData.students.late.map(n => ({ name: n, status: 'late' })),
             ...currentSingleData.students.absence.map(n => ({ name: n, status: 'absence' })),
             ...currentSingleData.students.unknown.map(n => ({ name: n, status: 'unknown' }))
         ];
-        
-        if (allStudents.length === 0) {
-            container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">未识别到学生</div>';
-            return;
-        }
-        
+        if (allStudents.length === 0) { container.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">未识别到学生</div>'; return; }
         let html = '<div style="display:flex;flex-direction:column;gap:10px;">';
         for (const student of allStudents) {
             const currentStatus = currentStudentStatuses[student.name] || student.status;
-            html += `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#f8f9fa;border-radius:6px;">
-                    <div style="font-weight:bold;width:100px;">${student.name}</div>
-                    <div style="display:flex;gap:10px;">
-                        <label style="display:flex;align-items:center;gap:5px;">
-                            <input type="radio" name="single_status_${student.name}" value="leave" ${currentStatus === 'leave' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'leave')">
-                            <span style="color:#27ae60;">📋 请假</span>
-                        </label>
-                        <label style="display:flex;align-items:center;gap:5px;">
-                            <input type="radio" name="single_status_${student.name}" value="late" ${currentStatus === 'late' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'late')">
-                            <span style="color:#f39c12;">⏰ 迟到</span>
-                        </label>
-                        <label style="display:flex;align-items:center;gap:5px;">
-                            <input type="radio" name="single_status_${student.name}" value="absence" ${currentStatus === 'absence' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'absence')">
-                            <span style="color:#e74c3c;">⚠️ 缺勤</span>
-                        </label>
-                    </div>
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px;background:#f8f9fa;border-radius:6px;">
+                <div style="font-weight:bold;width:100px;">${student.name}</div>
+                <div style="display:flex;gap:10px;">
+                    <label><input type="radio" name="single_status_${student.name}" value="leave" ${currentStatus === 'leave' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'leave')"> <span style="color:#27ae60;">📋 请假</span></label>
+                    <label><input type="radio" name="single_status_${student.name}" value="late" ${currentStatus === 'late' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'late')"> <span style="color:#f39c12;">⏰ 迟到</span></label>
+                    <label><input type="radio" name="single_status_${student.name}" value="absence" ${currentStatus === 'absence' ? 'checked' : ''} onchange="updateSingleStudentStatus('${student.name}', 'absence')"> <span style="color:#e74c3c;">⚠️ 缺勤</span></label>
                 </div>
-            `;
+            </div>`;
         }
-        html += '</div>';
-        container.innerHTML = html;
+        html += '</div>'; container.innerHTML = html;
     }
-    
-    window.updateSingleStudentStatus = function(name, status) {
-        currentStudentStatuses[name] = status;
-    };
-    
+    window.updateSingleStudentStatus = function(name, status) { currentStudentStatuses[name] = status; };
     function parseSingleMessage() {
         const rawText = document.getElementById('attendanceRawText').value.trim();
         const selectedClass = document.getElementById('classSelect').value;
-        
         if (!rawText) { alert('请粘贴考勤消息！'); return; }
         if (!selectedClass) { alert('请先选择班级！'); return; }
-        
         const students = extractAllStudentsWithStatus(rawText, selectedClass);
         const otherFields = extractOtherFields(rawText);
-        
-        currentSingleData = {
-            className: selectedClass,
-            students: students,
-            otherFields: otherFields
-        };
-        
+        currentSingleData = { className: selectedClass, students: students, otherFields: otherFields };
         currentStudentStatuses = {};
         for (const name of students.leave) currentStudentStatuses[name] = 'leave';
         for (const name of students.late) currentStudentStatuses[name] = 'late';
         for (const name of students.absence) currentStudentStatuses[name] = 'absence';
         for (const name of students.unknown) currentStudentStatuses[name] = 'unknown';
-        
         const matchedCount = students.leave.length + students.late.length + students.absence.length;
         const unknownCount = students.unknown.length;
-        
         if (isDuplicateAttendance(selectedClass, otherFields.date, otherFields.period)) {
             alert('⚠️ 该考勤记录已存在，请勿重复导入！');
             document.getElementById('singlePreviewArea').style.display = 'none';
             return;
         }
-        
         let matchInfo = '';
-        if (matchedCount > 0) {
-            matchInfo = `<div style="margin-top:10px;padding:8px;background:#e8f5e9;border-radius:6px;color:#2e7d32;">
-                ✅ 成功匹配 ${matchedCount} 名学生
-                ${unknownCount > 0 ? `<span style="margin-left:10px;color:#f57f17;">⚠️ ${unknownCount} 人未匹配到数据库</span>` : ''}
-            </div>`;
-        } else if (unknownCount > 0) {
-            matchInfo = `<div style="margin-top:10px;padding:8px;background:#ffebee;border-radius:6px;color:#c62828;">
-                ⚠️ 未匹配到数据库中的学生！请检查班级选择是否正确，或学生姓名是否在数据库中
-            </div>`;
-        }
-        
+        if (matchedCount > 0) matchInfo = `<div style="margin-top:10px;padding:8px;background:#e8f5e9;border-radius:6px;">✅ 成功匹配 ${matchedCount} 名学生${unknownCount > 0 ? `<span style="margin-left:10px;color:#f57f17;">⚠️ ${unknownCount} 人未匹配</span>` : ''}</div>`;
+        else if (unknownCount > 0) matchInfo = `<div style="margin-top:10px;padding:8px;background:#ffebee;border-radius:6px;">⚠️ 未匹配到数据库中的学生！请检查班级选择是否正确</div>`;
         document.getElementById('singleOtherFields').innerHTML = `
             <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;font-size:13px;">
                 <div><strong>🏫 班级：</strong> ${selectedClass}</div>
@@ -25123,247 +24718,144 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
                 <div><strong>👨‍🏫 老师：</strong> ${otherFields.teacher || '未识别'}</div>
                 <div><strong>📍 地点：</strong> ${otherFields.location || '未识别'}</div>
                 <div><strong>📅 日期：</strong> ${otherFields.date || '未识别'}</div>
-                <div><strong>⏰ 节次：</strong> <span style="color:${otherFields.period ? '#2e7d32' : '#e74c3c'}; font-weight:bold;">${otherFields.period || '未识别'}</span></div>
+                <div><strong>⏰ 节次：</strong> <span style="color:${otherFields.period ? '#2e7d32' : '#e74c3c'};">${otherFields.period || '未识别'}</span></div>
                 <div><strong>👥 应到/实到：</strong> ${otherFields.shouldArrive || '?'}/${otherFields.actualArrive || '?'}</div>
                 <div><strong>📱 手机入袋：</strong> ${otherFields.phoneStatus || '未识别'}</div>
             </div>
             ${matchInfo}
-            ${!otherFields.period ? '<div style="margin-top:10px; padding:8px; background:#ffebee; border-radius:6px; color:#c62828;">⚠️ 未能自动识别节次，请检查消息格式或手动补充节次信息</div>' : ''}
+            ${!otherFields.period ? '<div style="margin-top:10px;padding:8px;background:#ffebee;border-radius:6px;">⚠️ 未能自动识别节次，请检查消息格式</div>' : ''}
         `;
-        
         renderSingleStudentList();
         document.getElementById('singlePreviewArea').style.display = 'block';
     }
-    
     async function confirmSingleImport() {
         if (!currentSingleData) { alert('请先解析消息'); return; }
-        
-        if (!currentSingleData.otherFields.period) {
-            alert('❌ 未能识别节次，请检查考勤消息中是否包含节次信息（如：第1-2节、第一二节等）');
-            return;
-        }
-        
-        const leaveList = [];
-        const lateList = [];
-        const absenceList = [];
-        
+        if (!currentSingleData.otherFields.period) { alert('❌ 未能识别节次！'); return; }
+        if (!currentSingleData.otherFields.date) { alert('❌ 未能识别日期！'); return; }
+        const leaveList = [], lateList = [], absenceList = [];
         for (const [name, status] of Object.entries(currentStudentStatuses)) {
             if (status === 'leave') leaveList.push(name);
             else if (status === 'late') lateList.push(name);
             else if (status === 'absence') absenceList.push(name);
         }
-        
         const record = {
-            className: currentSingleData.className,
-            course: currentSingleData.otherFields.course,
-            teacher: currentSingleData.otherFields.teacher,
-            location: currentSingleData.otherFields.location,
-            date: currentSingleData.otherFields.date,
-            period: currentSingleData.otherFields.period,
-            shouldArrive: currentSingleData.otherFields.shouldArrive,
-            actualArrive: currentSingleData.otherFields.actualArrive,
-            phoneStatus: currentSingleData.otherFields.phoneStatus,
-            leaveList: leaveList,
-            lateList: lateList,
-            absenceList: absenceList
+            className: currentSingleData.className, course: currentSingleData.otherFields.course,
+            teacher: currentSingleData.otherFields.teacher, location: currentSingleData.otherFields.location,
+            date: currentSingleData.otherFields.date, period: currentSingleData.otherFields.period,
+            shouldArrive: currentSingleData.otherFields.shouldArrive, actualArrive: currentSingleData.otherFields.actualArrive,
+            phoneStatus: currentSingleData.otherFields.phoneStatus, leaveList: leaveList, lateList: lateList, absenceList: absenceList
         };
-        
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const inspector = currentUser.fullname || '赵梦婷';
-        const result = importRecord(record, inspector);
-        
+        const result = importAttendanceRecord(record, inspector);
         if (result.success) {
-            alert(`✅ 导入成功！迟到 ${result.lateCount} 人，缺勤 ${result.absenceCount} 人`);
+            alert(`✅ 导入成功！\n迟到 ${result.lateCount} 人，缺勤 ${result.absenceCount} 人，请假 ${result.leaveCount} 人`);
             if (typeof loadAttendanceRecords === 'function') await loadAttendanceRecords();
             if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+            if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
             closeModal();
-        } else {
-            alert(`❌ 导入失败：${result.reason}`);
-        }
+        } else { alert(`❌ 导入失败：${result.reason}`); }
     }
     
-    // ========== 8. 批量导入 ==========
-    let batchData = [];
-    let batchCurrentStatuses = {};
-    
+    // ========== 10. 批量导入 ==========
+    let batchData = [], batchCurrentStatuses = {};
     function renderBatchStudentList(index) {
         const container = document.getElementById(`batchStudentList_${index}`);
         if (!container) return;
-        
         const item = batchData[index];
         if (!item) return;
-        
         const allStudents = [
             ...item.students.leave.map(n => ({ name: n, status: 'leave' })),
             ...item.students.late.map(n => ({ name: n, status: 'late' })),
             ...item.students.absence.map(n => ({ name: n, status: 'absence' })),
             ...item.students.unknown.map(n => ({ name: n, status: 'unknown' }))
         ];
-        
-        if (allStudents.length === 0) {
-            container.innerHTML = '<div style="padding:10px;color:#999;">未识别到学生</div>';
-            return;
-        }
-        
+        if (allStudents.length === 0) { container.innerHTML = '<div style="padding:10px;color:#999;">未识别到学生</div>'; return; }
         let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
         for (const student of allStudents) {
             const key = `${index}_${student.name}`;
             const currentStatus = batchCurrentStatuses[key] || student.status;
-            html += `
-                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:#f8f9fa;border-radius:6px;">
-                    <div style="font-weight:bold;width:80px;">${student.name}</div>
-                    <div style="display:flex;gap:8px;">
-                        <label style="display:flex;align-items:center;gap:3px;">
-                            <input type="radio" name="batch_status_${key}" value="leave" ${currentStatus === 'leave' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'leave')">
-                            <span style="font-size:12px;">请假</span>
-                        </label>
-                        <label style="display:flex;align-items:center;gap:3px;">
-                            <input type="radio" name="batch_status_${key}" value="late" ${currentStatus === 'late' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'late')">
-                            <span style="font-size:12px;">迟到</span>
-                        </label>
-                        <label style="display:flex;align-items:center;gap:3px;">
-                            <input type="radio" name="batch_status_${key}" value="absence" ${currentStatus === 'absence' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'absence')">
-                            <span style="font-size:12px;">缺勤</span>
-                        </label>
-                    </div>
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:8px;background:#f8f9fa;border-radius:6px;">
+                <div style="font-weight:bold;width:80px;">${student.name}</div>
+                <div style="display:flex;gap:8px;">
+                    <label><input type="radio" name="batch_status_${key}" value="leave" ${currentStatus === 'leave' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'leave')"> <span style="font-size:12px;">请假</span></label>
+                    <label><input type="radio" name="batch_status_${key}" value="late" ${currentStatus === 'late' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'late')"> <span style="font-size:12px;">迟到</span></label>
+                    <label><input type="radio" name="batch_status_${key}" value="absence" ${currentStatus === 'absence' ? 'checked' : ''} onchange="updateBatchStudentStatus('${key}', 'absence')"> <span style="font-size:12px;">缺勤</span></label>
                 </div>
-            `;
+            </div>`;
         }
-        html += '</div>';
-        container.innerHTML = html;
+        html += '</div>'; container.innerHTML = html;
     }
-    
-    window.updateBatchStudentStatus = function(key, status) {
-        batchCurrentStatuses[key] = status;
-    };
-    
+    window.updateBatchStudentStatus = function(key, status) { batchCurrentStatuses[key] = status; };
     function parseBatchMessages() {
         const rawText = document.getElementById('batchRawText').value.trim();
         const selectedClass = document.getElementById('batchClassSelect').value;
-        
         if (!rawText) { alert('请粘贴考勤消息！'); return; }
         if (!selectedClass) { alert('请先选择班级！'); return; }
-        
         const blocks = rawText.split(/\n\s*\n/).filter(b => b.trim().length > 30);
-        batchData = [];
-        batchCurrentStatuses = {};
-        
+        batchData = []; batchCurrentStatuses = {};
         for (let i = 0; i < blocks.length; i++) {
             const students = extractAllStudentsWithStatus(blocks[i], selectedClass);
             const otherFields = extractOtherFields(blocks[i]);
             const isDuplicate = isDuplicateAttendance(selectedClass, otherFields.date, otherFields.period);
-            
-            batchData.push({
-                index: i,
-                text: blocks[i],
-                className: selectedClass,
-                students: students,
-                otherFields: otherFields,
-                isDuplicate: isDuplicate
-            });
+            batchData.push({ index: i, text: blocks[i], className: selectedClass, students: students, otherFields: otherFields, isDuplicate: isDuplicate });
         }
-        
         let html = '<div style="max-height:500px;overflow-y:auto;">';
         for (let i = 0; i < batchData.length; i++) {
             const item = batchData[i];
             const statusColor = item.isDuplicate ? '#f39c12' : '#27ae60';
             const statusText = item.isDuplicate ? '⚠️ 重复' : '✅ 待导入';
-            
             const matchedCount = item.students.leave.length + item.students.late.length + item.students.absence.length;
             const unknownCount = item.students.unknown.length;
-            
-            html += `
-                <div style="border:1px solid #ddd;border-radius:8px;margin-bottom:15px;padding:15px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                        <div>
-                            <strong>📋 记录 ${i + 1}</strong>
-                            <span style="margin-left:10px;font-size:12px;color:#666;">${item.otherFields.date || '日期未识别'} ${item.otherFields.period || ''}</span>
-                            <span style="margin-left:10px;padding:2px 8px;border-radius:12px;background:${statusColor};color:white;font-size:11px;">${statusText}</span>
-                            ${matchedCount > 0 ? `<span style="margin-left:10px;color:#2e7d32;">✅匹配${matchedCount}人</span>` : ''}
-                            ${unknownCount > 0 ? `<span style="margin-left:10px;color:#f57f17;">⚠️未匹配${unknownCount}人</span>` : ''}
-                            ${!item.otherFields.period ? '<span style="margin-left:10px;color:#e74c3c;">⚠️节次未识别</span>' : ''}
-                        </div>
-                        <div>
-                            <button class="btn" style="padding:4px 12px;background:#3498db;color:white;" onclick="toggleBatchDetail(${i})">展开/收起</button>
-                        </div>
-                    </div>
-                    <div style="font-size:12px;color:#666;margin-bottom:5px;">
-                        课程: ${item.otherFields.course || '-'} | 老师: ${item.otherFields.teacher || '-'} | 地点: ${item.otherFields.location || '-'}
-                    </div>
-                    <div id="batchDetail_${i}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #eee;">
-                        ${!item.otherFields.period ? '<div style="margin-bottom:10px;padding:6px;background:#ffebee;color:#c62828;border-radius:4px;">⚠️ 该记录节次未识别，请检查消息格式后重试</div>' : ''}
-                        <div id="batchStudentList_${i}"></div>
-                    </div>
+            html += `<div style="border:1px solid #ddd;border-radius:8px;margin-bottom:15px;padding:15px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:10px;">
+                    <div><strong>📋 记录 ${i+1}</strong> <span style="margin-left:10px;font-size:12px;">${item.otherFields.date || '日期未识别'} ${item.otherFields.period || ''}</span> <span style="margin-left:10px;padding:2px 8px;border-radius:12px;background:${statusColor};color:white;font-size:11px;">${statusText}</span> ${matchedCount > 0 ? `<span style="margin-left:10px;color:#2e7d32;">✅匹配${matchedCount}人</span>` : ''} ${unknownCount > 0 ? `<span style="margin-left:10px;color:#f57f17;">⚠️未匹配${unknownCount}人</span>` : ''} ${!item.otherFields.period ? '<span style="margin-left:10px;color:#e74c3c;">⚠️节次未识别</span>' : ''}</div>
+                    <div><button class="btn" style="padding:4px 12px;background:#3498db;" onclick="toggleBatchDetail(${i})">展开/收起</button></div>
                 </div>
-            `;
+                <div style="font-size:12px;color:#666;">课程: ${item.otherFields.course || '-'} | 老师: ${item.otherFields.teacher || '-'} | 地点: ${item.otherFields.location || '-'}</div>
+                <div id="batchDetail_${i}" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid #eee;">
+                    ${!item.otherFields.period ? '<div style="margin-bottom:10px;padding:6px;background:#ffebee;color:#c62828;border-radius:4px;">⚠️ 节次未识别</div>' : ''}
+                    <div id="batchStudentList_${i}"></div>
+                </div>
+            </div>`;
         }
         html += '</div>';
-        
         document.getElementById('batchPreviewContent').innerHTML = html;
         document.getElementById('batchPreviewArea').style.display = 'block';
-        
         for (let i = 0; i < batchData.length; i++) {
-            if (!batchData[i].isDuplicate && batchData[i].otherFields.period) {
-                renderBatchStudentList(i);
-            }
+            if (!batchData[i].isDuplicate && batchData[i].otherFields.period) renderBatchStudentList(i);
         }
     }
-    
     window.toggleBatchDetail = function(index) {
         const detail = document.getElementById(`batchDetail_${index}`);
         if (detail) {
             detail.style.display = detail.style.display === 'none' ? 'block' : 'none';
-            if (detail.style.display === 'block' && batchData[index] && !batchData[index].isDuplicate && batchData[index].otherFields.period) {
-                renderBatchStudentList(index);
-            }
+            if (detail.style.display === 'block' && batchData[index] && !batchData[index].isDuplicate && batchData[index].otherFields.period) renderBatchStudentList(index);
         }
     };
-    
     async function confirmBatchImport() {
-        if (batchData.length === 0) {
-            alert('没有可导入的数据');
-            return;
-        }
-        
-        const validItems = batchData.filter(item => !item.isDuplicate && item.otherFields.period);
-        const invalidItems = batchData.filter(item => !item.isDuplicate && !item.otherFields.period);
+        if (batchData.length === 0) { alert('没有可导入的数据'); return; }
+        const validItems = batchData.filter(item => !item.isDuplicate && item.otherFields.period && item.otherFields.date);
+        const invalidItems = batchData.filter(item => !item.isDuplicate && (!item.otherFields.period || !item.otherFields.date));
         const duplicateCount = batchData.length - validItems.length - invalidItems.length;
-        
-        if (invalidItems.length > 0) {
-            alert(`⚠️ 有 ${invalidItems.length} 条记录节次未识别，已跳过。请检查消息格式后重试。`);
-        }
-        
-        if (validItems.length === 0) {
-            alert(`没有可导入的有效记录（重复: ${duplicateCount}条，节次未识别: ${invalidItems.length}条）`);
-            return;
-        }
-        
+        if (invalidItems.length > 0) alert(`⚠️ 有 ${invalidItems.length} 条记录节次或日期未识别，已跳过。`);
+        if (validItems.length === 0) { alert(`没有可导入的有效记录（重复: ${duplicateCount}条，无效: ${invalidItems.length}条）`); return; }
         const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
         const inspector = currentUser.fullname || '赵梦婷';
-        
         const progressDiv = document.getElementById('batchImportProgress');
         const progressFill = document.getElementById('batchProgressFill');
         const progressText = document.getElementById('batchProgressText');
         if (progressDiv) progressDiv.style.display = 'block';
-        
-        let successCount = 0;
-        let totalLate = 0;
-        let totalAbsence = 0;
-        
+        let successCount = 0, totalLate = 0, totalAbsence = 0, totalLeave = 0;
         for (let i = 0; i < validItems.length; i++) {
             const item = validItems[i];
-            
-            const leaveList = [];
-            const lateList = [];
-            const absenceList = [];
-            
+            const leaveList = [], lateList = [], absenceList = [];
             const allStudents = [
                 ...item.students.leave.map(n => ({ name: n, status: 'leave' })),
                 ...item.students.late.map(n => ({ name: n, status: 'late' })),
                 ...item.students.absence.map(n => ({ name: n, status: 'absence' })),
                 ...item.students.unknown.map(n => ({ name: n, status: 'unknown' }))
             ];
-            
             for (const student of allStudents) {
                 const key = `${item.index}_${student.name}`;
                 const status = batchCurrentStatuses[key] || student.status;
@@ -25371,392 +24863,135 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
                 else if (status === 'late') lateList.push(student.name);
                 else if (status === 'absence') absenceList.push(student.name);
             }
-            
             const record = {
-                className: item.className,
-                course: item.otherFields.course,
-                teacher: item.otherFields.teacher,
-                location: item.otherFields.location,
-                date: item.otherFields.date,
-                period: item.otherFields.period,
-                shouldArrive: item.otherFields.shouldArrive,
-                actualArrive: item.otherFields.actualArrive,
-                phoneStatus: item.otherFields.phoneStatus,
-                leaveList: leaveList,
-                lateList: lateList,
-                absenceList: absenceList
+                className: item.className, course: item.otherFields.course, teacher: item.otherFields.teacher,
+                location: item.otherFields.location, date: item.otherFields.date, period: item.otherFields.period,
+                shouldArrive: item.otherFields.shouldArrive, actualArrive: item.otherFields.actualArrive,
+                phoneStatus: item.otherFields.phoneStatus, leaveList: leaveList, lateList: lateList, absenceList: absenceList
             };
-            
-            const result = importRecord(record, inspector);
-            if (result.success) {
-                successCount++;
-                totalLate += result.lateCount;
-                totalAbsence += result.absenceCount;
-            }
-            
-            if (progressFill) {
-                const percent = Math.round(((i + 1) / validItems.length) * 100);
-                progressFill.style.width = percent + '%';
-                if (progressText) progressText.textContent = `进度: ${i + 1}/${validItems.length} (${percent}%)`;
-            }
+            const result = importAttendanceRecord(record, inspector);
+            if (result.success) { successCount++; totalLate += result.lateCount; totalAbsence += result.absenceCount; totalLeave += result.leaveCount; }
+            if (progressFill) { const percent = Math.round(((i+1)/validItems.length)*100); progressFill.style.width = percent+'%'; if (progressText) progressText.textContent = `进度: ${i+1}/${validItems.length} (${percent}%)`; }
             await new Promise(r => setTimeout(r, 10));
         }
-        
-        alert(`✅ 批量导入完成！\n成功: ${successCount} 条\n跳过(重复): ${duplicateCount} 条\n跳过(节次未识别): ${invalidItems.length} 条\n迟到记录: ${totalLate} 条\n旷课记录: ${totalAbsence} 条`);
-        
+        alert(`✅ 批量导入完成！\n成功: ${successCount} 条\n跳过(重复): ${duplicateCount} 条\n跳过(无效): ${invalidItems.length} 条\n迟到: ${totalLate} 人，旷课: ${totalAbsence} 人，请假: ${totalLeave} 人`);
         if (typeof loadAttendanceRecords === 'function') await loadAttendanceRecords();
         if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
-        
-        batchData = [];
-        document.getElementById('batchPreviewArea').style.display = 'none';
-        if (progressDiv) progressDiv.style.display = 'none';
-        document.getElementById('batchRawText').value = '';
+        if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
+        batchData = []; document.getElementById('batchPreviewArea').style.display = 'none'; if (progressDiv) progressDiv.style.display = 'none'; document.getElementById('batchRawText').value = '';
     }
     
-    // ========== 9. 查课记录导出功能 ==========
-    
+    // ========== 11. 查课记录导出 ==========
     function exportAttendanceRecords() {
         const records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
-        if (records.length === 0) {
-            alert('没有可导出的查课记录！');
-            return;
-        }
-        
-        const modalHtml = `
-            <div class="modal" id="exportAttendanceModal" style="display:flex;z-index:10060;">
-                <div class="modal-content" style="max-width:450px;">
-                    <h3 style="margin-bottom:20px;">📤 导出查课记录</h3>
-                    
-                    <div class="form-group">
-                        <label class="form-label">导出方式</label>
-                        <select id="exportAttendanceType" class="form-control" onchange="toggleAttendanceExportOptions()">
-                            <option value="all">全部记录</option>
-                            <option value="month">按月导出</option>
-                            <option value="class">按班级导出</option>
-                            <option value="dateRange">自定义日期范围</option>
-                        </select>
-                    </div>
-                    
-                    <div id="exportMonthOption" style="display:none;" class="form-group">
-                        <label class="form-label">选择月份</label>
-                        <input type="month" id="exportMonth" class="form-control">
-                    </div>
-                    
-                    <div id="exportClassOption" style="display:none;" class="form-group">
-                        <label class="form-label">选择班级</label>
-                        <select id="exportClass" class="form-control">
-                            <option value="">-- 请选择班级 --</option>
-                            ${getAllClassesFromDB().map(c => `<option value="${c}">${c}</option>`).join('')}
-                        </select>
-                    </div>
-                    
-                    <div id="exportDateRangeOption" style="display:none;" class="form-group">
-                        <label class="form-label">日期范围</label>
-                        <div style="display:flex;gap:10px;">
-                            <input type="date" id="exportDateFrom" class="form-control" placeholder="开始日期">
-                            <span>至</span>
-                            <input type="date" id="exportDateTo" class="form-control" placeholder="结束日期">
-                        </div>
-                    </div>
-                    
-                    <div style="display:flex;gap:15px;margin-top:20px;">
-                        <button class="btn btn-primary" onclick="doExportAttendance()">确认导出</button>
-                        <button class="btn" onclick="closeExportAttendanceModal()">取消</button>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const oldModal = document.getElementById('exportAttendanceModal');
-        if (oldModal) oldModal.remove();
-        const modal = document.createElement('div');
-        modal.id = 'exportAttendanceModal';
-        modal.innerHTML = modalHtml;
-        document.body.appendChild(modal);
+        if (records.length === 0) { alert('没有可导出的查课记录！'); return; }
+        const modalHtml = `<div class="modal" id="exportAttendanceModal" style="display:flex;z-index:10060;"><div class="modal-content" style="max-width:450px;"><h3 style="margin-bottom:20px;">📤 导出查课记录</h3><div class="form-group"><label>导出方式</label><select id="exportAttendanceType" class="form-control" onchange="toggleAttendanceExportOptions()"><option value="all">全部记录</option><option value="month">按月导出</option><option value="class">按班级导出</option><option value="dateRange">自定义日期范围</option></select></div><div id="exportMonthOption" style="display:none;"><label>选择月份</label><input type="month" id="exportMonth" class="form-control"></div><div id="exportClassOption" style="display:none;"><label>选择班级</label><select id="exportClass" class="form-control"><option value="">-- 请选择班级 --</option>${getAllClassesFromDB().map(c => `<option value="${c}">${c}</option>`).join('')}</select></div><div id="exportDateRangeOption" style="display:none;"><label>日期范围</label><div style="display:flex;gap:10px;"><input type="date" id="exportDateFrom" placeholder="开始日期"><span>至</span><input type="date" id="exportDateTo" placeholder="结束日期"></div></div><div style="display:flex;gap:15px;margin-top:20px;"><button class="btn btn-primary" onclick="doExportAttendance()">确认导出</button><button class="btn" onclick="closeExportAttendanceModal()">取消</button></div></div></div>`;
+        const oldModal = document.getElementById('exportAttendanceModal'); if (oldModal) oldModal.remove();
+        const modal = document.createElement('div'); modal.id = 'exportAttendanceModal'; modal.innerHTML = modalHtml; document.body.appendChild(modal);
     }
-    
-    window.toggleAttendanceExportOptions = function() {
-        const type = document.getElementById('exportAttendanceType').value;
-        document.getElementById('exportMonthOption').style.display = type === 'month' ? 'block' : 'none';
-        document.getElementById('exportClassOption').style.display = type === 'class' ? 'block' : 'none';
-        document.getElementById('exportDateRangeOption').style.display = type === 'dateRange' ? 'block' : 'none';
-    };
-    
-    window.closeExportAttendanceModal = function() {
-        const modal = document.getElementById('exportAttendanceModal');
-        if (modal) modal.remove();
-    };
-    
+    window.toggleAttendanceExportOptions = function() { const type = document.getElementById('exportAttendanceType').value; document.getElementById('exportMonthOption').style.display = type === 'month' ? 'block' : 'none'; document.getElementById('exportClassOption').style.display = type === 'class' ? 'block' : 'none'; document.getElementById('exportDateRangeOption').style.display = type === 'dateRange' ? 'block' : 'none'; };
+    window.closeExportAttendanceModal = function() { const modal = document.getElementById('exportAttendanceModal'); if (modal) modal.remove(); };
     window.doExportAttendance = function() {
-        if (typeof XLSX === 'undefined') {
-            alert('Excel处理库未加载，请刷新页面重试');
-            return;
-        }
-        
+        if (typeof XLSX === 'undefined') { alert('Excel库未加载'); return; }
         let records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
         const type = document.getElementById('exportAttendanceType').value;
         let fileName = '查课记录';
-        
-        if (type === 'month') {
-            const month = document.getElementById('exportMonth').value;
-            if (!month) {
-                alert('请选择月份！');
-                return;
-            }
-            records = records.filter(r => r.date && r.date.substring(0, 7) === month);
-            fileName = `查课记录_${month}`;
-        } else if (type === 'class') {
-            const className = document.getElementById('exportClass').value;
-            if (!className) {
-                alert('请选择班级！');
-                return;
-            }
-            records = records.filter(r => r.className === className);
-            fileName = `查课记录_${className}`;
-        } else if (type === 'dateRange') {
-            const dateFrom = document.getElementById('exportDateFrom').value;
-            const dateTo = document.getElementById('exportDateTo').value;
-            if (dateFrom) {
-                records = records.filter(r => r.date >= dateFrom);
-            }
-            if (dateTo) {
-                records = records.filter(r => r.date <= dateTo + ' 23:59');
-            }
-            fileName = `查课记录_${dateFrom || '起始'}_至_${dateTo || '结束'}`;
-        }
-        
-        if (records.length === 0) {
-            alert('没有符合条件的查课记录！');
-            return;
-        }
-        
-        const exportData = [
-            ['序号', '日期', '节次', '班级', '课程', '任课老师', '查课人', '教室', '上课情况', '缺勤记录', '请假', '迟到', '手机入袋', '应到', '实到', '出勤率', '备注', '记录时间']
-        ];
-        
-        records.forEach((record, index) => {
-            exportData.push([
-                index + 1,
-                record.date || '',
-                record.period || '',
-                record.className || '',
-                record.course || '',
-                record.teacher || '',
-                record.inspector || '',
-                record.classroom || '',
-                record.situation || '',
-                record.absence || '',
-                record.leave || '',
-                record.late || '',
-                record.phoneStatus || '',
-                record.shouldArrive || '',
-                record.actualArrive || '',
-                record.attendanceRate || '',
-                record.remark || '',
-                record.createTime ? new Date(record.createTime).toLocaleString() : ''
-            ]);
-        });
-        
+        if (type === 'month') { const month = document.getElementById('exportMonth').value; if (!month) { alert('请选择月份！'); return; } records = records.filter(r => r.date && r.date.substring(0,7) === month); fileName = `查课记录_${month}`; }
+        else if (type === 'class') { const className = document.getElementById('exportClass').value; if (!className) { alert('请选择班级！'); return; } records = records.filter(r => r.className === className); fileName = `查课记录_${className}`; }
+        else if (type === 'dateRange') { const dateFrom = document.getElementById('exportDateFrom').value; const dateTo = document.getElementById('exportDateTo').value; if (dateFrom) records = records.filter(r => r.date >= dateFrom); if (dateTo) records = records.filter(r => r.date <= dateTo + ' 23:59'); fileName = `查课记录_${dateFrom || '起始'}_至_${dateTo || '结束'}`; }
+        if (records.length === 0) { alert('没有符合条件的查课记录！'); return; }
+        const exportData = [['序号','日期','节次','班级','课程','任课老师','查课人','教室','上课情况','缺勤记录','请假','迟到','手机入袋','应到','实到','出勤率','备注','记录时间']];
+        records.forEach((record,index) => { exportData.push([index+1,record.date||'',record.period||'',record.className||'',record.course||'',record.teacher||'',record.inspector||'',record.classroom||'',record.situation||'',record.absence||'',record.leave||'',record.late||'',record.phoneStatus||'',record.shouldArrive||'',record.actualArrive||'',record.attendanceRate||'',record.remark||'',record.createTime?new Date(record.createTime).toLocaleString():'']); });
         const totalRecords = records.length;
-        const totalAbsence = records.reduce((sum, r) => {
-            const match = (r.absence || '').match(/\d+/);
-            return sum + (match ? parseInt(match[0]) : 0);
-        }, 0);
-        const totalLate = records.reduce((sum, r) => {
-            const match = (r.late || '').match(/\d+/);
-            return sum + (match ? parseInt(match[0]) : 0);
-        }, 0);
-        
-        exportData.push([]);
-        exportData.push(['', '', '', '', '', '', '', '', '【汇总统计】', '', '', '', '', '', '', '', '', '']);
-        exportData.push(['', '', '', '', '', '', '', '', `总查课次数: ${totalRecords}次`, `总缺勤: ${totalAbsence}人次`, `总迟到: ${totalLate}人次`, '', '', '', '', '', '', '']);
-        
+        const totalAbsence = records.reduce((sum,r)=>{const m=(r.absence||'').match(/\d+/); return sum+(m?parseInt(m[0]):0);},0);
+        const totalLate = records.reduce((sum,r)=>{const m=(r.late||'').match(/\d+/); return sum+(m?parseInt(m[0]):0);},0);
+        exportData.push([],['','','','','','','','','【汇总统计】','','','','','','','','',''],['','','','','','','','',`总查课次数: ${totalRecords}次`,`总缺勤: ${totalAbsence}人次`,`总迟到: ${totalLate}人次`,'','','','','','','']);
         const ws = XLSX.utils.aoa_to_sheet(exportData);
-        ws['!cols'] = [
-            {wch:6},{wch:18},{wch:12},{wch:18},{wch:15},{wch:12},{wch:12},{wch:12},
-            {wch:20},{wch:18},{wch:12},{wch:12},{wch:10},{wch:8},{wch:8},{wch:10},{wch:20},{wch:18}
-        ];
-        
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, '查课记录');
+        ws['!cols'] = [{wch:6},{wch:18},{wch:12},{wch:18},{wch:15},{wch:12},{wch:12},{wch:12},{wch:20},{wch:18},{wch:12},{wch:12},{wch:10},{wch:8},{wch:8},{wch:10},{wch:20},{wch:18}];
+        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '查课记录');
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const blob = new Blob([wbout], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${fileName}.xlsx`;
-        a.click();
-        URL.revokeObjectURL(url);
-        
-        alert(`成功导出 ${records.length} 条查课记录`);
-        closeExportAttendanceModal();
+        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${fileName}.xlsx`; a.click(); URL.revokeObjectURL(url);
+        alert(`成功导出 ${records.length} 条查课记录`); closeExportAttendanceModal();
     };
     
-    // ========== 10. UI 辅助 ==========
-    function updateClassSelect() {
-        const select = document.getElementById('classSelect');
-        if (!select) return;
-        const classes = getAllClassesFromDB();
-        select.innerHTML = '<option value="">-- 请选择班级 --</option>';
-        for (const cls of classes) select.appendChild(new Option(cls, cls));
-    }
+    // ========== 12. UI 辅助 ==========
+    function updateClassSelect() { const select = document.getElementById('classSelect'); if (!select) return; const classes = getAllClassesFromDB(); select.innerHTML = '<option value="">-- 请选择班级 --</option>'; for (const cls of classes) select.appendChild(new Option(cls, cls)); }
+    function updateBatchClassSelect() { const select = document.getElementById('batchClassSelect'); if (!select) return; const classes = getAllClassesFromDB(); select.innerHTML = '<option value="">-- 请选择班级 --</option>'; for (const cls of classes) select.appendChild(new Option(cls, cls)); }
+    function clearSingle() { document.getElementById('attendanceRawText').value = ''; document.getElementById('classSelect').value = ''; document.getElementById('singlePreviewArea').style.display = 'none'; document.getElementById('singleOtherFields').innerHTML = ''; document.getElementById('singleStudentList').innerHTML = ''; currentSingleData = null; currentStudentStatuses = {}; }
+    function clearBatch() { document.getElementById('batchRawText').value = ''; document.getElementById('batchClassSelect').value = ''; document.getElementById('batchPreviewArea').style.display = 'none'; batchData = []; batchCurrentStatuses = {}; }
+    function closeModal() { const modal = document.getElementById('attendanceModal'); if (modal) modal.remove(); }
     
-    function updateBatchClassSelect() {
-        const select = document.getElementById('batchClassSelect');
-        if (!select) return;
-        const classes = getAllClassesFromDB();
-        select.innerHTML = '<option value="">-- 请选择班级 --</option>';
-        for (const cls of classes) select.appendChild(new Option(cls, cls));
-    }
-    
-    function clearSingle() {
-        document.getElementById('attendanceRawText').value = '';
-        document.getElementById('classSelect').value = '';
-        document.getElementById('singlePreviewArea').style.display = 'none';
-        document.getElementById('singleOtherFields').innerHTML = '';
-        document.getElementById('singleStudentList').innerHTML = '';
-        currentSingleData = null;
-        currentStudentStatuses = {};
-    }
-    
-    function clearBatch() {
-        document.getElementById('batchRawText').value = '';
-        document.getElementById('batchClassSelect').value = '';
-        document.getElementById('batchPreviewArea').style.display = 'none';
-        batchData = [];
-        batchCurrentStatuses = {};
-    }
-    
-    function closeModal() {
-        const modal = document.getElementById('attendanceModal');
-        if (modal) modal.remove();
-    }
-    
-    // ========== 11. 模态框 ==========
+    // ========== 13. 模态框 ==========
     window.switchAttendanceTab = function(tab) {
-        const singlePanel = document.getElementById('singlePanel');
-        const batchPanel = document.getElementById('batchPanel');
-        const singleBtn = document.getElementById('singleTabBtn');
-        const batchBtn = document.getElementById('batchTabBtn');
-        
-        if (tab === 'single') {
-            singlePanel.style.display = 'block';
-            batchPanel.style.display = 'none';
-            singleBtn.style.background = '#3498db';
-            batchBtn.style.background = '#95a5a6';
-            updateClassSelect();
-        } else {
-            singlePanel.style.display = 'none';
-            batchPanel.style.display = 'block';
-            singleBtn.style.background = '#95a5a6';
-            batchBtn.style.background = '#3498db';
-            updateBatchClassSelect();
-        }
+        const singlePanel = document.getElementById('singlePanel'); const batchPanel = document.getElementById('batchPanel');
+        const singleBtn = document.getElementById('singleTabBtn'); const batchBtn = document.getElementById('batchTabBtn');
+        if (tab === 'single') { singlePanel.style.display = 'block'; batchPanel.style.display = 'none'; singleBtn.style.background = '#3498db'; batchBtn.style.background = '#95a5a6'; updateClassSelect(); }
+        else { singlePanel.style.display = 'none'; batchPanel.style.display = 'block'; singleBtn.style.background = '#95a5a6'; batchBtn.style.background = '#3498db'; updateBatchClassSelect(); }
     };
-    
     function showAttendanceModal() {
         document.getElementById('attendanceModal')?.remove();
-        
-        const modalHtml = `
-            <div class="modal" id="attendanceModal" style="display:flex;z-index:10050;">
-                <div class="modal-content" style="max-width:900px;width:90%;max-height:85vh;overflow-y:auto;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
-                        <h3 style="margin:0;color:#2c3e50;">📋 考勤识别</h3>
-                        <button class="btn" style="background:#e74c3c;color:white;padding:5px 12px;" onclick="closeModal()">✕ 关闭</button>
-                    </div>
-                    
-                    <div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid #ddd;">
-                        <button id="singleTabBtn" class="btn" style="background:#3498db;color:white;" onclick="switchAttendanceTab('single')">单条导入</button>
-                        <button id="batchTabBtn" class="btn" style="background:#95a5a6;color:white;" onclick="switchAttendanceTab('batch')">批量导入</button>
-                    </div>
-                    
-                    <div id="singlePanel">
-                        <div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;">
-                            <p style="margin:0;font-size:13px;">📌 选择班级，粘贴考勤消息，系统自动识别学生状态和节次</p>
-                            <p style="margin:5px 0 0;font-size:12px;color:#666;">💡 支持的节次格式：第1-2节、第一二节、第1、2节、1-2节等</p>
-                        </div>
-                        <div class="form-group"><label class="form-label">选择班级 *</label><select id="classSelect" class="form-control"></select></div>
-                        <div class="form-group"><label class="form-label">📝 考勤消息</label><textarea id="attendanceRawText" class="form-control" rows="6" placeholder="粘贴考勤消息..."></textarea></div>
-                        <div style="display:flex;gap:15px;margin-bottom:20px;">
-                            <button class="btn btn-primary" onclick="parseSingleMessage()">🔍 识别</button>
-                            <button class="btn" onclick="clearSingle()">清空</button>
-                        </div>
-                        <div id="singlePreviewArea" style="display:none;">
-                            <div id="singleOtherFields" style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;"></div>
-                            <h4>👥 学生状态（可点击修改）</h4>
-                            <div id="singleStudentList" style="max-height:400px;overflow-y:auto;margin-bottom:15px;"></div>
-                            <button class="btn btn-success" onclick="confirmSingleImport()">✅ 确认导入</button>
-                        </div>
-                    </div>
-                    
-                    <div id="batchPanel" style="display:none;">
-                        <div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;">
-                            <p style="margin:0;font-size:13px;">📌 选择班级，粘贴多条消息，每条用空行分隔</p>
-                            <p style="margin:5px 0 0;font-size:12px;color:#666;">💡 支持多种节次格式，自动识别</p>
-                        </div>
-                        <div class="form-group"><label class="form-label">选择班级 *</label><select id="batchClassSelect" class="form-control"></select></div>
-                        <div class="form-group"><label class="form-label">📝 多条考勤消息</label><textarea id="batchRawText" class="form-control" rows="8" placeholder="粘贴多条消息，每条之间用空行分隔..."></textarea></div>
-                        <div style="display:flex;gap:15px;margin-bottom:20px;">
-                            <button class="btn btn-primary" onclick="parseBatchMessages()">🔍 批量识别</button>
-                            <button class="btn" onclick="clearBatch()">清空</button>
-                        </div>
-                        <div id="batchPreviewArea" style="display:none;">
-                            <div id="batchPreviewContent" style="margin-bottom:15px;"></div>
-                            <div id="batchImportProgress" style="display:none;margin-bottom:15px;">
-                                <div class="progress-bar"><div class="progress-fill" id="batchProgressFill"></div></div>
-                                <div class="progress-text" id="batchProgressText">0%</div>
-                            </div>
-                            <button class="btn btn-success" onclick="confirmBatchImport()">✅ 确认批量导入</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const modal = document.createElement('div');
-        modal.id = 'attendanceModal';
-        modal.innerHTML = modalHtml;
-        document.body.appendChild(modal);
-        updateClassSelect();
-        updateBatchClassSelect();
+        const modalHtml = `<div class="modal" id="attendanceModal" style="display:flex;z-index:10050;"><div class="modal-content" style="max-width:900px;width:90%;max-height:85vh;overflow-y:auto;"><div style="display:flex;justify-content:space-between;margin-bottom:20px;"><h3 style="margin:0;">📋 考勤识别</h3><button class="btn" style="background:#e74c3c;color:white;padding:5px 12px;" onclick="closeModal()">✕ 关闭</button></div><div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;"><p style="margin:0;">📌 选择班级，粘贴考勤消息，系统自动识别学生状态和节次</p><p style="margin:5px 0 0;font-size:12px;">💡 支持格式：迟到XX分钟、请假、缺勤/旷课，自动同步到课堂考勤、查课台账和请假记录</p></div><div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid #ddd;"><button id="singleTabBtn" class="btn" style="background:#3498db;color:white;" onclick="switchAttendanceTab('single')">单条导入</button><button id="batchTabBtn" class="btn" style="background:#95a5a6;color:white;" onclick="switchAttendanceTab('batch')">批量导入</button></div><div id="singlePanel"><div class="form-group"><label>选择班级 *</label><select id="classSelect" class="form-control"></select></div><div class="form-group"><label>📝 考勤消息</label><textarea id="attendanceRawText" class="form-control" rows="6" placeholder="粘贴考勤消息..."></textarea></div><div style="display:flex;gap:15px;margin-bottom:20px;"><button class="btn btn-primary" onclick="parseSingleMessage()">🔍 识别</button><button class="btn" onclick="clearSingle()">清空</button></div><div id="singlePreviewArea" style="display:none;"><div id="singleOtherFields" style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;"></div><h4>👥 学生状态（可点击修改）</h4><div id="singleStudentList" style="max-height:400px;overflow-y:auto;margin-bottom:15px;"></div><button class="btn btn-success" onclick="confirmSingleImport()">✅ 确认导入</button></div></div><div id="batchPanel" style="display:none;"><div class="form-group"><label>选择班级 *</label><select id="batchClassSelect" class="form-control"></select></div><div class="form-group"><label>📝 多条考勤消息</label><textarea id="batchRawText" class="form-control" rows="8" placeholder="粘贴多条消息，每条之间用空行分隔..."></textarea></div><div style="display:flex;gap:15px;margin-bottom:20px;"><button class="btn btn-primary" onclick="parseBatchMessages()">🔍 批量识别</button><button class="btn" onclick="clearBatch()">清空</button></div><div id="batchPreviewArea" style="display:none;"><div id="batchPreviewContent" style="margin-bottom:15px;"></div><div id="batchImportProgress" style="display:none;margin-bottom:15px;"><div class="progress-bar"><div class="progress-fill" id="batchProgressFill"></div></div><div class="progress-text" id="batchProgressText">0%</div></div><button class="btn btn-success" onclick="confirmBatchImport()">✅ 确认批量导入</button></div></div></div></div>`;
+        const modal = document.createElement('div'); modal.id = 'attendanceModal'; modal.innerHTML = modalHtml; document.body.appendChild(modal);
+        updateClassSelect(); updateBatchClassSelect();
     }
     
-    // ========== 12. 添加按钮 ==========
+    // ========== 14. 添加按钮到查课记录模块 ==========
     function addButtonToAttendance() {
         const btnGroup = document.querySelector('#attendanceTab .card > div[style*="background:#f8f9fa"] div[style*="display:flex;gap:15px"]');
         if (btnGroup) {
             if (!document.getElementById('attendanceModalBtn')) {
-                const btn = document.createElement('button');
-                btn.id = 'attendanceModalBtn';
-                btn.className = 'btn';
-                btn.innerHTML = '📋 考勤识别';
-                btn.style.background = '#9b59b6';
-                btn.style.color = 'white';
-                btn.onclick = showAttendanceModal;
-                btnGroup.appendChild(btn);
+                const btn = document.createElement('button'); btn.id = 'attendanceModalBtn'; btn.className = 'btn'; btn.innerHTML = '📋 考勤识别'; btn.style.background = '#9b59b6'; btn.style.color = 'white'; btn.onclick = showAttendanceModal; btnGroup.appendChild(btn);
             }
             if (!document.getElementById('attendanceExportBtn')) {
-                const exportBtn = document.createElement('button');
-                exportBtn.id = 'attendanceExportBtn';
-                exportBtn.className = 'btn btn-success';
-                exportBtn.innerHTML = '📥 导出查课记录';
-                exportBtn.onclick = exportAttendanceRecords;
-                btnGroup.appendChild(exportBtn);
+                const exportBtn = document.createElement('button'); exportBtn.id = 'attendanceExportBtn'; exportBtn.className = 'btn btn-success'; exportBtn.innerHTML = '📥 导出查课记录'; exportBtn.onclick = exportAttendanceRecords; btnGroup.appendChild(exportBtn);
             }
             return true;
         }
         return false;
     }
-    
     const originalSwitchTab = window.switchTab;
-    if (originalSwitchTab) {
-        window.switchTab = function(tabName) {
-            originalSwitchTab(tabName);
-            if (tabName === 'attendance') setTimeout(() => addButtonToAttendance() || setTimeout(addButtonToAttendance, 500), 300);
-        };
-    }
+    if (originalSwitchTab) { window.switchTab = function(tabName) { originalSwitchTab(tabName); if (tabName === 'attendance') setTimeout(() => addButtonToAttendance() || setTimeout(addButtonToAttendance, 500), 300); }; }
     setTimeout(addButtonToAttendance, 1000);
     
+    // ========== 15. 考勤统计模块的按钮（复用同一个模态框） ==========
+    function addStatAttendanceButton() {
+        const btnGroup = document.querySelector('#attendanceStatsTab .card > div[style*="background:#f8f9fa"] div[style*="display:flex;gap:15px"]');
+        if (btnGroup && !document.getElementById('statAttendanceModalBtn')) {
+            const btn = document.createElement('button');
+            btn.id = 'statAttendanceModalBtn';
+            btn.className = 'btn';
+            btn.innerHTML = '📋 考勤识别';
+            btn.style.background = '#9b59b6';
+            btn.style.color = 'white';
+            btn.onclick = function() {
+                if (typeof showAttendanceModal === 'function') {
+                    showAttendanceModal();
+                } else if (typeof window.showAttendanceModal === 'function') {
+                    window.showAttendanceModal();
+                } else {
+                    alert('考勤识别模块未加载，请刷新页面重试');
+                }
+            };
+            btnGroup.appendChild(btn);
+            return true;
+        }
+        return false;
+    }
+
+    // 确保在考勤统计模块切换时添加按钮
+    const originalStatsSwitch = window.switchTab;
+    window.switchTab = function(tabName) {
+        if (originalStatsSwitch) originalStatsSwitch(tabName);
+        if (tabName === 'attendanceStats') {
+            setTimeout(function() {
+                addStatAttendanceButton();
+            }, 300);
+        }
+    };
+    setTimeout(addStatAttendanceButton, 1500);
+    
+    // 暴露全局函数
     window.showAttendanceModal = showAttendanceModal;
     window.parseSingleMessage = parseSingleMessage;
     window.confirmSingleImport = confirmSingleImport;
@@ -25771,7 +25006,333 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
     window.toggleBatchDetail = toggleBatchDetail;
     window.exportAttendanceRecords = exportAttendanceRecords;
 })();
-console.log('✅ 考勤识别模块已加载（修复：学生姓名精确匹配 + 查课记录导出）');
+console.log('✅ 考勤识别模块已加载（增强版：查课记录和考勤统计模块共用同一个考勤识别模态框）');
+
+// ==================== 修复考勤统计模块的考勤识别按钮 ====================
+(function() {
+    // 确保考勤统计模块的按钮能正确调用考勤识别功能
+    function ensureStatAttendanceButtonWorks() {
+        const statBtn = document.querySelector('#attendanceStatsTab .card button[onclick="showStatAttendanceModal()"]');
+        if (statBtn) {
+            statBtn.removeAttribute('onclick');
+            statBtn.onclick = function() {
+                if (typeof showAttendanceModal === 'function') {
+                    showAttendanceModal();
+                } else if (typeof window.showAttendanceModal === 'function') {
+                    window.showAttendanceModal();
+                } else {
+                    console.warn('showAttendanceModal 未定义，尝试重新加载模块');
+                    alert('考勤识别模块加载中，请稍后重试或刷新页面');
+                }
+            };
+            return true;
+        }
+        return false;
+    }
+    
+    window.showStatAttendanceModal = function() {
+        if (typeof showAttendanceModal === 'function') {
+            showAttendanceModal();
+        } else if (typeof window.showAttendanceModal === 'function') {
+            window.showAttendanceModal();
+        } else {
+            console.warn('showAttendanceModal 未定义，尝试延迟执行');
+            setTimeout(function() {
+                if (typeof showAttendanceModal === 'function') {
+                    showAttendanceModal();
+                } else if (typeof window.showAttendanceModal === 'function') {
+                    window.showAttendanceModal();
+                } else {
+                    alert('考勤识别模块加载失败，请刷新页面重试');
+                }
+            }, 500);
+        }
+    };
+    
+    const observer = new MutationObserver(function() {
+        ensureStatAttendanceButtonWorks();
+    });
+    
+    setTimeout(function() {
+        ensureStatAttendanceButtonWorks();
+        const statsTab = document.getElementById('attendanceStatsTab');
+        if (statsTab) {
+            observer.observe(statsTab, { attributes: true, subtree: true, childList: true });
+        }
+    }, 1000);
+    
+    setTimeout(function() {
+        const existingBtn = document.querySelector('#attendanceStatsTab .card button');
+        if (existingBtn && (existingBtn.innerHTML.includes('考勤识别') || existingBtn.textContent.includes('考勤识别'))) {
+            if (!existingBtn.hasAttribute('data-fixed')) {
+                existingBtn.setAttribute('data-fixed', 'true');
+                existingBtn.removeAttribute('onclick');
+                existingBtn.onclick = window.showStatAttendanceModal;
+            }
+        }
+    }, 2000);
+})();
+console.log('✅ 考勤统计模块按钮修复已加载');
+
+// ==================== 删除单条考勤记录功能 ====================
+function deleteSingleAttendRecord(recordId, studentId, studentName) {
+    if (!confirm(`确定要删除 ${studentName} 的这条考勤记录吗？\n此操作不可恢复！`)) {
+        return;
+    }
+    
+    try {
+        let records = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+        const originalLength = records.length;
+        
+        records = records.filter(r => r.id != recordId);
+        
+        if (records.length === originalLength) {
+            alert('未找到要删除的记录！');
+            return;
+        }
+        
+        localStorage.setItem('classAttendRecords', JSON.stringify(records));
+        
+        if (typeof updateStudentAbsenceSummary === 'function') {
+            updateStudentAbsenceSummary();
+        }
+        
+        refreshCurrentDetailModal(studentId, studentName);
+        
+        alert('✅ 考勤记录已删除！');
+        
+    } catch (error) {
+        console.error('删除考勤记录时出错：', error);
+        alert('删除失败：' + error.message);
+    }
+}
+
+function refreshCurrentDetailModal(studentId, studentName) {
+    const modal = document.getElementById('studentDetailModal');
+    if (modal && modal.style.display === 'flex') {
+        showStudentClassAttendRecords(studentId);
+    }
+}
+
+function deleteAllRecordsForStudent(studentId, studentName, recordCount) {
+    if (!confirm(`⚠️ 确定要删除 ${studentName} 的【全部】考勤记录吗？\n共 ${recordCount} 条记录，不可恢复！`)) {
+        return;
+    }
+    
+    try {
+        let records = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+        records = records.filter(r => r.studentId !== studentId);
+        localStorage.setItem('classAttendRecords', JSON.stringify(records));
+        
+        if (typeof updateStudentAbsenceSummary === 'function') {
+            updateStudentAbsenceSummary();
+        }
+        
+        const modal = document.getElementById('studentDetailModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        alert(`✅ 已删除 ${studentName} 的所有考勤记录！`);
+        
+    } catch (error) {
+        console.error('删除学生所有考勤记录时出错：', error);
+        alert('删除失败：' + error.message);
+    }
+}
+
+console.log('✅ 考勤单条删除功能已加载');
+
+// 修复查寝模块缺失的函数
+window.viewDormCheckPhoto = function(photoSrc) {
+    const modalHtml = `
+        <div class="modal" id="dormCheckPhotoViewModal" style="display:flex;z-index:10003;">
+            <div class="modal-content" style="max-width:90%;max-height:90vh;text-align:center;">
+                <img src="${photoSrc}" style="max-width:100%;max-height:80vh;border-radius:8px;">
+                <div style="margin-top:15px;">
+                    <button class="btn" onclick="closeDormCheckPhotoViewModal()">关闭</button>
+                </div>
+            </div>
+        </div>
+    `;
+    const oldModal = document.getElementById('dormCheckPhotoViewModal');
+    if (oldModal) oldModal.remove();
+    const modal = document.createElement('div');
+    modal.id = 'dormCheckPhotoViewModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+};
+
+window.closeDormCheckPhotoViewModal = function() {
+    const modal = document.getElementById('dormCheckPhotoViewModal');
+    if (modal) modal.remove();
+};
+
+// 修复 switchTab 函数中可能存在的语法错误
+(function() {
+    const originalSwitchTab = window.switchTab;
+    
+    if (originalSwitchTab) {
+        window.switchTab = function(tabName) {
+            try {
+                originalSwitchTab(tabName);
+            } catch(e) {
+                console.error('switchTab error:', e);
+                document.querySelectorAll('.content-tab').forEach(tab => tab.style.display = 'none');
+                const targetTab = document.getElementById(tabName + 'Tab');
+                if (targetTab) targetTab.style.display = 'block';
+                
+                document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+                const navItems = document.querySelectorAll('.nav-item');
+                for (let i = 0; i < navItems.length; i++) {
+                    if (navItems[i].textContent.includes(getTabTitle(tabName))) {
+                        navItems[i].classList.add('active');
+                        break;
+                    }
+                }
+                
+                const pageTitle = document.getElementById('pageTitle');
+                if (pageTitle) pageTitle.textContent = getTabTitle(tabName);
+            }
+        };
+    }
+    
+    function getTabTitle(tabName) {
+        const titles = {
+            'record': '新建谈话记录',
+            'students': '学生数据库',
+            'history': '历史记录查询',
+            'analysis': '数据分析',
+            'export': '数据导出',
+            'users': '用户管理',
+            'settings': '系统设置',
+            'attendanceStats': '考勤统计管理'
+        };
+        return titles[tabName] || '工作台';
+    }
+})();
+
+// 确保考勤统计模块正确加载
+(function() {
+    if (typeof getAttendanceStatsModuleHTML !== 'function') {
+        window.getAttendanceStatsModuleHTML = function() {
+            return ` <div id="attendanceStatsTab" class="content-tab" style="display:none;">
+                <div class="card">
+                    <h2 class="card-title">📊 考勤统计管理</h2>
+                    <div style="display:flex;gap:10px;margin-bottom:20px;">
+                        <button class="btn" style="background:#e74c3c;color:white;" onclick="switchAttendSubTab('classAttend')">📚 课堂考勤</button>
+                        <button class="btn" style="background:#2ecc71;color:white;" onclick="switchAttendSubTab('leaveSimple')">📋 请假记录</button>
+                    </div>
+                    <div id="classAttendSubTab">
+                        <div style="background:#f8f9fa;padding:20px;margin-bottom:20px;">
+                            <h3 style="margin-bottom:15px;">课堂考勤操作</h3>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                <button class="btn btn-primary" onclick="showAddClassAttendModal()">➕ 添加记录</button>
+                                <button class="btn btn-warning" onclick="showClassAttendImportModal()">📤 批量导入</button>
+                                <button class="btn btn-info" onclick="downloadClassAttendTemplate()">📄 下载模板</button>
+                                <button class="btn btn-success" onclick="exportAllAttendanceToExcel()">📊 导出全部Excel</button>
+                                <button class="btn btn-danger" id="batchDeleteClassAttendBtn" style="display:none;" onclick="batchDeleteClassAttendRecords()">🗑️ 批量删除考勤记录</button>
+                                <button class="btn" style="background:#9b59b6;color:white;" onclick="showStatAttendanceModal()">📋 考勤识别</button>
+                            </div>
+                            <div id="batchClassAttendActionInfo" style="margin-top:10px;display:none;">
+                                <span id="selectedClassAttendCount">0</span> 条考勤记录已选中
+                                <button class="btn" style="padding:4px 8px;font-size:12px;" onclick="clearClassAttendSelection()">清除选择</button>
+                            </div>
+                        </div>
+                        <div style="margin-bottom:20px;">
+                            <div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;align-items:center;">
+                                <div style="flex:1;min-width:200px;">
+                                    <input type="text" id="absenceSummarySearch" class="form-control" placeholder="搜索学生姓名/班级..." oninput="updateStudentAbsenceSummary(this.value)">
+                                </div>
+                                <button class="btn" onclick="updateStudentAbsenceSummary('')">重置</button>
+                                <button class="btn btn-danger" id="batchDeleteSummaryBtn" style="display:none;" onclick="batchDeleteSummaryRecords()">🗑️ 批量删除选中学生的考勤记录</button>
+                            </div>
+                            <div style="margin-top:20px;">
+                                <h3 style="margin-bottom:15px;color:#2c3e50;">📊 学生累计旷课课时汇总</h3>
+                                <div id="studentAbsenceSummary" style="max-height:500px;overflow-y:auto;"></div>
+                            </div>
+                        </div>
+                        <div style="margin-top:20px;">
+                            <h3 style="margin-bottom:15px;">📚 课堂考勤明细</h3>
+                            <div style="margin-bottom:10px;">
+                                <label><input type="checkbox" id="selectAllClassAttend" onchange="toggleSelectAllClassAttend(this)"> 全选</label>
+                            </div>
+                            <div id="classAttendList" style="max-height:400px;overflow-y:auto;"></div>
+                        </div>
+                    </div>
+                    <div id="leaveSimpleSubTab" style="display:none;">
+                        <div style="background:#f8f9fa;padding:20px;margin-bottom:20px;">
+                            <h3 style="margin-bottom:15px;">请假记录操作</h3>
+                            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                                <button class="btn btn-primary" onclick="showAddLeaveSimpleModal()">➕ 添加请假</button>
+                                <button class="btn btn-warning" onclick="showLeaveSimpleImportModal()">📤 批量导入</button>
+                                <button class="btn btn-info" onclick="downloadLeaveSimpleTemplate()">📄 下载模板</button>
+                                <button class="btn btn-danger" id="batchDeleteLeaveSimpleBtn" style="display:none;" onclick="batchDeleteLeaveSimpleRecords()">🗑️ 批量删除</button>
+                            </div>
+                            <div id="batchLeaveSimpleActionInfo" style="margin-top:10px;display:none;">
+                                <span id="selectedLeaveSimpleCount">0</span> 条选中 
+                                <button class="btn" style="padding:4px 8px;font-size:12px;" onclick="clearLeaveSimpleSelection()">清除</button>
+                            </div>
+                        </div>
+                        <div style="display:flex;gap:10px;margin-bottom:20px;">
+                            <input type="text" id="leaveSimpleSearchInput" class="form-control" placeholder="搜索学生姓名/班级..." style="flex:1;" oninput="searchLeaveSimpleRecords()">
+                            <button class="btn" onclick="clearLeaveSimpleSearch()">重置</button>
+                        </div>
+                        <div>
+                            <label><input type="checkbox" id="selectAllLeaveSimple" onchange="toggleSelectAllLeaveSimple(this)"> 全选</label>
+                        </div>
+                        <div id="leaveSimpleList" style="max-height:500px;overflow-y:auto;margin-top:10px;"></div>
+                    </div>
+                </div>
+            </div>`;
+        };
+    }
+    
+    if (typeof switchAttendSubTab !== 'function') {
+        window.switchAttendSubTab = function(tab) {
+            const classSubTab = document.getElementById('classAttendSubTab');
+            const leaveSubTab = document.getElementById('leaveSimpleSubTab');
+            const classBtn = document.querySelector('#attendanceStatsTab button[style*="#e74c3c"]');
+            const leaveBtn = document.querySelector('#attendanceStatsTab button[style*="#2ecc71"]');
+            
+            if (tab === 'classAttend') {
+                if (classSubTab) classSubTab.style.display = 'block';
+                if (leaveSubTab) leaveSubTab.style.display = 'none';
+                if (classBtn) classBtn.style.background = '#e74c3c';
+                if (leaveBtn) leaveBtn.style.background = '#95a5a6';
+                if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+                if (typeof updateStudentAbsenceSummary === 'function') updateStudentAbsenceSummary();
+            } else {
+                if (classSubTab) classSubTab.style.display = 'none';
+                if (leaveSubTab) leaveSubTab.style.display = 'block';
+                if (classBtn) classBtn.style.background = '#95a5a6';
+                if (leaveBtn) leaveBtn.style.background = '#2ecc71';
+                if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
+            }
+        };
+    }
+    
+    if (typeof showStatAttendanceModal !== 'function') {
+        window.showStatAttendanceModal = function() {
+            if (typeof showAttendanceModal === 'function') {
+                showAttendanceModal();
+            } else {
+                alert('考勤识别功能加载中，请稍后重试');
+            }
+        };
+    }
+    
+    setTimeout(function() {
+        const statsTab = document.getElementById('attendanceStatsTab');
+        if (statsTab && statsTab.style.display === 'block') {
+            if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+            if (typeof updateStudentAbsenceSummary === 'function') updateStudentAbsenceSummary();
+            if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
+        }
+    }, 500);
+})();
+
+console.log('✅ 考勤统计模块修复完成');
 </script>
 </body>
 </html>
