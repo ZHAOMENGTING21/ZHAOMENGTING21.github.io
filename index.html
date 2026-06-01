@@ -21197,13 +21197,6 @@ function getAttendanceStatsModuleHTML() {
                         <div id="studentAbsenceSummary" style="max-height:500px;overflow-y:auto;"></div>
                     </div>
                 </div>
-                <div style="margin-top:20px;">
-                    <h3 style="margin-bottom:15px;">📚 课堂考勤明细</h3>
-                    <div style="margin-bottom:10px;">
-                        <label><input type="checkbox" id="selectAllClassAttend" onchange="toggleSelectAllClassAttend(this)"> 全选</label>
-                    </div>
-                    <div id="classAttendList" style="max-height:400px;overflow-y:auto;"></div>
-                </div>
             </div>
             <div id="leaveSimpleSubTab" style="display:none;">
                 <div style="background:#f8f9fa;padding:20px;margin-bottom:20px;">
@@ -25231,7 +25224,6 @@ window.closeDormCheckPhotoViewModal = function() {
                                 <button class="btn btn-warning" onclick="showClassAttendImportModal()">📤 批量导入</button>
                                 <button class="btn btn-info" onclick="downloadClassAttendTemplate()">📄 下载模板</button>
                                 <button class="btn btn-success" onclick="exportAllAttendanceToExcel()">📊 导出全部Excel</button>
-                                <button class="btn btn-danger" id="batchDeleteClassAttendBtn" style="display:none;" onclick="batchDeleteClassAttendRecords()">🗑️ 批量删除考勤记录</button>
                                 <button class="btn" style="background:#9b59b6;color:white;" onclick="showStatAttendanceModal()">📋 考勤识别</button>
                             </div>
                             <div id="batchClassAttendActionInfo" style="margin-top:10px;display:none;">
@@ -25251,13 +25243,6 @@ window.closeDormCheckPhotoViewModal = function() {
                                 <h3 style="margin-bottom:15px;color:#2c3e50;">📊 学生累计旷课课时汇总</h3>
                                 <div id="studentAbsenceSummary" style="max-height:500px;overflow-y:auto;"></div>
                             </div>
-                        </div>
-                        <div style="margin-top:20px;">
-                            <h3 style="margin-bottom:15px;">📚 课堂考勤明细</h3>
-                            <div style="margin-bottom:10px;">
-                                <label><input type="checkbox" id="selectAllClassAttend" onchange="toggleSelectAllClassAttend(this)"> 全选</label>
-                            </div>
-                            <div id="classAttendList" style="max-height:400px;overflow-y:auto;"></div>
                         </div>
                     </div>
                     <div id="leaveSimpleSubTab" style="display:none;">
