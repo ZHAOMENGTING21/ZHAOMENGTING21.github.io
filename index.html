@@ -20066,7 +20066,8 @@ async function loadDormCheckRecords(searchTerm = '', dateFrom = '', dateTo = '')
                         ${photosHtml}
                     </div>
                     <div>
-                        <button class="btn" style="padding:4px 12px;background:#e74c3c;color:white;" onclick="deleteDormCheckRecord(${r.id})">删除</button>
+                <button class="btn" style="padding:4px 12px;background:#3498db;color:white;" onclick="editDormCheckRecord(${r.id})">编辑</button>
+<button class="btn" style="padding:4px 12px;background:#e74c3c;color:white;" onclick="deleteDormCheckRecord(${r.id})">删除</button>
                     </div>
                 </div>
             </div>
@@ -20166,7 +20167,249 @@ async function saveDormCheckFromModal2() {
 }
 
 function closeAddDormCheckModal2() { const modal = document.getElementById('addDormCheckModal'); if (modal) modal.remove(); editDormCheckId = null; dormCheckTempPhotos = []; }
-function editDormCheckRecord(rid) { showAddDormCheckModal(rid); }
+function editDormCheckRecord(rid) {
+    const records = JSON.parse(localStorage.getItem('dormCheckRecords') || '[]');
+    const record = records.find(r => r.id == rid);
+    if (!record) {
+        alert('未找到该记录！');
+        return;
+    }
+    
+    // 加载照片并显示编辑模态框
+    (async () => {
+        if (typeof getDormCheckPhotosForRecord === 'function') {
+            const photos = await getDormCheckPhotosForRecord(rid);
+            record.photos = photos;
+        }
+        showEditDormCheckModal(record);
+    })();
+}
+
+// 编辑模态框函数
+window.editDormTempPhotos = [];
+
+function showEditDormCheckModal(record) {
+    const oldModal = document.getElementById('editDormCheckModal');
+    if (oldModal) oldModal.remove();
+    
+    let formattedDate = '';
+    if (record.date) {
+        formattedDate = record.date.replace(' ', 'T');
+        if (formattedDate.length > 16) formattedDate = formattedDate.substring(0, 16);
+    } else {
+        formattedDate = new Date().toISOString().slice(0, 16);
+    }
+    
+    let photosPreviewHtml = '';
+    if (record.photos && record.photos.length > 0) {
+        record.photos.forEach((photo, idx) => {
+            photosPreviewHtml += `
+                <div style="position:relative;display:inline-block;margin:5px;" data-photo-idx="${idx}">
+                    <img src="${photo}" style="width:80px;height:100px;object-fit:cover;border-radius:4px;border:1px solid #ddd;">
+                    <button type="button" class="btn" style="position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;border-radius:50%;width:20px;height:20px;padding:0;font-size:12px;line-height:1;" 
+                            onclick="removeEditDormPhoto(${record.id}, ${idx}, this)">×</button>
+                </div>
+            `;
+        });
+    }
+    
+    const modalHtml = `
+        <div class="modal" id="editDormCheckModal" style="display:flex;z-index:10010;">
+            <div class="modal-content" style="max-width:500px;max-height:85vh;overflow-y:auto;">
+                <h3 style="margin-bottom:20px;">✏️ 编辑查寝记录</h3>
+                <div class="form-group">
+                    <label class="form-label">日期时间 *</label>
+                    <input type="datetime-local" id="editDormDate" class="form-control" value="${formattedDate}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">查寝人员 *</label>
+                    <input type="text" id="editDormInspector" class="form-control" value="${escapeHtml2(record.inspector || '')}" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">到访寝室 *</label>
+                    <input type="text" id="editDormDormitories" class="form-control" value="${escapeHtml2(record.dormitories || '')}" placeholder="多个寝室用英文逗号分隔" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">查寝主题</label>
+                    <input type="text" id="editDormTheme" class="form-control" value="${escapeHtml2(record.theme || '常规查寝')}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">寝室情况</label>
+                    <textarea id="editDormSituation" class="form-control" rows="2">${escapeHtml2(record.situation || '')}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">佐证材料照片</label>
+                    <div class="photo-upload-area" onclick="document.getElementById('editDormPhotoInput').click()" style="padding:15px;cursor:pointer;border:2px dashed #3498db;border-radius:8px;text-align:center;">
+                        <div style="font-size:24px;">📷</div>
+                        <p style="margin:5px 0;">点击上传照片（可多选）</p>
+                        <p style="font-size:11px;color:#666;">支持JPG/PNG格式</p>
+                    </div>
+                    <input type="file" id="editDormPhotoInput" accept="image/*" multiple style="display:none;" onchange="handleEditDormPhotoUpload(event)">
+                    <div id="editDormPhotosPreview" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;">${photosPreviewHtml}</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">备注</label>
+                    <textarea id="editDormRemark" class="form-control" rows="2">${escapeHtml2(record.remark || '')}</textarea>
+                </div>
+                <div style="display:flex;gap:15px;margin-top:20px;">
+                    <button type="button" class="btn btn-primary" onclick="saveEditDormCheck(${record.id})">保存修改</button>
+                    <button type="button" class="btn" onclick="closeEditDormCheckModal()">取消</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    const modal = document.createElement('div');
+    modal.id = 'editDormCheckModal';
+    modal.innerHTML = modalHtml;
+    document.body.appendChild(modal);
+}
+
+window.handleEditDormPhotoUpload = function(event) {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+    
+    for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file.type.match('image.*')) {
+            alert('请选择图片文件！');
+            continue;
+        }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            if (!window.editDormTempPhotos) window.editDormTempPhotos = [];
+            window.editDormTempPhotos.push(e.target.result);
+            updateEditDormPhotoPreview();
+        };
+        reader.readAsDataURL(file);
+    }
+    document.getElementById('editDormPhotoInput').value = '';
+};
+
+window.removeEditDormPhoto = function(recordId, photoIndex, btnElement) {
+    const div = btnElement.closest('div[style*="position:relative"]');
+    if (div) div.remove();
+};
+
+function updateEditDormPhotoPreview() {
+    const previewContainer = document.getElementById('editDormPhotosPreview');
+    if (!previewContainer) return;
+    
+    let existingPhotosHtml = '';
+    const existingDivs = previewContainer.querySelectorAll('div[data-photo-idx]');
+    existingDivs.forEach(div => {
+        existingPhotosHtml += div.outerHTML;
+    });
+    
+    let newPhotosHtml = '';
+    if (window.editDormTempPhotos) {
+        window.editDormTempPhotos.forEach((photo, idx) => {
+            newPhotosHtml += `
+                <div style="position:relative;display:inline-block;margin:5px;">
+                    <img src="${photo}" style="width:80px;height:100px;object-fit:cover;border-radius:4px;border:1px solid #ddd;">
+                    <button type="button" class="btn" style="position:absolute;top:-5px;right:-5px;background:#e74c3c;color:white;border-radius:50%;width:20px;height:20px;padding:0;font-size:12px;line-height:1;" 
+                            onclick="this.parentElement.remove()">×</button>
+                </div>
+            `;
+        });
+    }
+    previewContainer.innerHTML = existingPhotosHtml + newPhotosHtml;
+}
+
+window.saveEditDormCheck = async function(recordId) {
+    const date = document.getElementById('editDormDate').value;
+    const inspector = document.getElementById('editDormInspector').value.trim();
+    const dormitories = document.getElementById('editDormDormitories').value.trim();
+    const theme = document.getElementById('editDormTheme').value.trim();
+    const situation = document.getElementById('editDormSituation').value.trim();
+    const remark = document.getElementById('editDormRemark').value.trim();
+    
+    if (!date || !inspector || !dormitories) {
+        alert('请填写必填项！');
+        return;
+    }
+    
+    const formattedDate = date.replace('T', ' ');
+    
+    // 收集所有照片
+    let allPhotos = [];
+    const previewContainer = document.getElementById('editDormPhotosPreview');
+    if (previewContainer) {
+        const imgElements = previewContainer.querySelectorAll('img');
+        imgElements.forEach(img => {
+            if (img.src && img.src.startsWith('data:')) {
+                allPhotos.push(img.src);
+            }
+        });
+    }
+    
+    try {
+        let records = JSON.parse(localStorage.getItem('dormCheckRecords') || '[]');
+        const index = records.findIndex(r => r.id == recordId);
+        
+        if (index !== -1) {
+            // 删除旧照片
+            if (typeof deleteDormCheckPhotosForRecord === 'function') {
+                await deleteDormCheckPhotosForRecord(recordId);
+            }
+            
+            // 保存新照片
+            if (allPhotos.length > 0 && typeof saveDormCheckPhotoToDB === 'function') {
+                for (let i = 0; i < allPhotos.length; i++) {
+                    await saveDormCheckPhotoToDB(recordId, allPhotos[i], i + 1);
+                }
+            }
+            
+            // 更新记录
+            records[index] = {
+                id: recordId,
+                date: formattedDate,
+                inspector: inspector,
+                dormitories: dormitories,
+                theme: theme || '常规查寝',
+                situation: situation,
+                remark: remark,
+                photos: [],
+                updateTime: new Date().toISOString(),
+                createTime: records[index].createTime
+            };
+            
+            localStorage.setItem('dormCheckRecords', JSON.stringify(records));
+            alert('查寝记录已更新！');
+            
+            // 刷新列表
+            if (typeof loadDormCheckRecords === 'function') {
+                await loadDormCheckRecords();
+            }
+            if (typeof updateDormCheckStats === 'function') {
+                updateDormCheckStats();
+            }
+            
+            closeEditDormCheckModal();
+        }
+    } catch (error) {
+        console.error('保存失败：', error);
+        alert('保存失败：' + error.message);
+    }
+    
+    window.editDormTempPhotos = [];
+};
+
+window.closeEditDormCheckModal = function() {
+    const modal = document.getElementById('editDormCheckModal');
+    if (modal) modal.remove();
+    window.editDormTempPhotos = [];
+};
+
+function escapeHtml2(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+    });
+}
 
 // ==================== HTML模板 ====================
 function getDormCheckTabHTML() {
@@ -24372,7 +24615,7 @@ function getCurrentUserName() { try { const u = JSON.parse(localStorage.getItem(
 function showMessage(msg, type) { alert(msg); }
 
 console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全局搜索 + 宿舍调换 + 荣誉记录');
-// ==================== 考勤识别模块（修复版：增加请假记录同步 + 查课记录导出） ====================
+// ==================== 考勤识别模块（修改版：只同步迟到、旷课和请假记录，不创建查课记录） ====================
 (function() {
     // ========== 1. 数据库操作 ==========
     function getAllClassesFromDB() {
@@ -24544,13 +24787,13 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
     
     // ========== 5. 检查重复 ==========
     function isDuplicateAttendance(className, date, period) {
-        const records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
+        const records = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
         if (!date || !period) return false;
-        return records.some(r => { const rDate = r.date ? r.date.split(' ')[0] : ''; return r.className === className && rDate === date && r.period === period; });
+        return records.some(r => r.className === className && r.date === date && r.period === period);
     }
     
     // ========== 6. 同步请假记录 ==========
-    function syncLeaveToLeaveSimple(leaveList, className, dateStr, period, course, inspector) {
+    function syncLeaveToLeaveSimple(leaveList, className, dateStr, period, course) {
         const LEAVE_STORAGE_KEY = 'leaveSimpleRecords';
         let leaveRecords = JSON.parse(localStorage.getItem(LEAVE_STORAGE_KEY) || '[]');
         const today = new Date().toISOString().slice(0, 10);
@@ -24585,12 +24828,13 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
         return leaveCount;
     }
     
-    // ========== 7. 导入课堂考勤 ==========
+    // ========== 7. 导入课堂考勤（只导入迟到、旷课，不创建查课记录） ==========
     function importToClassAttend(record) {
         const CLASS_ATTEND_KEY = 'classAttendRecords';
         let classAttendRecords = JSON.parse(localStorage.getItem(CLASS_ATTEND_KEY) || '[]');
         let lateCount = 0, absenceCount = 0;
         const classStudents = getStudentsByClass(record.className);
+        
         for (const item of record.lateList) {
             let name = item, minutes = 5;
             if (typeof item === 'object') { name = item.name; minutes = item.minutes || 5; }
@@ -24628,32 +24872,7 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
         return { lateCount, absenceCount };
     }
     
-    // ========== 8. 导入查课记录 ==========
-    function importAttendanceRecord(record, inspector) {
-        const shouldArrive = record.shouldArrive || '0';
-        const actualArrive = record.actualArrive || '0';
-        const attendanceRecord = {
-            id: Date.now(), date: record.date ? `${record.date} 00:00` : new Date().toISOString().slice(0,16).replace('T', ' '),
-            period: record.period || '未指定节次', teacher: record.teacher || '', inspector: inspector,
-            className: record.className, course: record.course || '', classroom: record.location || '',
-            situation: record.phoneStatus ? `手机入袋：${record.phoneStatus}` : '',
-            absence: record.absenceList?.length > 0 ? `${record.absenceList.length}人（${record.absenceList.join('、')}）` : '0人',
-            leave: record.leaveList?.length > 0 ? `${record.leaveList.length}人（${record.leaveList.join('、')}）` : '0人',
-            late: record.lateList?.length > 0 ? `${record.lateList.length}人（${record.lateList.join('、')}）` : '0人',
-            remark: `应到${shouldArrive}人，实到${actualArrive}人`, shouldArrive: shouldArrive, actualArrive: actualArrive,
-            attendanceRate: shouldArrive && actualArrive ? Math.round((parseInt(actualArrive) / parseInt(shouldArrive)) * 100) + '%' : '',
-            phoneStatus: record.phoneStatus || '', photos: [], createTime: new Date().toISOString()
-        };
-        let attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
-        attendanceRecords.push(attendanceRecord);
-        localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
-        const classResult = importToClassAttend(record);
-        let leaveCount = 0;
-        if (record.leaveList && record.leaveList.length > 0) leaveCount = syncLeaveToLeaveSimple(record.leaveList, record.className, record.date, record.period, record.course, inspector);
-        return { success: true, lateCount: classResult.lateCount, absenceCount: classResult.absenceCount, leaveCount: leaveCount };
-    }
-    
-    // ========== 9. 单条导入 UI ==========
+    // ========== 8. 单条导入 UI ==========
     let currentSingleData = null;
     let currentStudentStatuses = {};
     function renderSingleStudentList() {
@@ -24738,19 +24957,19 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
             shouldArrive: currentSingleData.otherFields.shouldArrive, actualArrive: currentSingleData.otherFields.actualArrive,
             phoneStatus: currentSingleData.otherFields.phoneStatus, leaveList: leaveList, lateList: lateList, absenceList: absenceList
         };
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const inspector = currentUser.fullname || '赵梦婷';
-        const result = importAttendanceRecord(record, inspector);
-        if (result.success) {
-            alert(`✅ 导入成功！\n迟到 ${result.lateCount} 人，缺勤 ${result.absenceCount} 人，请假 ${result.leaveCount} 人`);
-            if (typeof loadAttendanceRecords === 'function') await loadAttendanceRecords();
-            if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
-            if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
-            closeModal();
-        } else { alert(`❌ 导入失败：${result.reason}`); }
+        const classResult = importToClassAttend(record);
+        let leaveCount = 0;
+        if (record.leaveList && record.leaveList.length > 0) {
+            leaveCount = syncLeaveToLeaveSimple(record.leaveList, record.className, record.date, record.period, record.course);
+        }
+        alert(`✅ 导入成功！\n迟到 ${classResult.lateCount} 人，旷课 ${classResult.absenceCount} 人，请假 ${leaveCount} 人\n\n（注：已同步到课堂考勤模块和请假记录，不创建查课记录）`);
+        if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+        if (typeof updateStudentAbsenceSummary === 'function') updateStudentAbsenceSummary();
+        if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
+        closeModal();
     }
     
-    // ========== 10. 批量导入 ==========
+    // ========== 9. 批量导入 ==========
     let batchData = [], batchCurrentStatuses = {};
     function renderBatchStudentList(index) {
         const container = document.getElementById(`batchStudentList_${index}`);
@@ -24833,8 +25052,6 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
         const duplicateCount = batchData.length - validItems.length - invalidItems.length;
         if (invalidItems.length > 0) alert(`⚠️ 有 ${invalidItems.length} 条记录节次或日期未识别，已跳过。`);
         if (validItems.length === 0) { alert(`没有可导入的有效记录（重复: ${duplicateCount}条，无效: ${invalidItems.length}条）`); return; }
-        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-        const inspector = currentUser.fullname || '赵梦婷';
         const progressDiv = document.getElementById('batchImportProgress');
         const progressFill = document.getElementById('batchProgressFill');
         const progressText = document.getElementById('batchProgressText');
@@ -24862,60 +25079,40 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
                 shouldArrive: item.otherFields.shouldArrive, actualArrive: item.otherFields.actualArrive,
                 phoneStatus: item.otherFields.phoneStatus, leaveList: leaveList, lateList: lateList, absenceList: absenceList
             };
-            const result = importAttendanceRecord(record, inspector);
-            if (result.success) { successCount++; totalLate += result.lateCount; totalAbsence += result.absenceCount; totalLeave += result.leaveCount; }
-            if (progressFill) { const percent = Math.round(((i+1)/validItems.length)*100); progressFill.style.width = percent+'%'; if (progressText) progressText.textContent = `进度: ${i+1}/${validItems.length} (${percent}%)`; }
+            const classResult = importToClassAttend(record);
+            let leaveCount = 0;
+            if (record.leaveList && record.leaveList.length > 0) {
+                leaveCount = syncLeaveToLeaveSimple(record.leaveList, record.className, record.date, record.period, record.course);
+            }
+            successCount++;
+            totalLate += classResult.lateCount;
+            totalAbsence += classResult.absenceCount;
+            totalLeave += leaveCount;
+            if (progressFill) {
+                const percent = Math.round(((i+1)/validItems.length)*100);
+                progressFill.style.width = percent+'%';
+                if (progressText) progressText.textContent = `进度: ${i+1}/${validItems.length} (${percent}%)`;
+            }
             await new Promise(r => setTimeout(r, 10));
         }
-        alert(`✅ 批量导入完成！\n成功: ${successCount} 条\n跳过(重复): ${duplicateCount} 条\n跳过(无效): ${invalidItems.length} 条\n迟到: ${totalLate} 人，旷课: ${totalAbsence} 人，请假: ${totalLeave} 人`);
-        if (typeof loadAttendanceRecords === 'function') await loadAttendanceRecords();
+        alert(`✅ 批量导入完成！\n成功: ${successCount} 条\n跳过(重复): ${duplicateCount} 条\n跳过(无效): ${invalidItems.length} 条\n迟到: ${totalLate} 人，旷课: ${totalAbsence} 人，请假: ${totalLeave} 人\n\n（注：已同步到课堂考勤模块和请假记录，不创建查课记录）`);
         if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+        if (typeof updateStudentAbsenceSummary === 'function') updateStudentAbsenceSummary();
         if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
-        batchData = []; document.getElementById('batchPreviewArea').style.display = 'none'; if (progressDiv) progressDiv.style.display = 'none'; document.getElementById('batchRawText').value = '';
+        batchData = [];
+        document.getElementById('batchPreviewArea').style.display = 'none';
+        if (progressDiv) progressDiv.style.display = 'none';
+        document.getElementById('batchRawText').value = '';
     }
     
-    // ========== 11. 查课记录导出 ==========
-    function exportAttendanceRecords() {
-        const records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
-        if (records.length === 0) { alert('没有可导出的查课记录！'); return; }
-        const modalHtml = `<div class="modal" id="exportAttendanceModal" style="display:flex;z-index:10060;"><div class="modal-content" style="max-width:450px;"><h3 style="margin-bottom:20px;">📤 导出查课记录</h3><div class="form-group"><label>导出方式</label><select id="exportAttendanceType" class="form-control" onchange="toggleAttendanceExportOptions()"><option value="all">全部记录</option><option value="month">按月导出</option><option value="class">按班级导出</option><option value="dateRange">自定义日期范围</option></select></div><div id="exportMonthOption" style="display:none;"><label>选择月份</label><input type="month" id="exportMonth" class="form-control"></div><div id="exportClassOption" style="display:none;"><label>选择班级</label><select id="exportClass" class="form-control"><option value="">-- 请选择班级 --</option>${getAllClassesFromDB().map(c => `<option value="${c}">${c}</option>`).join('')}</select></div><div id="exportDateRangeOption" style="display:none;"><label>日期范围</label><div style="display:flex;gap:10px;"><input type="date" id="exportDateFrom" placeholder="开始日期"><span>至</span><input type="date" id="exportDateTo" placeholder="结束日期"></div></div><div style="display:flex;gap:15px;margin-top:20px;"><button class="btn btn-primary" onclick="doExportAttendance()">确认导出</button><button class="btn" onclick="closeExportAttendanceModal()">取消</button></div></div></div>`;
-        const oldModal = document.getElementById('exportAttendanceModal'); if (oldModal) oldModal.remove();
-        const modal = document.createElement('div'); modal.id = 'exportAttendanceModal'; modal.innerHTML = modalHtml; document.body.appendChild(modal);
-    }
-    window.toggleAttendanceExportOptions = function() { const type = document.getElementById('exportAttendanceType').value; document.getElementById('exportMonthOption').style.display = type === 'month' ? 'block' : 'none'; document.getElementById('exportClassOption').style.display = type === 'class' ? 'block' : 'none'; document.getElementById('exportDateRangeOption').style.display = type === 'dateRange' ? 'block' : 'none'; };
-    window.closeExportAttendanceModal = function() { const modal = document.getElementById('exportAttendanceModal'); if (modal) modal.remove(); };
-    window.doExportAttendance = function() {
-        if (typeof XLSX === 'undefined') { alert('Excel库未加载'); return; }
-        let records = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
-        const type = document.getElementById('exportAttendanceType').value;
-        let fileName = '查课记录';
-        if (type === 'month') { const month = document.getElementById('exportMonth').value; if (!month) { alert('请选择月份！'); return; } records = records.filter(r => r.date && r.date.substring(0,7) === month); fileName = `查课记录_${month}`; }
-        else if (type === 'class') { const className = document.getElementById('exportClass').value; if (!className) { alert('请选择班级！'); return; } records = records.filter(r => r.className === className); fileName = `查课记录_${className}`; }
-        else if (type === 'dateRange') { const dateFrom = document.getElementById('exportDateFrom').value; const dateTo = document.getElementById('exportDateTo').value; if (dateFrom) records = records.filter(r => r.date >= dateFrom); if (dateTo) records = records.filter(r => r.date <= dateTo + ' 23:59'); fileName = `查课记录_${dateFrom || '起始'}_至_${dateTo || '结束'}`; }
-        if (records.length === 0) { alert('没有符合条件的查课记录！'); return; }
-        const exportData = [['序号','日期','节次','班级','课程','任课老师','查课人','教室','上课情况','缺勤记录','请假','迟到','手机入袋','应到','实到','出勤率','备注','记录时间']];
-        records.forEach((record,index) => { exportData.push([index+1,record.date||'',record.period||'',record.className||'',record.course||'',record.teacher||'',record.inspector||'',record.classroom||'',record.situation||'',record.absence||'',record.leave||'',record.late||'',record.phoneStatus||'',record.shouldArrive||'',record.actualArrive||'',record.attendanceRate||'',record.remark||'',record.createTime?new Date(record.createTime).toLocaleString():'']); });
-        const totalRecords = records.length;
-        const totalAbsence = records.reduce((sum,r)=>{const m=(r.absence||'').match(/\d+/); return sum+(m?parseInt(m[0]):0);},0);
-        const totalLate = records.reduce((sum,r)=>{const m=(r.late||'').match(/\d+/); return sum+(m?parseInt(m[0]):0);},0);
-        exportData.push([],['','','','','','','','','【汇总统计】','','','','','','','','',''],['','','','','','','','',`总查课次数: ${totalRecords}次`,`总缺勤: ${totalAbsence}人次`,`总迟到: ${totalLate}人次`,'','','','','','','']);
-        const ws = XLSX.utils.aoa_to_sheet(exportData);
-        ws['!cols'] = [{wch:6},{wch:18},{wch:12},{wch:18},{wch:15},{wch:12},{wch:12},{wch:12},{wch:20},{wch:18},{wch:12},{wch:12},{wch:10},{wch:8},{wch:8},{wch:10},{wch:20},{wch:18}];
-        const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, '查课记录');
-        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-        const blob = new Blob([wbout], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `${fileName}.xlsx`; a.click(); URL.revokeObjectURL(url);
-        alert(`成功导出 ${records.length} 条查课记录`); closeExportAttendanceModal();
-    };
-    
-    // ========== 12. UI 辅助 ==========
+    // ========== 10. UI 辅助 ==========
     function updateClassSelect() { const select = document.getElementById('classSelect'); if (!select) return; const classes = getAllClassesFromDB(); select.innerHTML = '<option value="">-- 请选择班级 --</option>'; for (const cls of classes) select.appendChild(new Option(cls, cls)); }
     function updateBatchClassSelect() { const select = document.getElementById('batchClassSelect'); if (!select) return; const classes = getAllClassesFromDB(); select.innerHTML = '<option value="">-- 请选择班级 --</option>'; for (const cls of classes) select.appendChild(new Option(cls, cls)); }
     function clearSingle() { document.getElementById('attendanceRawText').value = ''; document.getElementById('classSelect').value = ''; document.getElementById('singlePreviewArea').style.display = 'none'; document.getElementById('singleOtherFields').innerHTML = ''; document.getElementById('singleStudentList').innerHTML = ''; currentSingleData = null; currentStudentStatuses = {}; }
     function clearBatch() { document.getElementById('batchRawText').value = ''; document.getElementById('batchClassSelect').value = ''; document.getElementById('batchPreviewArea').style.display = 'none'; batchData = []; batchCurrentStatuses = {}; }
     function closeModal() { const modal = document.getElementById('attendanceModal'); if (modal) modal.remove(); }
     
-    // ========== 13. 模态框 ==========
+    // ========== 11. 模态框 ==========
     window.switchAttendanceTab = function(tab) {
         const singlePanel = document.getElementById('singlePanel'); const batchPanel = document.getElementById('batchPanel');
         const singleBtn = document.getElementById('singleTabBtn'); const batchBtn = document.getElementById('batchTabBtn');
@@ -24924,30 +25121,12 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
     };
     function showAttendanceModal() {
         document.getElementById('attendanceModal')?.remove();
-        const modalHtml = `<div class="modal" id="attendanceModal" style="display:flex;z-index:10050;"><div class="modal-content" style="max-width:900px;width:90%;max-height:85vh;overflow-y:auto;"><div style="display:flex;justify-content:space-between;margin-bottom:20px;"><h3 style="margin:0;">📋 考勤识别</h3><button class="btn" style="background:#e74c3c;color:white;padding:5px 12px;" onclick="closeModal()">✕ 关闭</button></div><div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;"><p style="margin:0;">📌 选择班级，粘贴考勤消息，系统自动识别学生状态和节次</p><p style="margin:5px 0 0;font-size:12px;">💡 支持格式：迟到XX分钟、请假、缺勤/旷课，自动同步到课堂考勤、查课台账和请假记录</p></div><div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid #ddd;"><button id="singleTabBtn" class="btn" style="background:#3498db;color:white;" onclick="switchAttendanceTab('single')">单条导入</button><button id="batchTabBtn" class="btn" style="background:#95a5a6;color:white;" onclick="switchAttendanceTab('batch')">批量导入</button></div><div id="singlePanel"><div class="form-group"><label>选择班级 *</label><select id="classSelect" class="form-control"></select></div><div class="form-group"><label>📝 考勤消息</label><textarea id="attendanceRawText" class="form-control" rows="6" placeholder="粘贴考勤消息..."></textarea></div><div style="display:flex;gap:15px;margin-bottom:20px;"><button class="btn btn-primary" onclick="parseSingleMessage()">🔍 识别</button><button class="btn" onclick="clearSingle()">清空</button></div><div id="singlePreviewArea" style="display:none;"><div id="singleOtherFields" style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;"></div><h4>👥 学生状态（可点击修改）</h4><div id="singleStudentList" style="max-height:400px;overflow-y:auto;margin-bottom:15px;"></div><button class="btn btn-success" onclick="confirmSingleImport()">✅ 确认导入</button></div></div><div id="batchPanel" style="display:none;"><div class="form-group"><label>选择班级 *</label><select id="batchClassSelect" class="form-control"></select></div><div class="form-group"><label>📝 多条考勤消息</label><textarea id="batchRawText" class="form-control" rows="8" placeholder="粘贴多条消息，每条之间用空行分隔..."></textarea></div><div style="display:flex;gap:15px;margin-bottom:20px;"><button class="btn btn-primary" onclick="parseBatchMessages()">🔍 批量识别</button><button class="btn" onclick="clearBatch()">清空</button></div><div id="batchPreviewArea" style="display:none;"><div id="batchPreviewContent" style="margin-bottom:15px;"></div><div id="batchImportProgress" style="display:none;margin-bottom:15px;"><div class="progress-bar"><div class="progress-fill" id="batchProgressFill"></div></div><div class="progress-text" id="batchProgressText">0%</div></div><button class="btn btn-success" onclick="confirmBatchImport()">✅ 确认批量导入</button></div></div></div></div>`;
+        const modalHtml = `<div class="modal" id="attendanceModal" style="display:flex;z-index:10050;"><div class="modal-content" style="max-width:900px;width:90%;max-height:85vh;overflow-y:auto;"><div style="display:flex;justify-content:space-between;margin-bottom:20px;"><h3 style="margin:0;">📋 考勤识别</h3><button class="btn" style="background:#e74c3c;color:white;padding:5px 12px;" onclick="closeModal()">✕ 关闭</button></div><div style="margin-bottom:15px;padding:10px;background:#e8f4fd;border-radius:8px;"><p style="margin:0;">📌 选择班级，粘贴考勤消息，系统自动识别学生状态和节次</p><p style="margin:5px 0 0;font-size:12px;">💡 支持格式：迟到XX分钟、请假、缺勤/旷课，<strong>自动同步到课堂考勤模块和请假记录（不创建查课记录）</strong></p></div><div style="display:flex;gap:10px;margin-bottom:20px;border-bottom:1px solid #ddd;"><button id="singleTabBtn" class="btn" style="background:#3498db;color:white;" onclick="switchAttendanceTab('single')">单条导入</button><button id="batchTabBtn" class="btn" style="background:#95a5a6;color:white;" onclick="switchAttendanceTab('batch')">批量导入</button></div><div id="singlePanel"><div class="form-group"><label>选择班级 *</label><select id="classSelect" class="form-control"></select></div><div class="form-group"><label>📝 考勤消息</label><textarea id="attendanceRawText" class="form-control" rows="6" placeholder="粘贴考勤消息..."></textarea></div><div style="display:flex;gap:15px;margin-bottom:20px;"><button class="btn btn-primary" onclick="parseSingleMessage()">🔍 识别</button><button class="btn" onclick="clearSingle()">清空</button></div><div id="singlePreviewArea" style="display:none;"><div id="singleOtherFields" style="background:#f8f9fa;border-radius:8px;padding:15px;margin-bottom:15px;"></div><h4>👥 学生状态（可点击修改）</h4><div id="singleStudentList" style="max-height:400px;overflow-y:auto;margin-bottom:15px;"></div><button class="btn btn-success" onclick="confirmSingleImport()">✅ 确认导入</button></div></div><div id="batchPanel" style="display:none;"><div class="form-group"><label>选择班级 *</label><select id="batchClassSelect" class="form-control"></select></div><div class="form-group"><label>📝 多条考勤消息</label><textarea id="batchRawText" class="form-control" rows="8" placeholder="粘贴多条消息，每条之间用空行分隔..."></textarea></div><div style="display:flex;gap:15px;margin-bottom:20px;"><button class="btn btn-primary" onclick="parseBatchMessages()">🔍 批量识别</button><button class="btn" onclick="clearBatch()">清空</button></div><div id="batchPreviewArea" style="display:none;"><div id="batchPreviewContent" style="margin-bottom:15px;"></div><div id="batchImportProgress" style="display:none;margin-bottom:15px;"><div class="progress-bar"><div class="progress-fill" id="batchProgressFill"></div></div><div class="progress-text" id="batchProgressText">0%</div></div><button class="btn btn-success" onclick="confirmBatchImport()">✅ 确认批量导入</button></div></div></div></div>`;
         const modal = document.createElement('div'); modal.id = 'attendanceModal'; modal.innerHTML = modalHtml; document.body.appendChild(modal);
         updateClassSelect(); updateBatchClassSelect();
     }
     
-    // ========== 14. 添加按钮到查课记录模块 ==========
-    function addButtonToAttendance() {
-        const btnGroup = document.querySelector('#attendanceTab .card > div[style*="background:#f8f9fa"] div[style*="display:flex;gap:15px"]');
-        if (btnGroup) {
-            if (!document.getElementById('attendanceModalBtn')) {
-                const btn = document.createElement('button'); btn.id = 'attendanceModalBtn'; btn.className = 'btn'; btn.innerHTML = '📋 考勤识别'; btn.style.background = '#9b59b6'; btn.style.color = 'white'; btn.onclick = showAttendanceModal; btnGroup.appendChild(btn);
-            }
-            if (!document.getElementById('attendanceExportBtn')) {
-                const exportBtn = document.createElement('button'); exportBtn.id = 'attendanceExportBtn'; exportBtn.className = 'btn btn-success'; exportBtn.innerHTML = '📥 导出查课记录'; exportBtn.onclick = exportAttendanceRecords; btnGroup.appendChild(exportBtn);
-            }
-            return true;
-        }
-        return false;
-    }
-    const originalSwitchTab = window.switchTab;
-    if (originalSwitchTab) { window.switchTab = function(tabName) { originalSwitchTab(tabName); if (tabName === 'attendance') setTimeout(() => addButtonToAttendance() || setTimeout(addButtonToAttendance, 500), 300); }; }
-    setTimeout(addButtonToAttendance, 1000);
-    
-    // ========== 15. 考勤统计模块的按钮（复用同一个模态框） ==========
+    // ========== 12. 添加按钮到考勤统计模块 ==========
     function addStatAttendanceButton() {
         const btnGroup = document.querySelector('#attendanceStatsTab .card > div[style*="background:#f8f9fa"] div[style*="display:flex;gap:15px"]');
         if (btnGroup && !document.getElementById('statAttendanceModalBtn')) {
@@ -24957,29 +25136,18 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
             btn.innerHTML = '📋 考勤识别';
             btn.style.background = '#9b59b6';
             btn.style.color = 'white';
-            btn.onclick = function() {
-                if (typeof showAttendanceModal === 'function') {
-                    showAttendanceModal();
-                } else if (typeof window.showAttendanceModal === 'function') {
-                    window.showAttendanceModal();
-                } else {
-                    alert('考勤识别模块未加载，请刷新页面重试');
-                }
-            };
+            btn.onclick = function() { showAttendanceModal(); };
             btnGroup.appendChild(btn);
             return true;
         }
         return false;
     }
-
-    // 确保在考勤统计模块切换时添加按钮
+    
     const originalStatsSwitch = window.switchTab;
     window.switchTab = function(tabName) {
         if (originalStatsSwitch) originalStatsSwitch(tabName);
         if (tabName === 'attendanceStats') {
-            setTimeout(function() {
-                addStatAttendanceButton();
-            }, 300);
+            setTimeout(function() { addStatAttendanceButton(); }, 300);
         }
     };
     setTimeout(addStatAttendanceButton, 1500);
@@ -24997,9 +25165,9 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
     window.updateSingleStudentStatus = updateSingleStudentStatus;
     window.updateBatchStudentStatus = updateBatchStudentStatus;
     window.toggleBatchDetail = toggleBatchDetail;
-    window.exportAttendanceRecords = exportAttendanceRecords;
 })();
-console.log('✅ 考勤识别模块已加载（增强版：查课记录和考勤统计模块共用同一个考勤识别模态框）');
+
+console.log('✅ 考勤识别模块已修改：仅同步迟到、旷课和请假记录，不创建查课记录');
 
 // ==================== 修复考勤统计模块的考勤识别按钮 ====================
 (function() {
