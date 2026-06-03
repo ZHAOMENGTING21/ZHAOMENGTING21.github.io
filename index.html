@@ -4780,124 +4780,137 @@ position: relative;
             }
         }
         
-        // 恢复系统数据
-        function restoreSystemData() {
-            // 创建文件输入元素
-            const fileInput = document.createElement('input');
-            fileInput.type = 'file';
-            fileInput.accept = '.json';
-            fileInput.style.display = 'none';
-            
-            fileInput.onchange = function(e) {
-                const file = e.target.files[0];
-                if (!file) return;
+       // 恢复系统数据（修复版 - 恢复所有模块）
+function restoreSystemData() {
+    // 创建文件输入元素
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = '.json';
+    fileInput.style.display = 'none';
+    
+    fileInput.onchange = function(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const backupData = JSON.parse(e.target.result);
                 
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const backupData = JSON.parse(e.target.result);
-                        
-                        // 验证备份数据格式
-                        if (!backupData.talkRecords || !backupData.students || !backupData.systemUsers) {
-                            showMessage('备份文件格式不正确！', 'error');
-                            return;
-                        }
-                        
-                        if (confirm('确定要恢复系统数据吗？当前所有数据将被覆盖！')) {
-                            // 恢复数据
-                            talkRecords = backupData.talkRecords;
-                            students = backupData.students;
-                            users = backupData.systemUsers;
-                            systemSettings = backupData.systemSettings || {};
-                            drafts = backupData.talkDrafts || [];
-                            
-                            // 保存到本地存储
-                            localStorage.setItem('talkRecords', JSON.stringify(talkRecords));
-                            localStorage.setItem('students', JSON.stringify(students));
-                            localStorage.setItem('systemUsers', JSON.stringify(users));
-                            localStorage.setItem('systemSettings', JSON.stringify(systemSettings));
-                            localStorage.setItem('talkDrafts', JSON.stringify(drafts));
-                            
-                            // 重新加载页面数据
-                            loadStudentsTable();
-                            loadTalkRecords();
-                            loadExportList();
-                            loadUsersTable();
-                            updateRecordStats();
-                            updateTalkTrackingStats();
-                            updateUserStats();
-                            updateSystemSettingsDisplay();
-                            
-                            showMessage('系统数据恢复成功！', 'success');
-                        }
-                    } catch (error) {
-                        console.error('恢复系统数据时出错：', error);
-                        showMessage('恢复失败：' + error.message, 'error');
+                // 验证备份数据格式
+                if (!backupData.talkRecords || !backupData.students || !backupData.systemUsers) {
+                    showMessage('备份文件格式不正确！', 'error');
+                    return;
+                }
+                
+                if (confirm('确定要恢复系统数据吗？当前所有数据将被覆盖！')) {
+                    // ========== 原有数据 ==========
+                    talkRecords = backupData.talkRecords;
+                    students = backupData.students;
+                    users = backupData.systemUsers;
+                    systemSettings = backupData.systemSettings || {};
+                    drafts = backupData.talkDrafts || [];
+                    
+                    // ========== 新增：各模块数据 ==========
+                    // 查课记录
+                    if (backupData.attendanceRecords) {
+                        localStorage.setItem('attendanceRecords', JSON.stringify(backupData.attendanceRecords));
                     }
-                };
-                
-                reader.readAsText(file);
-            };
-            
-            document.body.appendChild(fileInput);
-            fileInput.click();
-            document.body.removeChild(fileInput);
-        }
-        
-        // 清理旧数据
-        function cleanOldData() {
-            if (confirm('确定要清理一年前的谈话记录吗？此操作不可恢复！')) {
-                const oneYearAgo = new Date();
-                oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-                
-                const oldRecordsCount = talkRecords.length;
-                talkRecords = talkRecords.filter(record => new Date(record.talkTime) >= oneYearAgo);
-                
-                localStorage.setItem('talkRecords', JSON.stringify(talkRecords));
-                
-                // 重新加载数据
-                loadTalkRecords();
-                loadExportList();
-                updateRecordStats();
-                updateTalkTrackingStats();
-                updateAnalysisData();
-                
-                const cleanedCount = oldRecordsCount - talkRecords.length;
-                showMessage(`已清理 ${cleanedCount} 条一年前的谈话记录`, 'success');
+                    // 班会台账
+                    if (backupData.meetingRecords) {
+                        localStorage.setItem('meetingRecords', JSON.stringify(backupData.meetingRecords));
+                    }
+                    // 献血记录
+                    if (backupData.donationRecords) {
+                        localStorage.setItem('donationRecords', JSON.stringify(backupData.donationRecords));
+                    }
+                    // 处分记录
+                    if (backupData.disciplineRecords) {
+                        localStorage.setItem('disciplineRecords', JSON.stringify(backupData.disciplineRecords));
+                    }
+                    // 晚归记录
+                    if (backupData.latecomeRecords) {
+                        localStorage.setItem('latecomeRecords', JSON.stringify(backupData.latecomeRecords));
+                    }
+                    // 查寝记录
+                    if (backupData.dormCheckRecords) {
+                        localStorage.setItem('dormCheckRecords', JSON.stringify(backupData.dormCheckRecords));
+                    }
+                    // 课堂考勤
+                    if (backupData.classAttendRecords) {
+                        localStorage.setItem('classAttendRecords', JSON.stringify(backupData.classAttendRecords));
+                    }
+                    // 请假记录
+                    if (backupData.leaveSimpleRecords) {
+                        localStorage.setItem('leaveSimpleRecords', JSON.stringify(backupData.leaveSimpleRecords));
+                    }
+                    // 学业帮扶
+                    if (backupData.academicSupportRecords) {
+                        localStorage.setItem('academicSupportRecords', JSON.stringify(backupData.academicSupportRecords));
+                    }
+                    // 心理档案
+                    if (backupData.psychologicalRecords) {
+                        localStorage.setItem('psychologicalRecords', JSON.stringify(backupData.psychologicalRecords));
+                    }
+                    // 成长档案
+                    if (backupData.studentGrowthRecords) {
+                        localStorage.setItem('studentGrowthRecords', JSON.stringify(backupData.studentGrowthRecords));
+                    }
+                    // 宿舍调换
+                    if (backupData.dormChangeRecords) {
+                        localStorage.setItem('dormChangeRecords', JSON.stringify(backupData.dormChangeRecords));
+                    }
+                    // 共享账号
+                    if (backupData.sharedAccount) {
+                        localStorage.setItem('sharedAccount', JSON.stringify(backupData.sharedAccount));
+                    }
+                    
+                    // 保存原有数据到本地存储
+                    localStorage.setItem('talkRecords', JSON.stringify(talkRecords));
+                    localStorage.setItem('students', JSON.stringify(students));
+                    localStorage.setItem('systemUsers', JSON.stringify(users));
+                    localStorage.setItem('systemSettings', JSON.stringify(systemSettings));
+                    localStorage.setItem('talkDrafts', JSON.stringify(drafts));
+                    
+                    // 重新加载页面数据
+                    if (typeof loadStudentsTable === 'function') loadStudentsTable();
+                    if (typeof loadTalkRecords === 'function') loadTalkRecords();
+                    if (typeof loadExportList === 'function') loadExportList();
+                    if (typeof loadUsersTable === 'function') loadUsersTable();
+                    if (typeof updateRecordStats === 'function') updateRecordStats();
+                    if (typeof updateTalkTrackingStats === 'function') updateTalkTrackingStats();
+                    if (typeof updateUserStats === 'function') updateUserStats();
+                    if (typeof updateSystemSettingsDisplay === 'function') updateSystemSettingsDisplay();
+                    if (typeof loadAttendanceRecords === 'function') loadAttendanceRecords();
+                    if (typeof loadMeetingRecords === 'function') loadMeetingRecords();
+                    if (typeof loadDisciplineRecords === 'function') loadDisciplineRecords();
+                    if (typeof loadLatecomeRecords === 'function') loadLatecomeRecords();
+                    if (typeof loadDormCheckRecords === 'function') loadDormCheckRecords();
+                    if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
+                    if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
+                    if (typeof loadSupportRecords === 'function') loadSupportRecords();
+                    if (typeof loadPsychologyRecords === 'function') loadPsychologyRecords();
+                    
+                    showMessage('系统数据恢复成功！页面将刷新...', 'success');
+                    
+                    // 2秒后刷新页面
+                    setTimeout(function() {
+                        location.reload();
+                    }, 2000);
+                }
+            } catch (error) {
+                console.error('恢复系统数据时出错：', error);
+                showMessage('恢复失败：' + error.message, 'error');
             }
-        }
+        };
         
-        // 清理系统缓存
-        function clearSystemCache() {
-            // 清理草稿数据
-            drafts = [];
-            localStorage.setItem('talkDrafts', JSON.stringify(drafts));
-            
-            // 清理其他临时数据
-            localStorage.removeItem('importData');
-            localStorage.removeItem('importPreviewData');
-            localStorage.removeItem('userImportData');
-            localStorage.removeItem('userImportPreviewData');
-            
-            showMessage('系统缓存已清理！', 'success');
-        }
-        
-        // 系统优化
-        function optimizeSystem() {
-            showMessage('系统优化完成！', 'success');
-        }
-        
-        // 查看系统日志（简化版）
-        function viewSystemLogs() {
-            showMessage('系统日志功能正在开发中...', 'info');
-        }
-        
-        // 查看数据统计
-        function showDataStatistics() {
-            // 切换到数据分析页面
-            switchTab('analysis');
-        }
-        
+        reader.readAsText(file);
+    };
+    
+    document.body.appendChild(fileInput);
+    fileInput.click();
+    document.body.removeChild(fileInput);
+}
         // ==================== 以下为原有功能保持不变 ====================
         
          // ==================== 历史谈话记录批量删除功能 ====================
@@ -10272,21 +10285,72 @@ function formatBackupTime(timeStr) {
     }
 }
 
-// 2. 备份全部数据
+// 2. 备份全部数据（修复版 - 备份所有模块）
 function backupAllData() {
     try {
+        // 收集所有模块的数据
         const allData = {
+            // 原有数据
             talkRecords: JSON.parse(localStorage.getItem('talkRecords') || '[]'),
             students: JSON.parse(localStorage.getItem('students') || '[]'),
             systemUsers: JSON.parse(localStorage.getItem('systemUsers') || '[]'),
             talkDrafts: JSON.parse(localStorage.getItem('talkDrafts') || '[]'),
             systemSettings: JSON.parse(localStorage.getItem('systemSettings') || '{}'),
             sharedAccount: JSON.parse(localStorage.getItem('sharedAccount') || '{}'),
+            
+            // ========== 新增：各模块数据 ==========
+            // 查课记录
+            attendanceRecords: JSON.parse(localStorage.getItem('attendanceRecords') || '[]'),
+            // 班会台账
+            meetingRecords: JSON.parse(localStorage.getItem('meetingRecords') || '[]'),
+            // 献血记录
+            donationRecords: JSON.parse(localStorage.getItem('donationRecords') || '[]'),
+            // 处分记录
+            disciplineRecords: JSON.parse(localStorage.getItem('disciplineRecords') || '[]'),
+            // 晚归记录
+            latecomeRecords: JSON.parse(localStorage.getItem('latecomeRecords') || '[]'),
+            // 查寝记录
+            dormCheckRecords: JSON.parse(localStorage.getItem('dormCheckRecords') || '[]'),
+            // 课堂考勤
+            classAttendRecords: JSON.parse(localStorage.getItem('classAttendRecords') || '[]'),
+            // 请假记录
+            leaveSimpleRecords: JSON.parse(localStorage.getItem('leaveSimpleRecords') || '[]'),
+            // 学业帮扶
+            academicSupportRecords: JSON.parse(localStorage.getItem('academicSupportRecords') || '[]'),
+            // 心理档案
+            psychologicalRecords: JSON.parse(localStorage.getItem('psychologicalRecords') || '[]'),
+            // 成长档案
+            studentGrowthRecords: JSON.parse(localStorage.getItem('studentGrowthRecords') || '[]'),
+            // 宿舍调换
+            dormChangeRecords: JSON.parse(localStorage.getItem('dormChangeRecords') || '[]'),
+            
+            // 备份元信息
             backupTime: new Date().toISOString(),
             backupTimeLocal: new Date().toLocaleString('zh-CN'),
             backupVersion: '3.0',
             counselor: window.currentUser ? window.currentUser.fullname : '未知'
         };
+        
+        // 统计各模块数据量
+        const stats = {
+            talkRecords: allData.talkRecords.length,
+            students: allData.students.length,
+            systemUsers: allData.systemUsers.length,
+            attendanceRecords: allData.attendanceRecords.length,
+            meetingRecords: allData.meetingRecords.length,
+            donationRecords: allData.donationRecords.length,
+            disciplineRecords: allData.disciplineRecords.length,
+            latecomeRecords: allData.latecomeRecords.length,
+            dormCheckRecords: allData.dormCheckRecords.length,
+            classAttendRecords: allData.classAttendRecords.length,
+            leaveSimpleRecords: allData.leaveSimpleRecords.length,
+            academicSupportRecords: allData.academicSupportRecords.length,
+            psychologicalRecords: allData.psychologicalRecords.length,
+            studentGrowthRecords: allData.studentGrowthRecords.length,
+            dormChangeRecords: allData.dormChangeRecords.length
+        };
+        
+        console.log('📊 备份数据统计:', stats);
         
         const dataStr = JSON.stringify(allData, null, 2);
         const blob = new Blob(['\ufeff' + dataStr], {type: 'application/json;charset=utf-8'});
@@ -10295,7 +10359,7 @@ function backupAllData() {
         const a = document.createElement('a');
         a.href = url;
         const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
-        a.download = `谈心谈话系统备份_${dateStr}.json`;
+        a.download = `谈心谈话系统完整备份_${dateStr}.json`;
         document.body.appendChild(a);
         a.click();
         
@@ -10307,74 +10371,38 @@ function backupAllData() {
         // 记录备份时间
         localStorage.setItem('lastBackupTime', new Date().toISOString());
         
-        if (typeof window.showMessage === 'function') {
-            window.showMessage('✅ 数据备份完成！文件已下载到电脑。', 'success');
+        // 显示备份统计弹窗
+        let statsMsg = '✅ 完整数据备份完成！\n\n📊 备份内容包括：\n';
+        statsMsg += `├─ 谈话记录: ${stats.talkRecords} 条\n`;
+        statsMsg += `├─ 学生数据: ${stats.students} 条\n`;
+        statsMsg += `├─ 用户账户: ${stats.systemUsers} 个\n`;
+        statsMsg += `├─ 查课记录: ${stats.attendanceRecords} 条\n`;
+        statsMsg += `├─ 班会台账: ${stats.meetingRecords} 条\n`;
+        statsMsg += `├─ 献血记录: ${stats.donationRecords} 条\n`;
+        statsMsg += `├─ 处分记录: ${stats.disciplineRecords} 条\n`;
+        statsMsg += `├─ 晚归记录: ${stats.latecomeRecords} 条\n`;
+        statsMsg += `├─ 查寝记录: ${stats.dormCheckRecords} 条\n`;
+        statsMsg += `├─ 课堂考勤: ${stats.classAttendRecords} 条\n`;
+        statsMsg += `├─ 请假记录: ${stats.leaveSimpleRecords} 条\n`;
+        statsMsg += `├─ 学业帮扶: ${stats.academicSupportRecords} 条\n`;
+        statsMsg += `├─ 心理档案: ${stats.psychologicalRecords} 条\n`;
+        statsMsg += `├─ 成长档案: ${stats.studentGrowthRecords} 条\n`;
+        statsMsg += `└─ 宿舍调换: ${stats.dormChangeRecords} 条\n`;
+        
+        if (typeof showMessage === 'function') {
+            showMessage(statsMsg, 'success');
+        } else {
+            alert(statsMsg);
         }
-        closeBackupCenter();
+        
     } catch (error) {
         console.error('备份失败:', error);
-        if (typeof window.showMessage === 'function') {
-            window.showMessage('备份失败，请重试！', 'error');
+        if (typeof showMessage === 'function') {
+            showMessage('备份失败：' + error.message, 'error');
+        } else {
+            alert('备份失败：' + error.message);
         }
     }
-}
-
-// 3. 恢复数据
-function restoreFromBackup() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.style.display = 'none';
-    
-    input.onchange = function(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            try {
-                const backupData = JSON.parse(e.target.result);
-                
-                if (!confirm('⚠️ 确定要恢复备份数据吗？当前所有数据将被覆盖！')) return;
-                
-                // 验证备份数据
-                if (!backupData.talkRecords || !backupData.students) {
-                    throw new Error('备份文件格式不正确');
-                }
-                
-                // 恢复所有数据
-                localStorage.setItem('talkRecords', JSON.stringify(backupData.talkRecords || []));
-                localStorage.setItem('students', JSON.stringify(backupData.students || []));
-                localStorage.setItem('systemUsers', JSON.stringify(backupData.systemUsers || []));
-                localStorage.setItem('talkDrafts', JSON.stringify(backupData.talkDrafts || []));
-                localStorage.setItem('systemSettings', JSON.stringify(backupData.systemSettings || {}));
-                localStorage.setItem('sharedAccount', JSON.stringify(backupData.sharedAccount || {}));
-                
-                if (backupData.backupTime) {
-                    localStorage.setItem('lastBackupTime', backupData.backupTime);
-                }
-                
-                if (typeof window.showMessage === 'function') {
-                    window.showMessage('✅ 数据恢复成功！页面将重新加载...', 'success');
-                }
-                
-                setTimeout(() => {
-                    location.reload();
-                }, 1500);
-                
-            } catch (error) {
-                console.error('恢复失败:', error);
-                if (typeof window.showMessage === 'function') {
-                    window.showMessage('❌ 恢复失败：文件格式错误！', 'error');
-                }
-            }
-        };
-        reader.readAsText(file);
-    };
-    
-    document.body.appendChild(input);
-    input.click();
-    setTimeout(() => document.body.removeChild(input), 100);
 }
 
 // 4. 在导航栏添加菜单 - 修复版
