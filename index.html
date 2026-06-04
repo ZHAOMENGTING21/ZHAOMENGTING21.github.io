@@ -31,10 +31,10 @@
             box-shadow: 2px 0 10px rgba(0,0,0,0.1);
         }
 
-        .logo {
-            padding: 0 20px 30px;DORMCHECK_STORAGE_KEY
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-        }
+    .logo {
+    padding: 0 20px 30px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
 
         .logo h1 {
             font-size: 20px;
@@ -4780,7 +4780,7 @@ position: relative;
             }
         }
         
-       // 恢复系统数据（修复版 - 恢复所有模块）
+    // 修复 restoreSystemData 函数 - 点从电脑恢复没有反应的问题
 function restoreSystemData() {
     // 创建文件输入元素
     const fileInput = document.createElement('input');
@@ -4788,9 +4788,14 @@ function restoreSystemData() {
     fileInput.accept = '.json';
     fileInput.style.display = 'none';
     
+    // 关键修复：不要立即移除，等文件选择完成后再移除
     fileInput.onchange = function(e) {
         const file = e.target.files[0];
-        if (!file) return;
+        if (!file) {
+            // 用户取消了选择，清理input
+            if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+            return;
+        }
         
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -4800,6 +4805,7 @@ function restoreSystemData() {
                 // 验证备份数据格式
                 if (!backupData.talkRecords || !backupData.students || !backupData.systemUsers) {
                     showMessage('备份文件格式不正确！', 'error');
+                    if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
                     return;
                 }
                 
@@ -4811,59 +4817,20 @@ function restoreSystemData() {
                     systemSettings = backupData.systemSettings || {};
                     drafts = backupData.talkDrafts || [];
                     
-                    // ========== 新增：各模块数据 ==========
-                    // 查课记录
-                    if (backupData.attendanceRecords) {
-                        localStorage.setItem('attendanceRecords', JSON.stringify(backupData.attendanceRecords));
-                    }
-                    // 班会台账
-                    if (backupData.meetingRecords) {
-                        localStorage.setItem('meetingRecords', JSON.stringify(backupData.meetingRecords));
-                    }
-                    // 献血记录
-                    if (backupData.donationRecords) {
-                        localStorage.setItem('donationRecords', JSON.stringify(backupData.donationRecords));
-                    }
-                    // 处分记录
-                    if (backupData.disciplineRecords) {
-                        localStorage.setItem('disciplineRecords', JSON.stringify(backupData.disciplineRecords));
-                    }
-                    // 晚归记录
-                    if (backupData.latecomeRecords) {
-                        localStorage.setItem('latecomeRecords', JSON.stringify(backupData.latecomeRecords));
-                    }
-                    // 查寝记录
-                    if (backupData.dormCheckRecords) {
-                        localStorage.setItem('dormCheckRecords', JSON.stringify(backupData.dormCheckRecords));
-                    }
-                    // 课堂考勤
-                    if (backupData.classAttendRecords) {
-                        localStorage.setItem('classAttendRecords', JSON.stringify(backupData.classAttendRecords));
-                    }
-                    // 请假记录
-                    if (backupData.leaveSimpleRecords) {
-                        localStorage.setItem('leaveSimpleRecords', JSON.stringify(backupData.leaveSimpleRecords));
-                    }
-                    // 学业帮扶
-                    if (backupData.academicSupportRecords) {
-                        localStorage.setItem('academicSupportRecords', JSON.stringify(backupData.academicSupportRecords));
-                    }
-                    // 心理档案
-                    if (backupData.psychologicalRecords) {
-                        localStorage.setItem('psychologicalRecords', JSON.stringify(backupData.psychologicalRecords));
-                    }
-                    // 成长档案
-                    if (backupData.studentGrowthRecords) {
-                        localStorage.setItem('studentGrowthRecords', JSON.stringify(backupData.studentGrowthRecords));
-                    }
-                    // 宿舍调换
-                    if (backupData.dormChangeRecords) {
-                        localStorage.setItem('dormChangeRecords', JSON.stringify(backupData.dormChangeRecords));
-                    }
-                    // 共享账号
-                    if (backupData.sharedAccount) {
-                        localStorage.setItem('sharedAccount', JSON.stringify(backupData.sharedAccount));
-                    }
+                    // ========== 各模块数据 ==========
+                    const moduleKeys = [
+                        'attendanceRecords', 'meetingRecords', 'donationRecords',
+                        'disciplineRecords', 'latecomeRecords', 'dormCheckRecords',
+                        'classAttendRecords', 'leaveSimpleRecords', 'academicSupportRecords',
+                        'psychologicalRecords', 'studentGrowthRecords', 'dormChangeRecords',
+                        'sharedAccount'
+                    ];
+                    
+                    moduleKeys.forEach(key => {
+                        if (backupData[key]) {
+                            localStorage.setItem(key, JSON.stringify(backupData[key]));
+                        }
+                    });
                     
                     // 保存原有数据到本地存储
                     localStorage.setItem('talkRecords', JSON.stringify(talkRecords));
@@ -4881,15 +4848,6 @@ function restoreSystemData() {
                     if (typeof updateTalkTrackingStats === 'function') updateTalkTrackingStats();
                     if (typeof updateUserStats === 'function') updateUserStats();
                     if (typeof updateSystemSettingsDisplay === 'function') updateSystemSettingsDisplay();
-                    if (typeof loadAttendanceRecords === 'function') loadAttendanceRecords();
-                    if (typeof loadMeetingRecords === 'function') loadMeetingRecords();
-                    if (typeof loadDisciplineRecords === 'function') loadDisciplineRecords();
-                    if (typeof loadLatecomeRecords === 'function') loadLatecomeRecords();
-                    if (typeof loadDormCheckRecords === 'function') loadDormCheckRecords();
-                    if (typeof loadClassAttendRecords === 'function') loadClassAttendRecords();
-                    if (typeof loadLeaveSimpleRecords === 'function') loadLeaveSimpleRecords();
-                    if (typeof loadSupportRecords === 'function') loadSupportRecords();
-                    if (typeof loadPsychologyRecords === 'function') loadPsychologyRecords();
                     
                     showMessage('系统数据恢复成功！页面将刷新...', 'success');
                     
@@ -4901,18 +4859,37 @@ function restoreSystemData() {
             } catch (error) {
                 console.error('恢复系统数据时出错：', error);
                 showMessage('恢复失败：' + error.message, 'error');
+            } finally {
+                // 清理input元素
+                if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
             }
+        };
+        
+        reader.onerror = function() {
+            showMessage('读取文件失败，请重试', 'error');
+            if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
         };
         
         reader.readAsText(file);
     };
     
+    // 重要：先添加到body，打开文件选择器，不立即移除
     document.body.appendChild(fileInput);
     fileInput.click();
-    document.body.removeChild(fileInput);
+    
+    // 监听页面焦点变化，检测用户是否取消了文件选择
+    const cleanup = function() {
+        setTimeout(function() {
+            // 检查是否有文件被选择
+            if (fileInput.parentNode && (!fileInput.files || fileInput.files.length === 0)) {
+                if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+            }
+            window.removeEventListener('focus', cleanup);
+        }, 500);
+    };
+    window.addEventListener('focus', cleanup);
 }
-        // ==================== 以下为原有功能保持不变 ====================
-        
+
          // ==================== 历史谈话记录批量删除功能 ====================
         
         // 切换所有谈话记录的选择状态
@@ -10477,7 +10454,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.showBackupCenter = showBackupCenter;
     window.closeBackupCenter = closeBackupCenter;
     window.backupAllData = backupAllData;
-    window.restoreFromBackup = restoreFromBackup;
+    window.restoreFromBackup = restoreSystemData;
 });
 // ==================== 简单学院自定义功能 ====================
 (function() {
@@ -22839,12 +22816,13 @@ function downloadSupportTemplate() {
     setTimeout(() => URL.revokeObjectURL(url), 100);
     if (typeof showMessage === 'function') showMessage('模板下载成功', 'success');
 }
-
 // ==================== 模态框 ====================
 let editSupportId = null;
+let supportCheckpoints = [];
 
 function showAddSupportModal(studentId = null) {
     editSupportId = null;
+    supportCheckpoints = [];
     let defaultStudent = null;
     if (studentId) {
         const students = JSON.parse(localStorage.getItem('students') || '[]');
@@ -22853,10 +22831,10 @@ function showAddSupportModal(studentId = null) {
     
     const modalHtml = `
         <div class="modal" id="addSupportModal" style="display:flex;z-index:10002;">
-            <div class="modal-content" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+            <div class="modal-content" style="max-width:750px;max-height:85vh;overflow-y:auto;">
                 <h3 style="margin-bottom:20px;">📚 新增帮扶方案（一生一策）</h3>
                 <div class="form-group">
-                    <label>学生姓名 *</label>
+                    <label>学生姓名 <span style="color:#e74c3c;">*</span></label>
                     <div style="position:relative;">
                         <input type="text" id="supportStudentName" class="form-control" value="${defaultStudent ? escapeHtml(defaultStudent.name) : ''}" placeholder="输入姓名或学号搜索...">
                         <div id="supportStudentDropdown" class="search-select-dropdown" style="display:none;"></div>
@@ -22873,7 +22851,7 @@ function showAddSupportModal(studentId = null) {
                     <input type="number" id="supportFailCount" class="form-control" value="0" min="0">
                 </div>
                 <div class="form-group">
-                    <label>风险等级 *</label>
+                    <label>风险等级</label>
                     <select id="supportRiskLevel" class="form-control">
                         <option value="高风险">高风险</option>
                         <option value="中风险" selected>中风险</option>
@@ -22881,31 +22859,38 @@ function showAddSupportModal(studentId = null) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>主要学业困难 *</label>
+                    <label>主要学业困难</label>
                     <textarea id="supportMainIssues" class="form-control" rows="2" placeholder="详细描述学生的学业困难情况..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label>帮扶目标 *</label>
+                    <label>帮扶目标</label>
                     <textarea id="supportGoal" class="form-control" rows="2" placeholder="如：期末考试达到XX分、养成XX习惯..."></textarea>
                 </div>
                 <div class="form-group">
-                    <label>帮扶措施 *</label>
+                    <label>帮扶措施</label>
                     <div id="supportMeasuresContainer">
                         <div class="measure-input" style="display:flex;gap:8px;margin-bottom:8px;">
                             <input type="text" class="form-control measure-item" placeholder="措施1" style="flex:1;">
-                            <button type="button" class="btn" style="background:#e74c3c;padding:5px 10px;" onclick="removeMeasure(this)">删除</button>
-                        </div>
-                        <div class="measure-input" style="display:flex;gap:8px;margin-bottom:8px;">
-                            <input type="text" class="form-control measure-item" placeholder="措施2" style="flex:1;">
                             <button type="button" class="btn" style="background:#e74c3c;padding:5px 10px;" onclick="removeMeasure(this)">删除</button>
                         </div>
                     </div>
                     <button type="button" class="btn btn-info" style="margin-top:5px;" onclick="addMeasureField()">+ 添加措施</button>
                 </div>
                 <div class="form-group">
-                    <label>时间节点</label>
+                    <label>时间周期</label>
                     <input type="text" id="supportTimeline" class="form-control" placeholder="如：2026-03-01至2026-07-15">
                 </div>
+                
+                <!-- 关键节点（可添加多条） -->
+                <div class="form-group">
+                    <label>📌 关键节点</label>
+                    <div id="supportCheckpointsContainer" style="margin-bottom:10px;">
+                        <div style="color:#999;padding:8px;text-align:center;background:#f8f9fa;border-radius:6px;">暂无关键节点，点击下方按钮添加</div>
+                    </div>
+                    <button type="button" class="btn btn-info" style="margin-top:5px;" onclick="addCheckpointField()">+ 添加关键节点</button>
+                    <small style="color:#666;display:block;margin-top:5px;">每个节点包含：日期、节点内容、是否完成</small>
+                </div>
+                
                 <div class="form-group">
                     <label>帮扶状态</label>
                     <select id="supportStatus" class="form-control">
@@ -22933,6 +22918,11 @@ function showAddSupportModal(studentId = null) {
     modal.innerHTML = modalHtml;
     document.body.appendChild(modal);
     initSupportStudentSearch();
+    
+    // 延迟渲染关键节点容器
+    setTimeout(() => {
+        renderCheckpointFields();
+    }, 100);
 }
 
 function addMeasureField() {
@@ -22946,6 +22936,7 @@ function addMeasureField() {
     `;
     container.appendChild(div);
 }
+
 function removeMeasure(btn) {
     btn.parentElement.remove();
 }
@@ -22989,10 +22980,69 @@ function initSupportStudentSearch() {
     document.addEventListener('click', (e) => { if (!container.contains(e.target)) dropdown.style.display = 'none'; });
 }
 
+// ========== 关键节点操作函数 ==========
+function addCheckpointField() {
+    supportCheckpoints.push({ date: '', content: '', completed: false });
+    renderCheckpointFields();
+}
+
+function renderCheckpointFields() {
+    const container = document.getElementById('supportCheckpointsContainer');
+    if (!container) return;
+    
+    if (supportCheckpoints.length === 0) {
+        container.innerHTML = '<div style="color:#999;padding:8px;text-align:center;background:#f8f9fa;border-radius:6px;">暂无关键节点，点击"添加关键节点"添加</div>';
+        return;
+    }
+    
+    let html = '';
+    supportCheckpoints.forEach((cp, idx) => {
+        html += `
+            <div style="background:#f8f9fa;padding:12px;border-radius:8px;margin-bottom:10px;border:1px solid #e0e0e0;">
+                <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                    <div style="flex:1;min-width:120px;">
+                        <label style="font-size:12px;color:#666;">日期</label>
+                        <input type="date" class="form-control" value="${cp.date || ''}" 
+                               onchange="updateCheckpoint(${idx}, 'date', this.value)" style="font-size:13px;">
+                    </div>
+                    <div style="flex:2;min-width:200px;">
+                        <label style="font-size:12px;color:#666;">节点内容</label>
+                        <input type="text" class="form-control" value="${escapeHtml(cp.content || '')}" 
+                               placeholder="如：期中考试达到60分"
+                               onchange="updateCheckpoint(${idx}, 'content', this.value)" style="font-size:13px;">
+                    </div>
+                    <div style="width:110px;">
+                        <label style="font-size:12px;color:#666;">状态</label>
+                        <select class="form-control" onchange="updateCheckpoint(${idx}, 'completed', this.value === 'true')" style="font-size:13px;">
+                            <option value="false" ${!cp.completed ? 'selected' : ''}>⏳ 待完成</option>
+                            <option value="true" ${cp.completed ? 'selected' : ''}>✅ 已完成</option>
+                        </select>
+                    </div>
+                    <div style="display:flex;align-items:flex-end;">
+                        <button type="button" class="btn" style="background:#e74c3c;color:white;padding:6px 12px;font-size:12px;" onclick="removeCheckpoint(${idx})">删除</button>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    container.innerHTML = html;
+}
+
+function updateCheckpoint(index, field, value) {
+    if (supportCheckpoints[index]) {
+        supportCheckpoints[index][field] = value;
+    }
+}
+
+function removeCheckpoint(index) {
+    supportCheckpoints.splice(index, 1);
+    renderCheckpointFields();
+}
+
 function saveSupportFromModal() {
     const studentName = document.getElementById('supportStudentName').value.trim();
-    const studentId = document.getElementById('supportStudentId').value.trim();
-    const studentClass = document.getElementById('supportClassName').value.trim();
+    let studentId = document.getElementById('supportStudentId').value.trim();
+    let studentClass = document.getElementById('supportClassName').value.trim();
     const failCount = parseInt(document.getElementById('supportFailCount').value) || 0;
     const riskLevel = document.getElementById('supportRiskLevel').value;
     const mainIssues = document.getElementById('supportMainIssues').value.trim();
@@ -23001,19 +23051,43 @@ function saveSupportFromModal() {
     const status = document.getElementById('supportStatus').value;
     const remark = document.getElementById('supportRemark').value.trim();
     
+    // 获取帮扶措施
     const measureInputs = document.querySelectorAll('#supportMeasuresContainer .measure-item');
     const measures = [];
     measureInputs.forEach(inp => {
         if (inp.value.trim()) measures.push(inp.value.trim());
     });
     
-    if (!studentName) { if (typeof showMessage === 'function') showMessage('请选择学生', 'error'); return; }
-    if (!mainIssues) { if (typeof showMessage === 'function') showMessage('请填写主要学业困难', 'error'); return; }
-    if (!supportGoal) { if (typeof showMessage === 'function') showMessage('请填写帮扶目标', 'error'); return; }
-    if (measures.length === 0) { if (typeof showMessage === 'function') showMessage('请至少填写一条帮扶措施', 'error'); return; }
+    // 只验证学生姓名（必填）
+    if (!studentName) {
+        if (typeof showMessage === 'function') showMessage('请选择学生', 'error');
+        return;
+    }
+    
+    // 如果没有填写学生ID或班级，尝试从学生数据库匹配
+    if (!studentId || !studentClass) {
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        const matched = students.find(s => s.name === studentName);
+        if (matched) {
+            studentId = matched.studentId;
+            studentClass = matched.className;
+        }
+    }
+    
+    // 如果帮扶措施为空，添加默认措施
+    if (measures.length === 0) {
+        measures.push('制定个性化帮扶计划，定期跟进学习情况');
+    }
     
     const now = new Date();
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    
+    // 获取关键节点（过滤掉空白的）
+    const checkpoints = supportCheckpoints.filter(cp => cp.date && cp.content).map(cp => ({
+        date: cp.date,
+        content: cp.content,
+        completed: cp.completed || false
+    }));
     
     const recordData = {
         studentId: studentId || 'unknown_' + Date.now(),
@@ -23021,11 +23095,11 @@ function saveSupportFromModal() {
         className: studentClass || '未知班级',
         failCount: failCount,
         riskLevel: riskLevel,
-        mainIssues: mainIssues,
-        supportGoal: supportGoal,
+        mainIssues: mainIssues || '学业困难',
+        supportGoal: supportGoal || '提升学习成绩',
         supportMeasures: measures,
-        timeline: timeline || `${now.toISOString().slice(0,10)} 至 未设置`,
-        checkpoints: [],
+        timeline: timeline || `${now.toISOString().slice(0,10)} 至 学期末`,
+        checkpoints: checkpoints,
         progressRecords: [{ month: currentMonth, content: '方案制定完成，开始实施', supervisor: getCurrentUserName() }],
         finalEvaluation: '',
         status: status,
@@ -23046,12 +23120,53 @@ function editSupportRecord(recordId) {
     if (!record) return;
     editSupportId = recordId;
     
+    // 加载已有的关键节点
+    supportCheckpoints = (record.checkpoints && record.checkpoints.length > 0) 
+        ? record.checkpoints.map(cp => ({ ...cp }))
+        : [];
+    
+    // 生成关键节点列表的HTML（用于编辑时显示）
+    let checkpointsHtml = '';
+    if (supportCheckpoints.length > 0) {
+        supportCheckpoints.forEach((cp, idx) => {
+            checkpointsHtml += `
+                <div style="background:#f8f9fa;padding:12px;border-radius:8px;margin-bottom:10px;border:1px solid #e0e0e0;">
+                    <div style="display:flex;gap:10px;margin-bottom:8px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:120px;">
+                            <label style="font-size:12px;color:#666;">日期</label>
+                            <input type="date" class="form-control" value="${cp.date || ''}" 
+                                   onchange="updateCheckpoint(${idx}, 'date', this.value)" style="font-size:13px;">
+                        </div>
+                        <div style="flex:2;min-width:200px;">
+                            <label style="font-size:12px;color:#666;">节点内容</label>
+                            <input type="text" class="form-control" value="${escapeHtml(cp.content || '')}" 
+                                   placeholder="如：期中考试达到60分"
+                                   onchange="updateCheckpoint(${idx}, 'content', this.value)" style="font-size:13px;">
+                        </div>
+                        <div style="width:110px;">
+                            <label style="font-size:12px;color:#666;">状态</label>
+                            <select class="form-control" onchange="updateCheckpoint(${idx}, 'completed', this.value === 'true')" style="font-size:13px;">
+                                <option value="false" ${!cp.completed ? 'selected' : ''}>⏳ 待完成</option>
+                                <option value="true" ${cp.completed ? 'selected' : ''}>✅ 已完成</option>
+                            </select>
+                        </div>
+                        <div style="display:flex;align-items:flex-end;">
+                            <button type="button" class="btn" style="background:#e74c3c;color:white;padding:6px 12px;font-size:12px;" onclick="removeCheckpoint(${idx})">删除</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+    } else {
+        checkpointsHtml = '<div style="color:#999;padding:8px;text-align:center;background:#f8f9fa;border-radius:6px;">暂无关键节点，点击下方按钮添加</div>';
+    }
+    
     const modalHtml = `
         <div class="modal" id="addSupportModal" style="display:flex;z-index:10002;">
-            <div class="modal-content" style="max-width:700px;max-height:85vh;overflow-y:auto;">
+            <div class="modal-content" style="max-width:750px;max-height:85vh;overflow-y:auto;">
                 <h3 style="margin-bottom:20px;">✏️ 编辑帮扶方案</h3>
                 <div class="form-group">
-                    <label>学生姓名 *</label>
+                    <label>学生姓名</label>
                     <input type="text" id="supportStudentName" class="form-control" value="${escapeHtml(record.studentName)}" readonly style="background:#f5f5f5;">
                     <input type="hidden" id="supportStudentId" value="${record.studentId}">
                     <input type="hidden" id="supportClassName" value="${escapeHtml(record.className)}">
@@ -23061,7 +23176,7 @@ function editSupportRecord(recordId) {
                     <input type="number" id="supportFailCount" class="form-control" value="${record.failCount || 0}" min="0">
                 </div>
                 <div class="form-group">
-                    <label>风险等级 *</label>
+                    <label>风险等级</label>
                     <select id="supportRiskLevel" class="form-control">
                         <option value="高风险" ${record.riskLevel === '高风险' ? 'selected' : ''}>高风险</option>
                         <option value="中风险" ${record.riskLevel === '中风险' ? 'selected' : ''}>中风险</option>
@@ -23069,11 +23184,11 @@ function editSupportRecord(recordId) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>主要学业困难 *</label>
+                    <label>主要学业困难</label>
                     <textarea id="supportMainIssues" class="form-control" rows="2">${escapeHtml(record.mainIssues)}</textarea>
                 </div>
                 <div class="form-group">
-                    <label>帮扶目标 *</label>
+                    <label>帮扶目标</label>
                     <textarea id="supportGoal" class="form-control" rows="2">${escapeHtml(record.supportGoal)}</textarea>
                 </div>
                 <div class="form-group">
@@ -23089,9 +23204,20 @@ function editSupportRecord(recordId) {
                     <button type="button" class="btn btn-info" style="margin-top:5px;" onclick="addMeasureField()">+ 添加措施</button>
                 </div>
                 <div class="form-group">
-                    <label>时间节点</label>
-                    <input type="text" id="supportTimeline" class="form-control" value="${escapeHtml(record.timeline || '')}">
+                    <label>时间周期</label>
+                    <input type="text" id="supportTimeline" class="form-control" value="${escapeHtml(record.timeline || '')}" placeholder="如：2026-03-01至2026-07-15">
                 </div>
+                
+                <!-- 关键节点（可添加多条） -->
+                <div class="form-group">
+                    <label>📌 关键节点</label>
+                    <div id="supportCheckpointsContainer" style="margin-bottom:10px;">
+                        ${checkpointsHtml}
+                    </div>
+                    <button type="button" class="btn btn-info" style="margin-top:5px;" onclick="addCheckpointField()">+ 添加关键节点</button>
+                    <small style="color:#666;display:block;margin-top:5px;">每个节点包含：日期、节点内容、是否完成</small>
+                </div>
+                
                 <div class="form-group">
                     <label>帮扶状态</label>
                     <select id="supportStatus" class="form-control">
@@ -23118,14 +23244,19 @@ function editSupportRecord(recordId) {
     modal.id = 'addSupportModal';
     modal.innerHTML = modalHtml;
     document.body.appendChild(modal);
+    
+    // 延迟渲染关键节点容器（确保DOM已加载）
+    setTimeout(() => {
+        renderCheckpointFields();
+    }, 100);
 }
 
 function closeAddSupportModal() {
     const modal = document.getElementById('addSupportModal');
     if (modal) modal.remove();
     editSupportId = null;
+    supportCheckpoints = [];  // 清空关键节点
 }
-
 // 进展更新模态框
 function showProgressModal(recordId) {
     const record = getAllSupportRecords().find(r => r.id == recordId);
@@ -24786,37 +24917,63 @@ console.log('✅ 系统已加载：首页仪表盘 + 可搜索成长档案 + 全
         return smartResult;
     }
     
-    // ========== 4. 提取其他字段 ==========
-    function extractOtherFields(text) {
-        const result = { course: '', teacher: '', location: '', date: '', period: '', shouldArrive: '', actualArrive: '', phoneStatus: '' };
-        const courseMatch = text.match(/课程[：:]\s*([^\n]+)/);
-        if (courseMatch) result.course = courseMatch[1].trim();
-        const teacherMatch = text.match(/任课老师[：:]\s*([^\n]+?)(?:老师)?[\s\n]/);
-        if (teacherMatch) result.teacher = teacherMatch[1].trim().replace(/老师$/, '');
-        const locationMatch = text.match(/地点[：:]\s*([^\n]+)/);
-        if (locationMatch) result.location = locationMatch[1].trim();
-        let dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
-        if (dateMatch) {
-            const year = new Date().getFullYear();
-            result.date = `${year}-${dateMatch[1].padStart(2,'0')}-${dateMatch[2].padStart(2,'0')}`;
-        } else {
-            dateMatch = text.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/);
-            if (dateMatch) result.date = `${dateMatch[1]}-${dateMatch[2].padStart(2,'0')}-${dateMatch[3].padStart(2,'0')}`;
-        }
-        result.period = smartPeriodRecognizer(text);
-        const shouldMatch = text.match(/应到[：:]\s*(\d+)/);
-        if (shouldMatch) result.shouldArrive = shouldMatch[1];
-        const actualMatch = text.match(/实到[：:]\s*(\d+)/);
-        if (actualMatch) result.actualArrive = actualMatch[1];
-        if (text.includes('手机入袋：有') || text.includes('手机入袋:有')) result.phoneStatus = '有';
-        else if (text.includes('手机入袋：无') || text.includes('手机入袋:无')) result.phoneStatus = '无';
-if (/手机是否入袋[：:]\s*[（(]?\s*有\s*[）)]?/.test(text)) {
-    result.phoneStatus = '有';
-} else if (/手机是否入袋[：:]\s*[（(]?\s*无\s*[）)]?/.test(text)) {
-    result.phoneStatus = '无';
-}
-        return result;
+// 修改 extractOtherFields 函数中的手机入袋识别部分
+function extractOtherFields(text) {
+    const result = { course: '', teacher: '', location: '', date: '', period: '', shouldArrive: '', actualArrive: '', phoneStatus: '' };
+    const courseMatch = text.match(/课程[：:]\s*([^\n]+)/);
+    if (courseMatch) result.course = courseMatch[1].trim();
+    const teacherMatch = text.match(/任课老师[：:]\s*([^\n]+?)(?:老师)?[\s\n]/);
+    if (teacherMatch) result.teacher = teacherMatch[1].trim().replace(/老师$/, '');
+    const locationMatch = text.match(/地点[：:]\s*([^\n]+)/);
+    if (locationMatch) result.location = locationMatch[1].trim();
+    let dateMatch = text.match(/(\d{1,2})月(\d{1,2})日/);
+    if (dateMatch) {
+        const year = new Date().getFullYear();
+        result.date = `${year}-${dateMatch[1].padStart(2,'0')}-${dateMatch[2].padStart(2,'0')}`;
+    } else {
+        dateMatch = text.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})/);
+        if (dateMatch) result.date = `${dateMatch[1]}-${dateMatch[2].padStart(2,'0')}-${dateMatch[3].padStart(2,'0')}`;
     }
+    result.period = smartPeriodRecognizer(text);
+    const shouldMatch = text.match(/应到[：:]\s*(\d+)/);
+    if (shouldMatch) result.shouldArrive = shouldMatch[1];
+    const actualMatch = text.match(/实到[：:]\s*(\d+)/);
+    if (actualMatch) result.actualArrive = actualMatch[1];
+    
+    // ========== 修改手机入袋识别规则 ==========
+    // 支持多种格式：有/无、✅/❌、是/否、已入袋/未入袋、入袋/未入袋
+    const phonePatterns = [
+        // 格式1: 手机入袋：（有） / 手机入袋：（无）
+        { regex: /手机入袋[：:]\s*[（(]?\s*(有|无)\s*[）)]?/, handler: (m) => m[1] === '有' ? '有' : '无' },
+        // 格式2: 手机入袋：有 / 手机入袋：无
+        { regex: /手机入袋[：:]\s*(有|无)/, handler: (m) => m[1] },
+        // 格式3: 手机入袋：✅ / 手机入袋：❌
+        { regex: /手机入袋[：:]\s*([✅❌])/, handler: (m) => m[1] === '✅' ? '有' : '无' },
+        // 格式4: 手机入袋：是 / 手机入袋：否
+        { regex: /手机入袋[：:]\s*(是|否)/, handler: (m) => m[1] === '是' ? '有' : '无' },
+        // 格式5: 手机已入袋 / 手机未入袋
+        { regex: /手机(已|未)入袋/, handler: (m) => m[1] === '已' ? '有' : '无' },
+        // 格式6: 入袋 / 未入袋
+        { regex: /(入袋|未入袋)/, handler: (m) => m[1] === '入袋' ? '有' : '无' },
+        // 格式7: 手机入袋情况：有 / 手机入袋情况：无
+        { regex: /手机入袋情况[：:]\s*(有|无)/, handler: (m) => m[1] }
+    ];
+    
+    for (const pattern of phonePatterns) {
+        const match = text.match(pattern.regex);
+        if (match) {
+            result.phoneStatus = pattern.handler(match);
+            break;
+        }
+    }
+    
+    // 如果没有匹配到任何规则，设为空字符串
+    if (!result.phoneStatus) {
+        result.phoneStatus = '';
+    }
+    
+    return result;
+}
     
     // ========== 5. 检查重复 ==========
     function isDuplicateAttendance(className, date, period) {
@@ -24925,28 +25082,28 @@ if (/手机是否入袋[：:]\s*[（(]?\s*有\s*[）)]?/.test(text)) {
         if (isInAttendanceTab) {
             const shouldArrive = record.shouldArrive || '0';
             const actualArrive = record.actualArrive || '0';
-            const attendanceRecord = {
-                id: Date.now(),
-                date: record.date ? `${record.date} 00:00` : new Date().toISOString().slice(0,16).replace('T', ' '),
-                period: record.period || '未指定节次',
-                teacher: record.teacher || '',
-                inspector: inspector,
-                className: record.className,
-                course: record.course || '',
-                classroom: record.location || '',
-                situation: record.phoneStatus ? `手机入袋：${record.phoneStatus}` : '',
-                absence: record.absenceList?.length > 0 ? `${record.absenceList.length}人（${record.absenceList.join('、')}）` : '0人',
-                leave: record.leaveList?.length > 0 ? `${record.leaveList.length}人（${record.leaveList.join('、')}）` : '0人',
-                late: record.lateList?.length > 0 ? `${record.lateList.length}人（${record.lateList.join('、')}）` : '0人',
-                remark: `应到${shouldArrive}人，实到${actualArrive}人`,
-                shouldArrive: shouldArrive,
-                actualArrive: actualArrive,
-                attendanceRate: shouldArrive && actualArrive ? Math.round((parseInt(actualArrive) / parseInt(shouldArrive)) * 100) + '%' : '',
-                phoneStatus: record.phoneStatus || '',
-                photos: [],
-                createTime: new Date().toISOString()
-            };
-            
+     // 在 importAttendanceRecord 函数中，找到查课记录的构建部分，确保 phoneStatus 正确传递
+const attendanceRecord = {
+    id: Date.now(),
+    date: record.date ? `${record.date} 00:00` : new Date().toISOString().slice(0,16).replace('T', ' '),
+    period: record.period || '未指定节次',
+    teacher: record.teacher || '',
+    inspector: inspector,
+    className: record.className,
+    course: record.course || '',
+    classroom: record.location || '',
+    situation: record.phoneStatus ? `手机入袋：${record.phoneStatus}` : '',
+    absence: record.absenceList?.length > 0 ? `${record.absenceList.length}人（${record.absenceList.join('、')}）` : '0人',
+    leave: record.leaveList?.length > 0 ? `${record.leaveList.length}人（${record.leaveList.join('、')}）` : '0人',
+    late: record.lateList?.length > 0 ? `${record.lateList.length}人（${record.lateList.join('、')}）` : '0人',
+    remark: `应到${shouldArrive}人，实到${actualArrive}人`,
+    shouldArrive: shouldArrive,
+    actualArrive: actualArrive,
+    attendanceRate: shouldArrive && actualArrive ? Math.round((parseInt(actualArrive) / parseInt(shouldArrive)) * 100) + '%' : '',
+    phoneStatus: record.phoneStatus || '',  // 新增：存储手机入袋状态
+    photos: [],
+    createTime: new Date().toISOString()
+};
             let attendanceRecords = JSON.parse(localStorage.getItem('attendanceRecords') || '[]');
             attendanceRecords.push(attendanceRecord);
             localStorage.setItem('attendanceRecords', JSON.stringify(attendanceRecords));
@@ -25626,7 +25783,279 @@ window.closeDormCheckPhotoViewModal = function() {
 })();
 
 console.log('✅ 考勤统计模块修复完成');
-
+</script>
+<script>
+// ========== 最终版拖拽修复 ==========
+(function() {
+    console.log('🚀 启动最终版拖拽修复...');
+    
+    // 压缩图片为 Blob
+    async function compressImage(file) {
+        if (file.size <= 3 * 1024 * 1024) return file;
+        
+        return new Promise((resolve) => {
+            var reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(e) {
+                var img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var ctx = canvas.getContext('2d');
+                    var w = img.width, h = img.height;
+                    var max = 1000;
+                    if (w > max) { h = h * max / w; w = max; }
+                    if (h > max) { w = w * max / h; h = max; }
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(function(blob) {
+                        blob.name = file.name;
+                        blob.lastModified = Date.now();
+                        resolve(blob);
+                    }, 'image/jpeg', 0.7);
+                };
+            };
+        });
+    }
+    
+    // Blob 转 File
+    function blobToFile(blob, fileName) {
+        return new File([blob], fileName, { type: blob.type, lastModified: Date.now() });
+    }
+    
+    // 修复拖拽区域
+    function fixArea(area) {
+        if (area._dragFixed) return;
+        area._dragFixed = true;
+        
+        var fileInput = area.querySelector('input[type="file"]');
+        if (!fileInput) {
+            var onclick = area.getAttribute('onclick');
+            if (onclick) {
+                var match = onclick.match(/getElementById\(['"]([^'"]+)['"]\)/);
+                if (match) fileInput = document.getElementById(match[1]);
+            }
+        }
+        if (!fileInput) {
+            console.log('未找到 file input');
+            return;
+        }
+        
+        area.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#27ae60';
+            this.style.backgroundColor = '#e8f5e9';
+        });
+        
+        area.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#3498db';
+            this.style.backgroundColor = '#f8f9fa';
+        });
+        
+        area.addEventListener('drop', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#3498db';
+            this.style.backgroundColor = '#f8f9fa';
+            
+            // 获取文件
+            var files = [];
+            if (e.dataTransfer.files) {
+                for (var i = 0; i < e.dataTransfer.files.length; i++) {
+                    if (e.dataTransfer.files[i].type.match('image')) {
+                        files.push(e.dataTransfer.files[i]);
+                    }
+                }
+            }
+            
+            if (files.length === 0 && e.dataTransfer.items) {
+                for (var i = 0; i < e.dataTransfer.items.length; i++) {
+                    if (e.dataTransfer.items[i].kind === 'file') {
+                        var file = e.dataTransfer.items[i].getAsFile();
+                        if (file && file.type.match('image')) {
+                            files.push(file);
+                        }
+                    }
+                }
+            }
+            
+            if (files.length === 0) {
+                alert('请拖拽图片文件');
+                return;
+            }
+            
+            // 压缩大图片
+            var processed = [];
+            var oldSize = 0;
+            for (var i = 0; i < files.length; i++) {
+                oldSize += files[i].size;
+                if (files[i].size > 3 * 1024 * 1024) {
+                    console.log('压缩:', files[i].name);
+                    var compressed = await compressImage(files[i]);
+                    var fileObj = blobToFile(compressed, files[i].name);
+                    processed.push(fileObj);
+                } else {
+                    processed.push(files[i]);
+                }
+            }
+            
+            // 关键修复：创建一个新的 FileList 对象
+            var fileList = {
+                length: processed.length,
+                item: function(idx) { return processed[idx]; }
+            };
+            for (var i = 0; i < processed.length; i++) {
+                fileList[i] = processed[i];
+            }
+            
+            // 尝试直接赋值
+            try {
+                fileInput.files = fileList;
+            } catch(e) {
+                // 如果直接赋值失败，创建一个新的 input 并触发
+                var newInput = fileInput.cloneNode(true);
+                fileInput.parentNode.replaceChild(newInput, fileInput);
+                fileInput = newInput;
+                
+                // 使用 DataTransfer
+                if (processed.every(function(f) { return f instanceof File; })) {
+                    var dt = new DataTransfer();
+                    for (var i = 0; i < processed.length; i++) {
+                        dt.items.add(processed[i]);
+                    }
+                    fileInput.files = dt.files;
+                } else {
+                    fileInput.files = fileList;
+                }
+            }
+            
+            // 触发 change 事件
+            var changeEvent = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(changeEvent);
+            
+            var newSize = processed.reduce(function(s,f){ return s + f.size; }, 0);
+            console.log('✅ 拖拽成功！共 ' + processed.length + ' 张图片');
+            
+            if (oldSize > newSize) {
+                alert('成功添加 ' + processed.length + ' 张图片\n已压缩: ' + (oldSize/1024/1024).toFixed(1) + 'MB → ' + (newSize/1024/1024).toFixed(1) + 'MB');
+            } else {
+                alert('成功添加 ' + processed.length + ' 张图片');
+            }
+        });
+    }
+    
+    function fixAll() {
+        document.querySelectorAll('.photo-upload-area, .file-upload-area').forEach(fixArea);
+    }
+    
+    fixAll();
+    
+    var observer = new MutationObserver(fixAll);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    console.log('✅ 最终版拖拽修复完成！请测试');
+})();
+</script>
+<script>
+// ==================== 修复缺失的查寝照片查看函数 ====================
+(function() {
+    // 定义 viewDormCheckPhoto 函数
+    window.viewDormCheckPhoto = function(photoSrc) {
+        const modalHtml = `
+            <div class="modal" id="dormCheckPhotoViewModal" style="display:flex;z-index:10003;">
+                <div class="modal-content" style="max-width:90%;max-height:90vh;text-align:center;">
+                    <img src="${photoSrc}" style="max-width:100%;max-height:80vh;border-radius:8px;">
+                    <div style="margin-top:15px;">
+                        <button class="btn" onclick="closeDormCheckPhotoViewModal()">关闭</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        const oldModal = document.getElementById('dormCheckPhotoViewModal');
+        if (oldModal) oldModal.remove();
+        const modal = document.createElement('div');
+        modal.id = 'dormCheckPhotoViewModal';
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+    };
+    
+    window.closeDormCheckPhotoViewModal = function() {
+        const modal = document.getElementById('dormCheckPhotoViewModal');
+        if (modal) modal.remove();
+    };
+    
+    // 同时确保 restoreSystemData 函数存在且正常
+    if (typeof window.restoreSystemData === 'function') {
+        console.log('✅ restoreSystemData 函数已存在');
+    } else {
+        window.restoreSystemData = function() {
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.accept = '.json';
+            fileInput.style.display = 'none';
+            
+            fileInput.onchange = function(e) {
+                const file = e.target.files[0];
+                if (!file) {
+                    if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const backupData = JSON.parse(e.target.result);
+                        
+                        if (!backupData.talkRecords || !backupData.students || !backupData.systemUsers) {
+                            alert('备份文件格式不正确！');
+                            if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+                            return;
+                        }
+                        
+                        if (confirm('确定要恢复系统数据吗？当前所有数据将被覆盖！')) {
+                            // 恢复数据
+                            localStorage.setItem('talkRecords', JSON.stringify(backupData.talkRecords));
+                            localStorage.setItem('students', JSON.stringify(backupData.students));
+                            localStorage.setItem('systemUsers', JSON.stringify(backupData.systemUsers));
+                            localStorage.setItem('systemSettings', JSON.stringify(backupData.systemSettings || {}));
+                            localStorage.setItem('talkDrafts', JSON.stringify(backupData.talkDrafts || []));
+                            
+                            alert('系统数据恢复成功！页面将刷新...');
+                            setTimeout(function() {
+                                location.reload();
+                            }, 2000);
+                        }
+                    } catch (error) {
+                        console.error('恢复失败:', error);
+                        alert('恢复失败：' + error.message);
+                    } finally {
+                        if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+                    }
+                };
+                reader.readAsText(file);
+            };
+            
+            document.body.appendChild(fileInput);
+            fileInput.click();
+            
+            window.addEventListener('focus', function cleanup() {
+                setTimeout(function() {
+                    if (fileInput.parentNode && (!fileInput.files || fileInput.files.length === 0)) {
+                        if (fileInput.parentNode) fileInput.parentNode.removeChild(fileInput);
+                    }
+                    window.removeEventListener('focus', cleanup);
+                }, 500);
+            });
+        };
+        console.log('✅ restoreSystemData 函数已添加');
+    }
+    
+    console.log('✅ 缺失函数修复完成');
+})();
 </script>
 </body>
-</html>  
+</html>
