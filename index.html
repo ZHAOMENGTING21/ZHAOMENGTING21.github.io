@@ -19776,18 +19776,39 @@ function initDormCheckFileDrop() {
 function handleDormCheckFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
-    if (!file.name.match(/\.(xlsx|xls)$/i)) { showMessage('请选择Excel文件', 'error'); return; }
+    if (!file.name.match(/\.(xlsx|xls)$/i)) {
+        showMessage('请选择Excel文件', 'error');
+        return;
+    }
     showMessage('正在读取Excel文件...', 'info');
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+            // 保持 cellDates: false 以获取原始数字
+            const workbook = XLSX.read(data, { 
+                type: 'array', 
+                cellDates: false,  // 保持 false，这样能读取到数字 46082
+                cellNF: true,
+                raw: true
+            });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '', blankrows: true });
-            if (jsonData.length <= 1) { showMessage('Excel文件没有数据', 'error'); return; }
+            // 使用 raw: true 保持原始值
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet, { 
+                header: 1, 
+                defval: '', 
+                blankrows: true,
+                raw: true
+            });
+            
+            if (jsonData.length <= 1) { 
+                showMessage('Excel文件没有数据', 'error'); 
+                return; 
+            }
             processDormCheckExcelData(jsonData);
-        } catch (error) { showMessage('读取失败：' + error.message, 'error'); }
+        } catch (error) { 
+            showMessage('读取失败：' + error.message, 'error');
+        }
     };
     reader.readAsArrayBuffer(file);
 }
@@ -19812,17 +19833,76 @@ function processDormCheckExcelData(jsonData) {
         showMessage('Excel需要包含"日期"、"查寝人员"和"到访寝室"列！', 'error');
         return;
     }
+    
+    // 日期格式化函数
+    function formatDateValue(dateValue) {
+        if (!dateValue) return '';
+        
+        // 处理 Excel 日期数字（如 46082）
+        if (typeof dateValue === 'number') {
+            const excelEpoch = new Date(1900, 0, 1);
+            const date = new Date(excelEpoch.getTime() + (dateValue - 2) * 86400000);
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        // 处理 Date 对象
+        if (typeof dateValue === 'object' && dateValue !== null && typeof dateValue.getTime === 'function') {
+            const year = dateValue.getFullYear();
+            const month = String(dateValue.getMonth() + 1).padStart(2, '0');
+            const day = String(dateValue.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        
+        // 处理字符串格式
+        if (typeof dateValue === 'string') {
+            if (dateValue.match(/^\d{4}-\d{1,2}-\d{1,2}/)) {
+                return dateValue.split(' ')[0];
+            }
+            const match = dateValue.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (match) {
+                return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+            }
+        }
+        
+        return dateValue;
+    }
+    
     dormCheckImportData = []; let validCount = 0, invalidCount = 0;
     for (let i = 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         if (!row || row.every(cell => !cell || cell.toString().trim() === '')) continue;
-        const getValue = (col) => { const idx = headerMap[col]; return idx !== undefined && row[idx] !== undefined && row[idx] !== null ? row[idx].toString().trim() : ''; };
+        const getValue = (col) => { const idx = headerMap[col]; return idx !== undefined && row[idx] !== undefined && row[idx] !== null ? row[idx] : ''; };
+        
         let date = getValue('date');
+        date = formatDateValue(date);
+        
         const inspector = getValue('inspector');
         const dormitories = getValue('dormitories');
-        if (!date || !inspector || !dormitories) { invalidCount++; continue; }
-        if (date && date.match(/^\d{4}-\d{1,2}-\d{1,2}$/) && !date.includes(' ')) { date = date + ' 00:00'; }
-        dormCheckImportData.push({ date, inspector, dormitories, theme: getValue('theme') || '常规查寝', situation: getValue('situation') || '', remark: getValue('remark') || '' });
+        
+        const inspectorStr = inspector ? inspector.toString().trim() : '';
+        const dormitoriesStr = dormitories ? dormitories.toString().trim() : '';
+        
+        if (!date || !inspectorStr || !dormitoriesStr) { 
+            invalidCount++; 
+            continue; 
+        }
+        
+        // 添加默认时间
+        if (date && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
+            date = date + ' 00:00';
+        }
+        
+        dormCheckImportData.push({ 
+            date: date, 
+            inspector: inspectorStr, 
+            dormitories: dormitoriesStr, 
+            theme: getValue('theme') ? getValue('theme').toString().trim() : '常规查寝', 
+            situation: getValue('situation') ? getValue('situation').toString().trim() : '', 
+            remark: getValue('remark') ? getValue('remark').toString().trim() : '' 
+        });
         validCount++;
     }
     if (dormCheckImportData.length === 0) { showMessage('没有有效的查寝数据', 'error'); return; }
@@ -19831,7 +19911,8 @@ function processDormCheckExcelData(jsonData) {
     document.getElementById('dormCheckInvalidCount').textContent = invalidCount;
     let previewHtml = '<table class="preview-table"><thead><tr><th>日期</th><th>查寝人员</th><th>到访寝室</th><th>主题</th><th>寝室情况</th><th>状态</th></tr></thead><tbody>';
     dormCheckImportPreviewData.forEach(record => {
-        previewHtml += `<tr class="valid"><td>${escapeHtml(record.date)}</td><td>${escapeHtml(record.inspector)}</td><td><strong>${escapeHtml(record.dormitories)}</strong></td><td>${escapeHtml(record.theme)}</td><td>${escapeHtml(record.situation)}</td><td><span style="color:#2e7d32;">✅ 待导入</span></td></tr>`;
+        const displayDate = record.date ? record.date.split(' ')[0] : '';
+        previewHtml += `<tr class="valid"><td>${escapeHtml(displayDate)}</strong></td><td>${escapeHtml(record.inspector)}</strong></td><td><strong>${escapeHtml(record.dormitories)}</strong></td><td>${escapeHtml(record.theme)}</strong></td><td>${escapeHtml(record.situation)}</strong></td><td style="color:#2e7d32;">✅ 待导入</span></td></tr>`;
     });
     previewHtml += '</tbody></table>';
     if (dormCheckImportData.length > 10) previewHtml += `<p style="text-align:center;">仅显示前10行，共 ${dormCheckImportData.length} 行</p>`;
