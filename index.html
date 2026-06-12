@@ -26229,7 +26229,8 @@ console.log('✅ 考勤统计模块修复完成');
     }
     
     // 导出班级考勤明细
-   function exportClassDetail(className) {
+  // 导出班级考勤明细（按学生汇总）
+function exportClassDetail(className) {
     let records = getFilteredAttendRecords();
     const classRecords = records.filter(r => r.className === className);
     
@@ -26239,61 +26240,157 @@ console.log('✅ 考勤统计模块修复完成');
     }
     
     const periodText = currentClassPeriod === 'week' ? '本周' : (currentClassPeriod === 'month' ? '本月' : '全部');
-    const totalHours = classRecords.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
     
-    // 计算各班学生总数（可选）
+    // ========== 按学生汇总数据 ==========
+    const studentMap = new Map();
+    
+    classRecords.forEach(record => {
+        if (!studentMap.has(record.studentId)) {
+            studentMap.set(record.studentId, {
+                studentId: record.studentId,
+                studentName: record.studentName,
+                totalAbsenceHours: 0,
+                lateCount: 0,
+                absentCount: 0,
+                lateMinutesSum: 0,
+                recordDates: [],      // 记录所有日期，用于展示
+                details: []           // 详细记录
+            });
+        }
+        
+        const student = studentMap.get(record.studentId);
+        const hours = record.absenceHours || 0;
+        student.totalAbsenceHours += hours;
+        
+        if (record.status === '迟到') {
+            student.lateCount++;
+            student.lateMinutesSum += record.lateMinutes || 0;
+        } else if (record.status === '旷课') {
+            student.absentCount++;
+        }
+        
+        student.recordDates.push(record.date);
+        student.details.push({
+            date: record.date,
+            period: record.period,
+            status: record.status,
+            lateMinutes: record.lateMinutes || 0,
+            hours: hours,
+            courseName: record.courseName || ''
+        });
+    });
+    
+    // 转换为数组并排序（按总旷课课时降序）
+    const studentSummaries = Array.from(studentMap.values())
+        .sort((a, b) => b.totalAbsenceHours - a.totalAbsenceHours);
+    
+    // 班级总计
+    const totalStudents = studentSummaries.length;
+    const totalAbsenceHours = studentSummaries.reduce((sum, s) => sum + s.totalAbsenceHours, 0);
+    const totalLateCount = studentSummaries.reduce((sum, s) => sum + s.lateCount, 0);
+    const totalAbsentCount = studentSummaries.reduce((sum, s) => sum + s.absentCount, 0);
+    
+    // 获取班级学生总数
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
-    const studentCount = allStudents.filter(s => s.className === className).length;
+    const classStudentCount = allStudents.filter(s => s.className === className).length;
     
     // 构建Excel数据（使用XLSX格式）
     const excelData = [
-        [`班级考勤明细 - ${className}`],
-        [`统计周期：${periodText} | 班级人数：${studentCount}人 | 考勤记录数：${classRecords.length}条`],
+        [`班级考勤汇总 - ${className}`],
+        [`统计周期：${periodText} | 班级总人数：${classStudentCount}人 | 有记录人数：${totalStudents}人`],
+        [`合计：迟到 ${totalLateCount}次，旷课 ${totalAbsentCount}次，旷课课时总计 ${totalAbsenceHours}课时`],
         [],
-        ['学生姓名', '学号', '日期', '节次', '课程名称', '状态', '迟到分钟', '课时数']
+        ['一、按学生汇总表'],
+        ['序号', '学生姓名', '学号', '迟到次数', '旷课次数', '旷课课时', '最近考勤日期', '状态等级']
     ];
     
-    // 添加考勤记录
-    classRecords.forEach(r => {
+    // 添加按学生汇总的数据
+    studentSummaries.forEach((student, idx) => {
+        let statusLevel = '';
+        let statusColor = '';
+        if (student.totalAbsenceHours >= 4) {
+            statusLevel = '⚠️ 高风险（旷课≥4课时）';
+        } else if (student.totalAbsenceHours >= 2) {
+            statusLevel = '🟡 中风险（旷课≥2课时）';
+        } else if (student.lateCount >= 3) {
+            statusLevel = '🟡 关注（迟到≥3次）';
+        } else if (student.totalAbsenceHours > 0 || student.lateCount > 0) {
+            statusLevel = '✅ 轻微违规';
+        } else {
+            statusLevel = '✅ 正常';
+        }
+        
+        const lastDate = student.recordDates.sort().reverse()[0] || '-';
+        
         excelData.push([
-            r.studentName,
-            `'${r.studentId || ''}`,  // 加单引号防止科学计数法
-            r.date,
-            r.period,
-            r.courseName || '-',
-            `${r.status}${r.status === '迟到' ? `(${r.lateMinutes}分钟)` : ''}`,
-            r.status === '迟到' ? r.lateMinutes : 0,
-            r.absenceHours || 0
+            idx + 1,
+            student.studentName,
+            `'${student.studentId || ''}`,
+            student.lateCount,
+            student.absentCount,
+            student.totalAbsenceHours,
+            lastDate,
+            statusLevel
         ]);
     });
     
-    excelData.push([], ['班级合计旷课课时', totalHours]);
+    // 添加合计行
+    excelData.push(
+        [],
+        ['合计', '', '', totalLateCount, totalAbsentCount, totalAbsenceHours, '', '']
+    );
+    
+    // 添加明细表（按学生分组的详细记录）
+    excelData.push(
+        [],
+        ['二、详细记录（按学生分组）'],
+        []
+    );
+    
+    studentSummaries.forEach(student => {
+        if (student.details.length > 0) {
+            excelData.push([`【${student.studentName}】 (学号：${student.studentId || '-'}) - 共 ${student.details.length} 条记录，旷课课时 ${student.totalAbsenceHours}课时`]);
+            excelData.push(['日期', '节次', '课程名称', '状态', '迟到分钟', '旷课课时']);
+            
+            student.details.forEach(detail => {
+                excelData.push([
+                    detail.date,
+                    detail.period,
+                    detail.courseName || '-',
+                    detail.status,
+                    detail.status === '迟到' ? detail.lateMinutes : '-',
+                    detail.hours
+                ]);
+            });
+            excelData.push([]); // 空行分隔
+        }
+    });
     
     // 使用XLSX导出
     if (typeof XLSX !== 'undefined') {
         const ws = XLSX.utils.aoa_to_sheet(excelData);
         // 设置列宽
         ws['!cols'] = [
+            { wch: 6 },   // 序号
             { wch: 12 },  // 学生姓名
             { wch: 15 },  // 学号
-            { wch: 12 },  // 日期
-            { wch: 10 },  // 节次
-            { wch: 15 },  // 课程名称
-            { wch: 12 },  // 状态
-            { wch: 10 },  // 迟到分钟
-            { wch: 8 }    // 课时数
+            { wch: 10 },  // 迟到次数
+            { wch: 10 },  // 旷课次数
+            { wch: 10 },  // 旷课课时
+            { wch: 12 },  // 最近日期
+            { wch: 18 }   // 状态等级
         ];
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${className}_考勤明细`);
+        XLSX.utils.book_append_sheet(wb, ws, `${className}_考勤汇总`);
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const blob = new Blob([wbout], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `${className}_${periodText}考勤明细.xlsx`;
+        a.download = `${className}_${periodText}考勤汇总.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast('导出成功', 'success');
+        showToast('导出成功，已按学生汇总', 'success');
     } else {
         showToast('Excel库未加载，请刷新页面重试', 'error');
     }
