@@ -26146,5 +26146,1152 @@ console.log('✅ 考勤统计模块修复完成');
     console.log('✅ 缺失函数修复完成');
 })();
 </script>
+<script>
+// ==================== 考勤增强脚本（修复班级展开冲突） ====================
+
+(function() {
+    console.log('🚀 正在加载考勤增强功能（修复版）...');
+
+    function safeGetElement(id) {
+        return document.getElementById(id);
+    }
+    
+    function showToast(msg, type) {
+        const existing = document.querySelector('.custom-toast');
+        if (existing) existing.remove();
+        const toast = document.createElement('div');
+        toast.className = 'custom-toast';
+        toast.textContent = msg;
+        toast.style.cssText = `position: fixed; bottom: 20px; right: 20px; padding: 12px 20px; background: ${type === 'success' ? '#27ae60' : '#3498db'}; color: white; border-radius: 8px; z-index: 10001; animation: fadeInOut 3s ease;`;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+    
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+    }
+    
+    function escapeCsv(str) {
+        if (!str) return '';
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+    }
+    
+    function downloadCsv(content, filename) {
+        const blob = new Blob(['\ufeff' + content], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+    
+    function getWeekRange() {
+        const now = new Date();
+        const dayOfWeek = now.getDay();
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const monday = new Date(now);
+        monday.setDate(now.getDate() - diffToMonday);
+        monday.setHours(0, 0, 0, 0);
+        const sunday = new Date(monday);
+        sunday.setDate(monday.getDate() + 6);
+        sunday.setHours(23, 59, 59, 999);
+        return { start: monday, end: sunday };
+    }
+    
+    function getMonthRange() {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+    }
+
+    // 状态变量
+    let currentClassPeriod = 'total';
+    let currentView = 'student';
+    
+    // 获取筛选后的考勤记录
+    function getFilteredAttendRecords(period = currentClassPeriod) {
+        let records = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+        if (period === 'week') {
+            const range = getWeekRange();
+            records = records.filter(r => new Date(r.date) >= range.start && new Date(r.date) <= range.end);
+        } else if (period === 'month') {
+            const range = getMonthRange();
+            records = records.filter(r => new Date(r.date) >= range.start && new Date(r.date) <= range.end);
+        }
+        return records;
+    }
+    
+    // 导出班级考勤明细
+   function exportClassDetail(className) {
+    let records = getFilteredAttendRecords();
+    const classRecords = records.filter(r => r.className === className);
+    
+    if (classRecords.length === 0) {
+        showToast('该班级暂无考勤记录', 'error');
+        return;
+    }
+    
+    const periodText = currentClassPeriod === 'week' ? '本周' : (currentClassPeriod === 'month' ? '本月' : '全部');
+    const totalHours = classRecords.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
+    
+    // 计算各班学生总数（可选）
+    const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+    const studentCount = allStudents.filter(s => s.className === className).length;
+    
+    // 构建Excel数据（使用XLSX格式）
+    const excelData = [
+        [`班级考勤明细 - ${className}`],
+        [`统计周期：${periodText} | 班级人数：${studentCount}人 | 考勤记录数：${classRecords.length}条`],
+        [],
+        ['学生姓名', '学号', '日期', '节次', '课程名称', '状态', '迟到分钟', '课时数']
+    ];
+    
+    // 添加考勤记录
+    classRecords.forEach(r => {
+        excelData.push([
+            r.studentName,
+            `'${r.studentId || ''}`,  // 加单引号防止科学计数法
+            r.date,
+            r.period,
+            r.courseName || '-',
+            `${r.status}${r.status === '迟到' ? `(${r.lateMinutes}分钟)` : ''}`,
+            r.status === '迟到' ? r.lateMinutes : 0,
+            r.absenceHours || 0
+        ]);
+    });
+    
+    excelData.push([], ['班级合计旷课课时', totalHours]);
+    
+    // 使用XLSX导出
+    if (typeof XLSX !== 'undefined') {
+        const ws = XLSX.utils.aoa_to_sheet(excelData);
+        // 设置列宽
+        ws['!cols'] = [
+            { wch: 12 },  // 学生姓名
+            { wch: 15 },  // 学号
+            { wch: 12 },  // 日期
+            { wch: 10 },  // 节次
+            { wch: 15 },  // 课程名称
+            { wch: 12 },  // 状态
+            { wch: 10 },  // 迟到分钟
+            { wch: 8 }    // 课时数
+        ];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${className}_考勤明细`);
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${className}_${periodText}考勤明细.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('导出成功', 'success');
+    } else {
+        showToast('Excel库未加载，请刷新页面重试', 'error');
+    }
+}
+    
+    // 显示学生考勤明细
+    function showStudentAttendDetail(studentId, studentName) {
+        let records = getFilteredAttendRecords();
+        const studentRecords = records.filter(r => r.studentId === studentId).sort((a, b) => new Date(b.date) - new Date(a.date));
+        
+        if (studentRecords.length === 0) {
+            showToast('该学生暂无考勤记录', 'info');
+            return;
+        }
+        
+        const totalHours = studentRecords.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
+        const periodText = currentClassPeriod === 'week' ? '本周' : (currentClassPeriod === 'month' ? '本月' : '全部');
+        
+        let recordsHtml = '';
+        studentRecords.forEach(r => {
+            let statusColor = r.status === '迟到' ? '#f39c12' : '#e74c3c';
+            recordsHtml += `
+                <tr style="border-bottom: 1px solid #eee;">
+                    <td style="padding: 8px;">${r.date}</td>
+                    <td style="padding: 8px;">${r.period}</td>
+                    <td style="padding: 8px;">${escapeHtml(r.courseName || '-')}</td>
+                    <td style="padding: 8px; color: ${statusColor};">${r.status} ${r.status === '迟到' ? `(${r.lateMinutes}分钟)` : ''}</td>
+                    <td style="padding: 8px; text-align: center; color: #e74c3c; font-weight: bold;">${r.absenceHours || 0}课时</strong></td>
+                </tr>
+            `;
+        });
+        
+        const modalHtml = `
+            <div id="studentAttendDetailModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10020; display: flex; justify-content: center; align-items: center;">
+                <div style="background: white; border-radius: 12px; max-width: 850px; width: 90%; max-height: 85vh; overflow-y: auto; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3 style="margin: 0;">📊 ${escapeHtml(studentName)} ${periodText}考勤明细</h3>
+                        <button id="closeDetailModal" style="background: #e74c3c; color: white; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer;">✕ 关闭</button>
+                    </div>
+                    <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin-bottom: 15px; text-align: center;">
+                        <strong>累计旷课课时：${totalHours} 课时</strong>
+                    </div>
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="background: #f8f9fa;">
+                                <th style="padding: 8px;">日期</th>
+                                <th style="padding: 8px;">节次</th>
+                                <th style="padding: 8px;">课程名称</th>
+                                <th style="padding: 8px;">状态</th>
+                                <th style="padding: 8px;">课时</th>
+                            <tr>
+                        </thead>
+                        <tbody>${recordsHtml}</tbody>
+                    </table>
+                    <div style="margin-top: 20px; text-align: center;">
+                        <button id="exportStudentAttend" style="background: #27ae60; color: white; border: none; padding: 6px 20px; border-radius: 6px; cursor: pointer;">📥 导出该生考勤明细</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = safeGetElement('studentAttendDetailModal');
+        if (oldModal) oldModal.remove();
+        
+        const modal = document.createElement('div');
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+        
+        const closeBtn = safeGetElement('closeDetailModal');
+        if (closeBtn) closeBtn.onclick = () => modal.remove();
+        
+        const exportBtn = safeGetElement('exportStudentAttend');
+        if (exportBtn) {
+            exportBtn.onclick = () => {
+                exportStudentDetail(studentId, studentName);
+            };
+        }
+    }
+    
+   function exportStudentDetail(studentId, studentName) {
+    let records = getFilteredAttendRecords();
+    const studentRecords = records.filter(r => r.studentId === studentId);
+    
+    if (studentRecords.length === 0) {
+        showToast('该学生暂无考勤记录', 'error');
+        return;
+    }
+    
+    const periodText = currentClassPeriod === 'week' ? '本周' : (currentClassPeriod === 'month' ? '本月' : '全部');
+    const totalHours = studentRecords.reduce((sum, r) => sum + (r.absenceHours || 0), 0);
+    
+    // 构建Excel数据（使用XLSX格式）
+    const excelData = [
+        [`${studentName} - ${periodText}考勤明细`],
+        [],
+        ['学生姓名', '学号', '班级', `${periodText}考勤明细`],
+        [],
+        ['日期', '节次', '课程名称', '状态', '迟到分钟', '课时数']
+    ];
+    
+    // 添加考勤记录
+    studentRecords.forEach(r => {
+        excelData.push([
+            r.date,
+            r.period,
+            r.courseName || '-',
+            `${r.status}${r.status === '迟到' ? `(${r.lateMinutes}分钟)` : ''}`,
+            r.status === '迟到' ? r.lateMinutes : 0,
+            r.absenceHours || 0
+        ]);
+    });
+    
+    excelData.push([], ['合计旷课课时', totalHours]);
+    
+    // 使用XLSX导出
+    if (typeof XLSX !== 'undefined') {
+        const ws = XLSX.utils.aoa_to_sheet(excelData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${studentName}_考勤明细`);
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const blob = new Blob([wbout], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${studentName}_${periodText}考勤明细.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('导出成功', 'success');
+    } else {
+        showToast('Excel库未加载，请刷新页面重试', 'error');
+    }
+}
+    
+    // 学生视图（完全保持原样）
+    function renderStudentView() {
+        if (typeof window.originalUpdateStudentAbsenceSummary === 'function') {
+            const searchTerm = safeGetElement('absenceSummarySearch')?.value || '';
+            window.originalUpdateStudentAbsenceSummary(searchTerm);
+        } else if (typeof updateStudentAbsenceSummary === 'function') {
+            updateStudentAbsenceSummary();
+        }
+    }
+    
+    // 班级视图（卡片式网格排版 - 使用唯一ID）
+    function renderClassView() {
+        const container = safeGetElement('studentAbsenceSummary');
+        if (!container) return;
+        
+        let records = getFilteredAttendRecords();
+        
+        // 按班级分组，再按学生汇总
+        const classMap = new Map();
+        records.forEach(record => {
+            if (!classMap.has(record.className)) {
+                classMap.set(record.className, new Map());
+            }
+            const studentMap = classMap.get(record.className);
+            if (!studentMap.has(record.studentId)) {
+                studentMap.set(record.studentId, {
+                    studentId: record.studentId,
+                    studentName: record.studentName,
+                    totalHours: 0
+                });
+            }
+            studentMap.get(record.studentId).totalHours += record.absenceHours || 0;
+        });
+        
+        // 统计各班学生总数
+        const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
+        const classStudentCount = {};
+        allStudents.forEach(s => {
+            if (s.className) {
+                classStudentCount[s.className] = (classStudentCount[s.className] || 0) + 1;
+            }
+        });
+        
+        const periodText = currentClassPeriod === 'week' ? '本周' : (currentClassPeriod === 'month' ? '本月' : '全部');
+        
+        if (classMap.size === 0) {
+            container.innerHTML = `<div style="text-align:center;padding:40px;color:#999;">暂无${periodText}考勤数据</div>`;
+            return;
+        }
+        
+        let html = `<div style="font-size: 14px; color: #666; margin-bottom: 15px;">🏫 ${periodText}班级考勤汇总 (共 ${records.length} 条记录)</div>`;
+        html += `<div style="display:flex;flex-direction:column;gap:20px;">`;
+        
+        let classIndex = 0;
+        for (const [className, studentMap] of classMap) {
+            const uniqueId = `class_grid_${classIndex++}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+            const studentCount = classStudentCount[className] || 0;
+            const students = Array.from(studentMap.values()).sort((a, b) => b.totalHours - a.totalHours);
+            const totalClassHours = students.reduce((sum, s) => sum + s.totalHours, 0);
+            
+            // 计算课时颜色
+            let classColor = '#2e7d32';
+            if (totalClassHours > 10) classColor = '#c62828';
+            else if (totalClassHours > 4) classColor = '#f57f17';
+            
+            html += `
+                <div style="background:#f8f9fa;border-radius:12px;border-left:4px solid ${classColor};overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:#fff;border-bottom:1px solid #eee;cursor:pointer;" class="class-header" data-target="${uniqueId}">
+                        <div style="display:flex;align-items:center;gap:12px;">
+                            <span style="font-size:18px;">📚</span>
+                            <strong style="font-size:16px;">${escapeHtml(className)}</strong>
+                            <span style="color:#666;font-size:12px;">(${studentCount}人)</span>
+                        </div>
+                        <div style="display:flex;gap:20px;align-items:center;">
+                            <div style="background:${classColor}20;padding:4px 10px;border-radius:20px;">
+                                <span style="color:${classColor};font-weight:bold;">总课时 ${totalClassHours}</span>
+                            </div>
+                            <span style="color:#3498db;font-size:12px;">▼ 展开</span>
+                        </div>
+                    </div>
+                    <div id="${uniqueId}" style="display:none;padding:16px;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;">
+            `;
+            
+            students.forEach(student => {
+                let hoursDisplay = student.totalHours === 0.5 ? '0.5课时' : 
+                                 (student.totalHours === Math.floor(student.totalHours) ? student.totalHours + '课时' : student.totalHours + '课时');
+                let hourColor = student.totalHours >= 4 ? '#c62828' : (student.totalHours >= 2 ? '#f57f17' : '#2e7d32');
+                
+                html += `
+                    <div style="background:white;border-radius:10px;padding:12px;border:1px solid #eee;display:flex;justify-content:space-between;align-items:center;transition:all 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.03);">
+                        <div>
+                            <div style="font-weight:bold;font-size:14px;">${escapeHtml(student.studentName)}</div>
+                            <div style="font-size:11px;color:#999;">${escapeHtml(student.studentId)}</div>
+                        </div>
+                        <div style="text-align:right;">
+                            <div style="font-size:16px;font-weight:bold;color:${hourColor};margin-bottom:6px;">${hoursDisplay}</div>
+                            <button class="view-student-card" data-id="${student.studentId}" data-name="${escapeHtml(student.studentName)}" style="padding:4px 12px;background:#3498db;color:white;border:none;border-radius:15px;font-size:11px;cursor:pointer;">查看明细</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                        </div>
+                        <div style="margin-top:16px;text-align:right;border-top:1px solid #eee;padding-top:12px;">
+                   
+<button class="export-class-btn" data-class="${escapeHtml(className)}" style="padding:6px 16px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:12px;">📥 导出该班考勤明细 (Excel)</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        html += `</div>`;
+        container.innerHTML = html;
+        
+        // 绑定展开/收起事件 - 使用 data-target 属性精确匹配
+        document.querySelectorAll('.class-header').forEach(header => {
+            header.onclick = () => {
+                const targetId = header.dataset.target;
+                const grid = safeGetElement(targetId);
+                if (grid) {
+                    const isVisible = grid.style.display !== 'none';
+                    grid.style.display = isVisible ? 'none' : 'block';
+                    const arrowSpan = header.querySelector('span:last-child');
+                    if (arrowSpan) arrowSpan.innerHTML = isVisible ? '▼ 展开' : '▲ 收起';
+                }
+            };
+        });
+        
+        // 绑定查看明细按钮
+        document.querySelectorAll('.view-student-card').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const studentId = btn.dataset.id;
+                const studentName = btn.dataset.name;
+                showStudentAttendDetail(studentId, studentName);
+            };
+        });
+        
+        // 绑定导出按钮
+        document.querySelectorAll('.export-class-btn').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                exportClassDetail(btn.dataset.class);
+            };
+        });
+    }
+    
+    // 切换视图
+    function switchView(view) {
+        currentView = view;
+        const studentBtn = safeGetElement('viewStudentBtn');
+        const classBtn = safeGetElement('viewClassBtn');
+        
+        if (studentBtn && classBtn) {
+            if (view === 'student') {
+                studentBtn.style.background = '#3498db';
+                studentBtn.style.color = 'white';
+                classBtn.style.background = '#ecf0f1';
+                classBtn.style.color = '#666';
+                renderStudentView();
+            } else {
+                studentBtn.style.background = '#ecf0f1';
+                studentBtn.style.color = '#666';
+                classBtn.style.background = '#3498db';
+                classBtn.style.color = 'white';
+                renderClassView();
+            }
+        }
+    }
+    
+    // 切换周期
+    function switchClassPeriod(period) {
+        currentClassPeriod = period;
+        const weekBtn = safeGetElement('classPeriodWeekBtn');
+        const monthBtn = safeGetElement('classPeriodMonthBtn');
+        const totalBtn = safeGetElement('classPeriodTotalBtn');
+        
+        if (weekBtn && monthBtn && totalBtn) {
+            weekBtn.style.background = period === 'week' ? '#3498db' : '#ecf0f1';
+            weekBtn.style.color = period === 'week' ? 'white' : '#666';
+            monthBtn.style.background = period === 'month' ? '#3498db' : '#ecf0f1';
+            monthBtn.style.color = period === 'month' ? 'white' : '#666';
+            totalBtn.style.background = period === 'total' ? '#3498db' : '#ecf0f1';
+            totalBtn.style.color = period === 'total' ? 'white' : '#666';
+        }
+        
+        if (currentView === 'class') {
+            renderClassView();
+        } else {
+            renderStudentView();
+        }
+    }
+    
+    // 添加控制栏
+    function addControlBar() {
+        const summaryContainer = safeGetElement('studentAbsenceSummary');
+        if (!summaryContainer) return;
+        
+        const originalTitle = summaryContainer.previousElementSibling;
+        if (originalTitle && originalTitle.tagName === 'H3' && !safeGetElement('summaryControlBar')) {
+            const controlBar = document.createElement('div');
+            controlBar.id = 'summaryControlBar';
+            controlBar.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;';
+            controlBar.innerHTML = `
+                <div style="display: flex; gap: 5px; background: #f0f0f0; border-radius: 20px; padding: 3px;">
+                    <button id="viewStudentBtn" style="padding: 5px 15px; border: none; border-radius: 18px; cursor: pointer; background: #3498db; color: white;">📋 学生视图</button>
+                    <button id="viewClassBtn" style="padding: 5px 15px; border: none; border-radius: 18px; cursor: pointer; background: #ecf0f1; color: #666;">🏫 班级视图</button>
+                </div>
+                <div id="classPeriodBtns" style="display: flex; gap: 5px;">
+                    <button id="classPeriodWeekBtn" style="padding: 5px 15px; border: none; border-radius: 18px; cursor: pointer; background: #ecf0f1; color: #666;">📅 本周</button>
+                    <button id="classPeriodMonthBtn" style="padding: 5px 15px; border: none; border-radius: 18px; cursor: pointer; background: #ecf0f1; color: #666;">📆 本月</button>
+                    <button id="classPeriodTotalBtn" style="padding: 5px 15px; border: none; border-radius: 18px; cursor: pointer; background: #3498db; color: white;">📊 总汇总</button>
+                </div>
+            `;
+            originalTitle.parentNode.insertBefore(controlBar, originalTitle.nextSibling);
+            
+            safeGetElement('viewStudentBtn')?.addEventListener('click', () => switchView('student'));
+            safeGetElement('viewClassBtn')?.addEventListener('click', () => switchView('class'));
+            safeGetElement('classPeriodWeekBtn')?.addEventListener('click', () => switchClassPeriod('week'));
+            safeGetElement('classPeriodMonthBtn')?.addEventListener('click', () => switchClassPeriod('month'));
+            safeGetElement('classPeriodTotalBtn')?.addEventListener('click', () => switchClassPeriod('total'));
+        }
+    }
+    
+    // 保存原始函数并覆盖
+    const originalUpdateSummary = window.updateStudentAbsenceSummary;
+    if (originalUpdateSummary) {
+        window.originalUpdateStudentAbsenceSummary = originalUpdateSummary;
+        window.updateStudentAbsenceSummary = function(searchTerm) {
+            if (currentView === 'student') {
+                if (window.originalUpdateStudentAbsenceSummary) {
+                    window.originalUpdateStudentAbsenceSummary(searchTerm);
+                }
+            } else {
+                renderClassView();
+            }
+        };
+    }
+    
+    // 初始化
+    function init() {
+        setTimeout(() => {
+            addControlBar();
+            renderStudentView();
+            console.log('✅ 考勤增强功能已加载（修复版）！');
+            console.log('📌 学生视图：保持原样');
+            console.log('📌 班级视图：卡片式网格排版，使用唯一ID解决展开冲突');
+            showToast('考勤增强功能已加载', 'success');
+        }, 1500);
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+
+// ==================== 修复缺失的查寝照片查看函数 ====================
+(function() {
+    if (typeof window.viewDormCheckPhoto !== 'function') {
+        window.viewDormCheckPhoto = function(photoSrc) {
+            const modalHtml = `
+                <div class="modal" id="dormCheckPhotoViewModal" style="display:flex;z-index:10003;">
+                    <div class="modal-content" style="max-width:90%;max-height:90vh;text-align:center;">
+                        <img src="${photoSrc}" style="max-width:100%;max-height:80vh;border-radius:8px;">
+                        <div style="margin-top:15px;">
+                            <button class="btn" onclick="closeDormCheckPhotoViewModal()">关闭</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const oldModal = document.getElementById('dormCheckPhotoViewModal');
+            if (oldModal) oldModal.remove();
+            const modal = document.createElement('div');
+            modal.id = 'dormCheckPhotoViewModal';
+            modal.innerHTML = modalHtml;
+            document.body.appendChild(modal);
+        };
+    }
+    
+    if (typeof window.closeDormCheckPhotoViewModal !== 'function') {
+        window.closeDormCheckPhotoViewModal = function() {
+            const modal = document.getElementById('dormCheckPhotoViewModal');
+            if (modal) modal.remove();
+        };
+    }
+    
+    console.log('✅ 查寝照片查看函数已修复');
+})();
+
+// ==================== 最终版拖拽修复 ====================
+(function() {
+    console.log('🚀 启动最终版拖拽修复...');
+    
+    // 压缩图片为 Blob
+    async function compressImage(file) {
+        if (file.size <= 3 * 1024 * 1024) return file;
+        
+        return new Promise((resolve) => {
+            var reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function(e) {
+                var img = new Image();
+                img.src = e.target.result;
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var ctx = canvas.getContext('2d');
+                    var w = img.width, h = img.height;
+                    var max = 1000;
+                    if (w > max) { h = h * max / w; w = max; }
+                    if (h > max) { w = w * max / h; h = max; }
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(function(blob) {
+                        blob.name = file.name;
+                        blob.lastModified = Date.now();
+                        resolve(blob);
+                    }, 'image/jpeg', 0.7);
+                };
+            };
+        });
+    }
+    
+    // Blob 转 File
+    function blobToFile(blob, fileName) {
+        return new File([blob], fileName, { type: blob.type, lastModified: Date.now() });
+    }
+    
+    // 修复拖拽区域
+    function fixArea(area) {
+        if (area._dragFixed) return;
+        area._dragFixed = true;
+        
+        var fileInput = area.querySelector('input[type="file"]');
+        if (!fileInput) {
+            var onclick = area.getAttribute('onclick');
+            if (onclick) {
+                var match = onclick.match(/getElementById\(['"]([^'"]+)['"]\)/);
+                if (match) fileInput = document.getElementById(match[1]);
+            }
+        }
+        if (!fileInput) {
+            console.log('未找到 file input');
+            return;
+        }
+        
+        area.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#27ae60';
+            this.style.backgroundColor = '#e8f5e9';
+        });
+        
+        area.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#3498db';
+            this.style.backgroundColor = '#f8f9fa';
+        });
+        
+        area.addEventListener('drop', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            this.style.borderColor = '#3498db';
+            this.style.backgroundColor = '#f8f9fa';
+            
+            // 获取文件
+            var files = [];
+            if (e.dataTransfer.files) {
+                for (var i = 0; i < e.dataTransfer.files.length; i++) {
+                    if (e.dataTransfer.files[i].type.match('image')) {
+                        files.push(e.dataTransfer.files[i]);
+                    }
+                }
+            }
+            
+            if (files.length === 0 && e.dataTransfer.items) {
+                for (var i = 0; i < e.dataTransfer.items.length; i++) {
+                    if (e.dataTransfer.items[i].kind === 'file') {
+                        var file = e.dataTransfer.items[i].getAsFile();
+                        if (file && file.type.match('image')) {
+                            files.push(file);
+                        }
+                    }
+                }
+            }
+            
+            if (files.length === 0) {
+                alert('请拖拽图片文件');
+                return;
+            }
+            
+            // 压缩大图片
+            var processed = [];
+            var oldSize = 0;
+            for (var i = 0; i < files.length; i++) {
+                oldSize += files[i].size;
+                if (files[i].size > 3 * 1024 * 1024) {
+                    console.log('压缩:', files[i].name);
+                    var compressed = await compressImage(files[i]);
+                    var fileObj = blobToFile(compressed, files[i].name);
+                    processed.push(fileObj);
+                } else {
+                    processed.push(files[i]);
+                }
+            }
+            
+            // 关键修复：创建一个新的 FileList 对象
+            var fileList = {
+                length: processed.length,
+                item: function(idx) { return processed[idx]; }
+            };
+            for (var i = 0; i < processed.length; i++) {
+                fileList[i] = processed[i];
+            }
+            
+            // 尝试直接赋值
+            try {
+                fileInput.files = fileList;
+            } catch(e) {
+                // 如果直接赋值失败，创建一个新的 input 并触发
+                var newInput = fileInput.cloneNode(true);
+                fileInput.parentNode.replaceChild(newInput, fileInput);
+                fileInput = newInput;
+                
+                // 使用 DataTransfer
+                if (processed.every(function(f) { return f instanceof File; })) {
+                    var dt = new DataTransfer();
+                    for (var i = 0; i < processed.length; i++) {
+                        dt.items.add(processed[i]);
+                    }
+                    fileInput.files = dt.files;
+                } else {
+                    fileInput.files = fileList;
+                }
+            }
+            
+            // 触发 change 事件
+            var changeEvent = new Event('change', { bubbles: true });
+            fileInput.dispatchEvent(changeEvent);
+            
+            var newSize = processed.reduce(function(s,f){ return s + f.size; }, 0);
+            console.log('✅ 拖拽成功！共 ' + processed.length + ' 张图片');
+            
+            if (oldSize > newSize) {
+                alert('成功添加 ' + processed.length + ' 张图片\n已压缩: ' + (oldSize/1024/1024).toFixed(1) + 'MB → ' + (newSize/1024/1024).toFixed(1) + 'MB');
+            } else {
+                alert('成功添加 ' + processed.length + ' 张图片');
+            }
+        });
+    }
+    
+    function fixAll() {
+        document.querySelectorAll('.photo-upload-area, .file-upload-area').forEach(fixArea);
+    }
+    
+    fixAll();
+    
+    var observer = new MutationObserver(fixAll);
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    console.log('✅ 最终版拖拽修复完成！请测试');
+})();
+
+console.log('✅ 所有增强功能加载完成！');
+// ==================== 学生学期档案（完整版：系统中查看，手动导出） ====================
+(function() {
+    if (document.getElementById('semesterArchiveNavItem')) return;
+    
+    console.log('📚 加载学生学期档案模块...');
+
+    const semesters = [
+        { id: '2025-2026-1', name: '2025-2026学年第一学期', start: '2025-09-01', end: '2026-02-28' },
+        { id: '2025-2026-2', name: '2025-2026学年第二学期', start: '2026-03-01', end: '2026-07-31' },
+        { id: '2026-2027-1', name: '2026-2027学年第一学期', start: '2026-09-01', end: '2027-02-28' }
+    ];
+
+    let currentSemester = semesters[0];
+
+    function getStudentSemesterData(studentId, semester) {
+        const startDate = new Date(semester.start);
+        const endDate = new Date(semester.end);
+        endDate.setHours(23, 59, 59, 999);
+
+        const talkRecords = JSON.parse(localStorage.getItem('talkRecords') || '[]');
+        const attendRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+        const leaveRecords = JSON.parse(localStorage.getItem('leaveSimpleRecords') || '[]');
+        const disciplineRecords = JSON.parse(localStorage.getItem('disciplineRecords') || '[]');
+        const latecomeRecords = JSON.parse(localStorage.getItem('latecomeRecords') || '[]');
+        const supportRecords = JSON.parse(localStorage.getItem('academicSupportRecords') || '[]');
+        const psychRecords = JSON.parse(localStorage.getItem('psychologicalRecords') || '[]');
+
+        const talks = talkRecords.filter(r => r.studentId === studentId && new Date(r.talkTime) >= startDate && new Date(r.talkTime) <= endDate);
+        const attends = attendRecords.filter(r => r.studentId === studentId && new Date(r.date) >= startDate && new Date(r.date) <= endDate);
+        const leaves = leaveRecords.filter(r => r.studentId === studentId && new Date(r.startDate) >= startDate && new Date(r.startDate) <= endDate);
+        const disciplines = disciplineRecords.filter(r => r.studentId === studentId && new Date(r.punishmentStart) >= startDate && new Date(r.punishmentStart) <= endDate);
+        const latecomes = latecomeRecords.filter(r => r.studentId === studentId && new Date(r.lateDate) >= startDate && new Date(r.lateDate) <= endDate);
+        const supports = supportRecords.filter(r => r.studentId === studentId);
+        const psychs = psychRecords.filter(r => r.studentId === studentId && new Date(r.recordDate) >= startDate && new Date(r.recordDate) <= endDate);
+
+        const totalAbsenceHours = attends.reduce((sum, a) => sum + (a.absenceHours || 0), 0);
+        const lateCount = attends.filter(a => a.status === '迟到').length;
+        const absentCount = attends.filter(a => a.status === '旷课').length;
+        
+        const riskCounts = { red: 0, yellow: 0, green: 0 };
+        talks.forEach(t => { if (t.riskLevel) riskCounts[t.riskLevel]++; });
+
+        return {
+            studentId,
+            semester: semester.name,
+            talks: { list: talks, count: talks.length, riskCounts },
+            attends: { list: attends, count: attends.length, lateCount, absentCount, totalAbsenceHours },
+            leaves: { list: leaves, count: leaves.length },
+            disciplines: { list: disciplines, count: disciplines.length },
+            latecomes: { list: latecomes, count: latecomes.length },
+            supports: supports[0] || null,
+            psychs: { list: psychs, count: psychs.length },
+            summary: {
+                totalRecords: talks.length + attends.length + leaves.length + disciplines.length + latecomes.length,
+                hasWarning: riskCounts.red > 0 || riskCounts.yellow > 0,
+                mainRisk: riskCounts.red > 0 ? '红色预警' : (riskCounts.yellow > 0 ? '黄色关注' : '正常')
+            }
+        };
+    }
+
+    function getAllStudentsSemesterSummary(semester) {
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        const summaries = [];
+        students.forEach(student => {
+            const data = getStudentSemesterData(student.studentId, semester);
+            summaries.push({
+                studentId: student.studentId,
+                name: student.name,
+                className: student.className,
+                talkCount: data.talks.count,
+                absenceHours: data.attends.totalAbsenceHours,
+                lateCount: data.attends.lateCount,
+                absentCount: data.attends.absentCount,
+                leaveCount: data.leaves.count,
+                disciplineCount: data.disciplines.count,
+                latecomeCount: data.latecomes.count,
+                psychCount: data.psychs.count,
+                hasSupport: data.supports ? '是' : '否',
+                totalRecords: data.summary.totalRecords,
+                mainRisk: data.summary.mainRisk,
+                hasWarning: data.summary.hasWarning
+            });
+        });
+        return summaries.sort((a, b) => b.totalRecords - a.totalRecords);
+    }
+
+    // 导出汇总Excel
+    function exportToExcel(summaries, semesterName) {
+        if (typeof XLSX === 'undefined') {
+            alert('Excel库未加载，请刷新页面后重试！');
+            return;
+        }
+        const sheetData = [
+            [`${semesterName} 学生数据汇总表`],
+            [`导出时间：${new Date().toLocaleString()}`],
+            [],
+            ['序号', '姓名', '学号', '班级', '谈话次数', '旷课课时', '迟到次数', '旷课次数', '请假次数', '处分次数', '晚归次数', '心理档案', '学业帮扶', '总记录数', '状态']
+        ];
+        summaries.forEach((s, idx) => {
+            sheetData.push([idx + 1, s.name, s.studentId, s.className, s.talkCount, s.absenceHours,
+                s.lateCount, s.absentCount, s.leaveCount, s.disciplineCount, s.latecomeCount,
+                s.psychCount > 0 ? `${s.psychCount}条` : '无', s.hasSupport, s.totalRecords, s.mainRisk]);
+        });
+        const total = summaries.reduce((a,b)=>({
+            talkCount: a.talkCount+b.talkCount, absenceHours: a.absenceHours+b.absenceHours,
+            lateCount: a.lateCount+b.lateCount, absentCount: a.absentCount+b.absentCount,
+            leaveCount: a.leaveCount+b.leaveCount, disciplineCount: a.disciplineCount+b.disciplineCount,
+            latecomeCount: a.latecomeCount+b.latecomeCount, totalRecords: a.totalRecords+b.totalRecords
+        }), {talkCount:0,absenceHours:0,lateCount:0,absentCount:0,leaveCount:0,disciplineCount:0,latecomeCount:0,totalRecords:0});
+        sheetData.push([]);
+        sheetData.push(['合计', '', '', '', total.talkCount, total.absenceHours, total.lateCount, 
+            total.absentCount, total.leaveCount, total.disciplineCount, total.latecomeCount, '', '', total.totalRecords, `预警:${summaries.filter(s=>s.hasWarning).length}人`]);
+        
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        ws['!cols'] = [{wch:6},{wch:12},{wch:15},{wch:18},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:10},{wch:12}];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${semesterName}_学生汇总`);
+        XLSX.writeFile(wb, `${semesterName.replace(/\s/g,'_')}_学生数据汇总.xlsx`);
+        alert(`✅ 导出成功！共 ${summaries.length} 条记录`);
+    }
+
+    // 导出单个学生明细（手动点击按钮时才调用）
+    function exportStudentDetail(studentId, studentName) {
+        if (typeof XLSX === 'undefined') { alert('Excel库未加载！'); return; }
+        const data = getStudentSemesterData(studentId, currentSemester);
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        const student = students.find(s => s.studentId === studentId);
+        
+        const sheetData = [
+            [`${studentName} - ${currentSemester.name} 学期档案`],
+            [`班级：${student?.className || ''} | 学号：${studentId}`],
+            [`导出时间：${new Date().toLocaleString()}`], [],
+            ['一、学期统计汇总'],
+            ['项目', '数量', '备注'],
+            ['谈心谈话次数', data.talks.count, `红色:${data.talks.riskCounts.red} 黄色:${data.talks.riskCounts.yellow} 绿色:${data.talks.riskCounts.green}`],
+            ['旷课课时', data.attends.totalAbsenceHours, `迟到${data.attends.lateCount}次，旷课${data.attends.absentCount}次`],
+            ['请假次数', data.leaves.count, ''],
+            ['处分次数', data.disciplines.count, ''],
+            ['晚归次数', data.latecomes.count, ''],
+            ['心理档案', data.psychs.count, ''],
+            ['学业帮扶', data.supports ? '已纳入' : '未纳入', ''],
+            [], ['二、谈心谈话记录'], ['日期', '谈话主题', '谈话反馈', '风险等级']
+        ];
+        data.talks.list.forEach(talk => {
+            sheetData.push([new Date(talk.talkTime).toLocaleString(), talk.topics ? talk.topics.join('、') : '-', (talk.talkFeedback || '').substring(0, 100), talk.riskLevel === 'red' ? '红色预警' : (talk.riskLevel === 'yellow' ? '黄色关注' : '绿色正常')]);
+        });
+        sheetData.push([], ['三、课堂考勤记录'], ['日期', '节次', '课程名称', '状态', '迟到分钟', '旷课课时']);
+        data.attends.list.forEach(attend => {
+            sheetData.push([attend.date, attend.period, attend.courseName || '-', attend.status, attend.status === '迟到' ? attend.lateMinutes : '-', attend.absenceHours || 0]);
+        });
+        sheetData.push([], ['四、请假记录'], ['开始日期', '结束日期', '请假原因', '家长知情', '销假状态']);
+        data.leaves.list.forEach(leave => {
+            sheetData.push([leave.startDate, leave.endDate, leave.reason, leave.parentKnow ? '是' : '否', leave.cancelStatus || '未销假']);
+        });
+        sheetData.push([], ['五、处分记录'], ['处分类型', '违纪情况', '起始日期', '终止日期', '是否解除']);
+        data.disciplines.list.forEach(dis => {
+            sheetData.push([dis.punishmentType, dis.violation, dis.punishmentStart || '-', dis.punishmentEnd || '-', dis.isResolved ? '已解除' : '未解除']);
+        });
+        sheetData.push([], ['六、晚归记录'], ['晚归时间', '晚归原因', '预计归时', '备注']);
+        data.latecomes.list.forEach(late => {
+            sheetData.push([late.lateDate, late.reason, late.expectedTime || '-', late.remark || '-']);
+        });
+        
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        ws['!cols'] = [{ wch: 20 }, { wch: 20 }, { wch: 30 }, { wch: 15 }];
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, `${studentName}_学期档案`);
+        XLSX.writeFile(wb, `${studentName}_${currentSemester.name.replace(/\s/g,'_')}_学期档案.xlsx`);
+        alert(`✅ ${studentName} 的学期档案已导出！`);
+    }
+
+    // 显示学生详情弹窗（系统中查看，不下载）
+    function showStudentDetailModal(studentId, studentName) {
+        const data = getStudentSemesterData(studentId, currentSemester);
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        const student = students.find(s => s.studentId === studentId);
+        
+        // 构建谈话记录HTML
+        let talksHtml = '';
+        if (data.talks.list.length === 0) {
+            talksHtml = '<div style="text-align:center;padding:20px;color:#999;">暂无谈话记录</div>';
+        } else {
+            talksHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f0f0f0;"><th style="padding:8px;">日期</th><th style="padding:8px;">主题</th><th style="padding:8px;">风险</th><th style="padding:8px;">反馈</th></tr></thead><tbody>';
+            data.talks.list.slice(0, 15).forEach(t => {
+                let riskColor = t.riskLevel === 'red' ? '#c62828' : (t.riskLevel === 'yellow' ? '#f57f17' : '#2e7d32');
+                let riskText = t.riskLevel === 'red' ? '红色' : (t.riskLevel === 'yellow' ? '黄色' : '绿色');
+                talksHtml += `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">${new Date(t.talkTime).toLocaleDateString()}</td>
+                    <td style="padding:6px 8px;">${t.topics ? t.topics.join('、') : '-'}</td>
+                    <td style="padding:6px 8px;color:${riskColor};">${riskText}</td>
+                    <td style="padding:6px 8px;">${(t.talkFeedback || '').substring(0, 40)}</td></tr>`;
+            });
+            talksHtml += '</tbody></table>';
+            if (data.talks.list.length > 15) talksHtml += '<div style="padding:8px;text-align:center;color:#999;">仅显示前15条</div>';
+        }
+        
+        // 构建考勤记录HTML
+        let attendsHtml = '';
+        if (data.attends.list.length === 0) {
+            attendsHtml = '<div style="text-align:center;padding:20px;color:#999;">暂无考勤记录</div>';
+        } else {
+            attendsHtml = '<table style="width:100%;border-collapse:collapse;font-size:12px;"><thead><tr style="background:#f0f0f0;"><th style="padding:8px;">日期</th><th style="padding:8px;">节次</th><th style="padding:8px;">状态</th><th style="padding:8px;">课时</th></tr></thead><tbody>';
+            data.attends.list.slice(0, 10).forEach(a => {
+                let statusColor = a.status === '迟到' ? '#f39c12' : '#c62828';
+                attendsHtml += `<tr style="border-bottom:1px solid #eee;"><td style="padding:6px 8px;">${a.date}</td>
+                    <td style="padding:6px 8px;">${a.period}</td>
+                    <td style="padding:6px 8px;color:${statusColor};">${a.status}</td>
+                    <td style="padding:6px 8px;">${a.absenceHours || 0}课时</td></tr>`;
+            });
+            attendsHtml += '</tbody></table>';
+        }
+        
+        const modalHtml = `
+            <div id="studentDetailViewModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:20010;display:flex;justify-content:center;align-items:center;">
+                <div style="background:white;border-radius:16px;max-width:900px;width:90%;max-height:85vh;overflow-y:auto;">
+                    <div style="background:linear-gradient(135deg,#2c3e50,#3498db);color:white;padding:15px 20px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                        <div><h2 style="margin:0;">${studentName}</h2><p style="margin:5px 0 0;font-size:13px;">${student?.className || ''} | 学号：${studentId}</p></div>
+                        <button id="closeDetailViewBtn" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;">✕</button>
+                    </div>
+                    <div style="padding:20px;">
+                        <div style="background:#e3f2fd;padding:12px;border-radius:8px;margin-bottom:20px;">
+                            <strong>📅 ${currentSemester.name}</strong><br>
+                            <span style="font-size:12px;color:#666;">统计周期：${currentSemester.start} ~ ${currentSemester.end}</span>
+                        </div>
+                        
+                        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+                            <div style="background:#f8f9fa;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:bold;color:#3498db;">${data.talks.count}</div><div style="font-size:11px;">谈心谈话</div></div>
+                            <div style="background:#f8f9fa;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:bold;color:#e67e22;">${data.attends.totalAbsenceHours}</div><div style="font-size:11px;">旷课课时</div></div>
+                            <div style="background:#f8f9fa;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:bold;color:#9b59b6;">${data.disciplines.count}</div><div style="font-size:11px;">处分记录</div></div>
+                            <div style="background:#f8f9fa;border-radius:10px;padding:12px;text-align:center;"><div style="font-size:24px;font-weight:bold;color:#e74c3c;">${data.latecomes.count}</div><div style="font-size:11px;">晚归记录</div></div>
+                        </div>
+                        
+                        <div style="margin-bottom:20px;">
+                            <h4 style="margin:0 0 10px;">📝 谈话记录 (${data.talks.count}条)</h4>
+                            <div style="max-height:250px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">${talksHtml}</div>
+                        </div>
+                        
+                        <div style="margin-bottom:20px;">
+                            <h4 style="margin:0 0 10px;">📚 考勤记录 (迟到${data.attends.lateCount}次，旷课${data.attends.absentCount}次)</h4>
+                            <div style="max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:8px;">${attendsHtml}</div>
+                        </div>
+                        
+                        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px;">
+                            <div style="background:#f0f0f0;border-radius:8px;padding:10px;text-align:center;"><div><strong>请假</strong></div><div style="font-size:18px;color:#3498db;">${data.leaves.count}</div></div>
+                            <div style="background:#f0f0f0;border-radius:8px;padding:10px;text-align:center;"><div><strong>心理档案</strong></div><div style="font-size:18px;color:#9b59b6;">${data.psychs.count}</div></div>
+                            <div style="background:#f0f0f0;border-radius:8px;padding:10px;text-align:center;"><div><strong>学业帮扶</strong></div><div style="font-size:18px;color:#27ae60;">${data.supports ? '已纳入' : '未纳入'}</div></div>
+                        </div>
+                    </div>
+                    <div style="padding:15px 20px;background:#f8f9fa;border-radius:0 0 16px 16px;display:flex;justify-content:space-between;">
+                        <button id="exportStudentBtn" style="background:#27ae60;color:white;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;">📥 导出该生Excel</button>
+                        <button id="closeDetailViewBtn2" style="background:#95a5a6;color:white;border:none;padding:8px 20px;border-radius:6px;cursor:pointer;">关闭</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('studentDetailViewModal');
+        if (oldModal) oldModal.remove();
+        const modal = document.createElement('div');
+        modal.id = 'studentDetailViewModal';
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+        
+        document.getElementById('closeDetailViewBtn')?.addEventListener('click', () => modal.remove());
+        document.getElementById('closeDetailViewBtn2')?.addEventListener('click', () => modal.remove());
+        document.getElementById('exportStudentBtn')?.addEventListener('click', () => {
+            modal.remove();
+            exportStudentDetail(studentId, studentName);
+        });
+    }
+
+    // 显示学期档案主界面
+    function showSemesterArchive() {
+        const summaries = getAllStudentsSemesterSummary(currentSemester);
+        const students = JSON.parse(localStorage.getItem('students') || '[]');
+        
+        const warningCount = summaries.filter(s => s.hasWarning).length;
+        const totalAbsence = summaries.reduce((sum, s) => sum + s.absenceHours, 0);
+        const totalTalks = summaries.reduce((sum, s) => sum + s.talkCount, 0);
+        const totalRecords = summaries.reduce((sum, s) => sum + s.totalRecords, 0);
+
+        const modalHtml = `
+            <div id="semesterArchiveModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 20000; display: flex; justify-content: center; align-items: center;">
+                <div style="background: white; border-radius: 20px; max-width: 1400px; width: 95%; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="background: linear-gradient(135deg, #2c3e50, #3498db); color: white; padding: 20px 25px; border-radius: 20px 20px 0 0; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+                        <div><h1 style="margin: 0; font-size: 22px;">📚 学生学期档案</h1><p style="margin: 5px 0 0; opacity: 0.9; font-size: 13px;">${currentSemester.name} (${currentSemester.start} ~ ${currentSemester.end})</p></div>
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <select id="semesterSelectArchive" style="padding: 8px 15px; border-radius: 8px; border: none; font-size: 14px; background: white;">
+                                ${semesters.map(s => `<option value="${s.id}" ${s.id === currentSemester.id ? 'selected' : ''}>${s.name}</option>`).join('')}
+                            </select>
+                            <button id="closeArchiveBtn" style="background: rgba(255,255,255,0.2); border: none; color: white; font-size: 20px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer;">✕</button>
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 20px 25px; background: #f8f9fa; border-bottom: 1px solid #eee;">
+                        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px;">
+                            <div style="background: white; border-radius: 12px; padding: 12px; text-align: center;"><div style="font-size: 24px; font-weight: bold; color: #3498db;">${students.length}</div><div style="font-size: 11px;">总学生数</div></div>
+                            <div style="background: white; border-radius: 12px; padding: 12px; text-align: center;"><div style="font-size: 24px; font-weight: bold; color: #9b59b6;">${summaries.length}</div><div style="font-size: 11px;">有记录学生</div></div>
+                            <div style="background: white; border-radius: 12px; padding: 12px; text-align: center;"><div style="font-size: 24px; font-weight: bold; color: #e74c3c;">${warningCount}</div><div style="font-size: 11px;">预警学生</div></div>
+                            <div style="background: white; border-radius: 12px; padding: 12px; text-align: center;"><div style="font-size: 24px; font-weight: bold; color: #27ae60;">${totalTalks}</div><div style="font-size: 11px;">总谈话次数</div></div>
+                            <div style="background: white; border-radius: 12px; padding: 12px; text-align: center;"><div style="font-size: 24px; font-weight: bold; color: #e67e22;">${totalAbsence}</div><div style="font-size: 11px;">旷课课时</div></div>
+                            <div style="background: white; border-radius: 12px; padding: 12px; text-align: center;"><div style="font-size: 24px; font-weight: bold; color: #1abc9c;">${totalRecords}</div><div style="font-size: 11px;">总记录数</div></div>
+                        </div>
+                    </div>
+                    
+                    <div style="padding: 15px 25px; background: white; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                        <div style="display: flex; gap: 10px;">
+                            <input type="text" id="searchStudentInput" placeholder="🔍 搜索姓名/班级/学号" style="padding: 8px 15px; border: 1px solid #ddd; border-radius: 8px; width: 220px;">
+                            <button id="exportAllBtn" style="background: #27ae60; color: white; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer;">📥 导出全部Excel</button>
+                        </div>
+                        <div style="font-size: 12px; color: #666;">💡 点击学生行查看该生学期明细</div>
+                    </div>
+                    
+                    <div style="padding: 20px 25px;">
+                        <div style="overflow-x: auto;">
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                                <thead><tr style="background: #2c3e50; color: white; position: sticky; top: 0;">
+                                    <th style="padding: 12px;">序号</th><th style="padding: 12px;">姓名</th><th style="padding: 12px;">班级</th>
+                                    <th style="padding: 12px;">谈话</th><th style="padding: 12px;">旷课课时</th><th style="padding: 12px;">请假</th>
+                                    <th style="padding: 12px;">处分</th><th style="padding: 12px;">晚归</th><th style="padding: 12px;">心理</th>
+                                    <th style="padding: 12px;">帮扶</th><th style="padding: 12px;">总记录</th><th style="padding: 12px;">状态</th>
+                                </tr></thead>
+                                <tbody id="archiveStudentList"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const oldModal = document.getElementById('semesterArchiveModal');
+        if (oldModal) oldModal.remove();
+        const modal = document.createElement('div');
+        modal.id = 'semesterArchiveModal';
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+        
+        function renderStudentList(searchTerm = '') {
+            const tbody = document.getElementById('archiveStudentList');
+            if (!tbody) return;
+            let filtered = summaries;
+            if (searchTerm) filtered = summaries.filter(s => s.name.includes(searchTerm) || s.className.includes(searchTerm) || s.studentId.includes(searchTerm));
+            if (filtered.length === 0) { tbody.innerHTML = '<tr><td colspan="12" style="text-align: center; padding: 40px;">暂无数据</td></tr>'; return; }
+            
+            tbody.innerHTML = filtered.map((s, idx) => {
+                let statusColor = '#27ae60', statusText = '正常';
+                if (s.mainRisk === '红色预警') { statusColor = '#c62828'; statusText = '🔴 预警'; }
+                else if (s.mainRisk === '黄色关注') { statusColor = '#f57f17'; statusText = '🟡 关注'; }
+                return `<tr class="student-row" data-id="${s.studentId}" data-name="${s.name}" style="border-bottom: 1px solid #eee; ${s.hasWarning ? 'background: #fff8e1;' : ''} cursor: pointer;">
+                    <td style="padding: 10px; text-align: center;">${idx + 1}</td>
+                    <td style="padding: 10px;"><strong>${s.name}</strong><br><span style="font-size: 11px; color: #999;">${s.studentId}</span></td>
+                    <td style="padding: 10px;">${s.className}</td>
+                    <td style="padding: 10px; text-align: center; font-weight: bold; color: #3498db;">${s.talkCount}</td>
+                    <td style="padding: 10px; text-align: center; color: ${s.absenceHours >= 4 ? '#c62828' : '#666'};">${s.absenceHours}</td>
+                    <td style="padding: 10px; text-align: center;">${s.leaveCount}</td>
+                    <td style="padding: 10px; text-align: center;">${s.disciplineCount}</td>
+                    <td style="padding: 10px; text-align: center;">${s.latecomeCount}</td>
+                    <td style="padding: 10px; text-align: center;">${s.psychCount > 0 ? `${s.psychCount}条` : '-'}</td>
+                    <td style="padding: 10px; text-align: center;">${s.hasSupport}</td>
+                    <td style="padding: 10px; text-align: center; font-weight: bold;">${s.totalRecords}</td>
+                    <td style="padding: 10px;"><span style="background: ${statusColor}20; color: ${statusColor}; padding: 4px 10px; border-radius: 20px; font-size: 12px;">${statusText}</span></td>
+                </td>`;
+            }).join('');
+            
+            document.querySelectorAll('.student-row').forEach(row => {
+                row.onclick = () => showStudentDetailModal(row.dataset.id, row.dataset.name);
+            });
+        }
+        
+        document.getElementById('searchStudentInput')?.addEventListener('input', e => renderStudentList(e.target.value));
+        document.getElementById('semesterSelectArchive')?.addEventListener('change', e => {
+            currentSemester = semesters.find(s => s.id === e.target.value) || semesters[0];
+            modal.remove();
+            showSemesterArchive();
+        });
+        document.getElementById('exportAllBtn')?.addEventListener('click', () => exportToExcel(summaries, currentSemester.name));
+        document.getElementById('closeArchiveBtn')?.addEventListener('click', () => modal.remove());
+        renderStudentList();
+    }
+    
+    function addArchiveMenu() {
+        const navMenu = document.querySelector('.nav-menu');
+        if (!navMenu || document.getElementById('semesterArchiveNavItem')) return;
+        const menuItem = document.createElement('div');
+        menuItem.id = 'semesterArchiveNavItem';
+        menuItem.className = 'nav-item';
+        menuItem.innerHTML = '📚 学期档案';
+        menuItem.onclick = () => showSemesterArchive();
+        navMenu.appendChild(menuItem);
+        console.log('✅ 学期档案菜单已添加');
+    }
+    
+    window.showSemesterArchive = showSemesterArchive;
+    setTimeout(addArchiveMenu, 500);
+    console.log('✅ 学生学期档案模块已加载（点击查看，不自动下载）');
+})();
+</script>
 </body>
 </html>
