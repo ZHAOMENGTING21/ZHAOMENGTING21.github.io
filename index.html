@@ -26228,8 +26228,9 @@ console.log('✅ 考勤统计模块修复完成');
         return records;
     }
     
-    // 导出班级考勤明细
+
   // 导出班级考勤明细（按学生汇总）
+// 导出班级考勤明细（按学生汇总）+ 新增通报明细子表
 function exportClassDetail(className) {
     let records = getFilteredAttendRecords();
     const classRecords = records.filter(r => r.className === className);
@@ -26240,6 +26241,13 @@ function exportClassDetail(className) {
     }
     
     const periodText = currentClassPeriod === 'week' ? '本周' : (currentClassPeriod === 'month' ? '本月' : '全部');
+    
+    // 获取辅导员姓名
+    let counselorName = '辅导员';
+    try {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
+        counselorName = currentUser.fullname || '辅导员';
+    } catch(e) {}
     
     // ========== 按学生汇总数据 ==========
     const studentMap = new Map();
@@ -26294,8 +26302,8 @@ function exportClassDetail(className) {
     const allStudents = JSON.parse(localStorage.getItem('students') || '[]');
     const classStudentCount = allStudents.filter(s => s.className === className).length;
     
-    // 构建Excel数据（使用XLSX格式）
-    const excelData = [
+    // ========== Sheet1 数据：学生汇总 + 详细记录（完全保持原样） ==========
+    const sheet1Data = [
         [`班级考勤汇总 - ${className}`],
         [`统计周期：${periodText} | 班级总人数：${classStudentCount}人 | 有记录人数：${totalStudents}人`],
         [`合计：迟到 ${totalLateCount}次，旷课 ${totalAbsentCount}次，旷课课时总计 ${totalAbsenceHours}课时`],
@@ -26307,7 +26315,6 @@ function exportClassDetail(className) {
     // 添加按学生汇总的数据
     studentSummaries.forEach((student, idx) => {
         let statusLevel = '';
-        let statusColor = '';
         if (student.totalAbsenceHours >= 4) {
             statusLevel = '⚠️ 高风险（旷课≥4课时）';
         } else if (student.totalAbsenceHours >= 2) {
@@ -26322,7 +26329,7 @@ function exportClassDetail(className) {
         
         const lastDate = student.recordDates.sort().reverse()[0] || '-';
         
-        excelData.push([
+        sheet1Data.push([
             idx + 1,
             student.studentName,
             `'${student.studentId || ''}`,
@@ -26335,13 +26342,13 @@ function exportClassDetail(className) {
     });
     
     // 添加合计行
-    excelData.push(
+    sheet1Data.push(
         [],
         ['合计', '', '', totalLateCount, totalAbsentCount, totalAbsenceHours, '', '']
     );
     
     // 添加明细表（按学生分组的详细记录）
-    excelData.push(
+    sheet1Data.push(
         [],
         ['二、详细记录（按学生分组）'],
         []
@@ -26349,11 +26356,11 @@ function exportClassDetail(className) {
     
     studentSummaries.forEach(student => {
         if (student.details.length > 0) {
-            excelData.push([`【${student.studentName}】 (学号：${student.studentId || '-'}) - 共 ${student.details.length} 条记录，旷课课时 ${student.totalAbsenceHours}课时`]);
-            excelData.push(['日期', '节次', '课程名称', '状态', '迟到分钟', '旷课课时']);
+            sheet1Data.push([`【${student.studentName}】 (学号：${student.studentId || '-'}) - 共 ${student.details.length} 条记录，旷课课时 ${student.totalAbsenceHours}课时`]);
+            sheet1Data.push(['日期', '节次', '课程名称', '状态', '迟到分钟', '旷课课时']);
             
             student.details.forEach(detail => {
-                excelData.push([
+                sheet1Data.push([
                     detail.date,
                     detail.period,
                     detail.courseName || '-',
@@ -26362,15 +26369,50 @@ function exportClassDetail(className) {
                     detail.hours
                 ]);
             });
-            excelData.push([]); // 空行分隔
+            sheet1Data.push([]); // 空行分隔
         }
     });
     
-    // 使用XLSX导出
+    // ========== Sheet2 数据：通报明细表（新增） ==========
+    const sheet2Data = [
+        ['通报明细表'],
+        [`班级：${className} | 统计周期：${periodText} | 辅导员：${counselorName}`],
+        [],
+        ['姓名', '学号', '辅导员', '时间', '班级', '课程名称', '通报情况']
+    ];
+    
+    // 按日期排序，最新的在前
+    const sortedDetails = classRecords.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    sortedDetails.forEach(record => {
+        let statusDesc = record.status;
+        if (record.status === '迟到' && record.lateMinutes) {
+            statusDesc = `迟到${record.lateMinutes}分钟`;
+        } else if (record.status === '旷课') {
+            statusDesc = `旷课${record.absenceHours || 2}课时`;
+        }
+        
+        const student = allStudents.find(s => s.studentId === record.studentId);
+        const displayName = student ? student.name : record.studentName;
+        
+        sheet2Data.push([
+            displayName || record.studentName || '-',
+            record.studentId || '',
+            counselorName,
+            record.date || '',
+            record.className || '',
+            record.courseName || '-',
+            statusDesc
+        ]);
+    });
+    
+    // ========== 导出多Sheet Excel ==========
     if (typeof XLSX !== 'undefined') {
-        const ws = XLSX.utils.aoa_to_sheet(excelData);
-        // 设置列宽
-        ws['!cols'] = [
+        const wb = XLSX.utils.book_new();
+        
+        // Sheet1: 学生汇总 + 详细记录（完全保持原样）
+        const ws1 = XLSX.utils.aoa_to_sheet(sheet1Data);
+        ws1['!cols'] = [
             { wch: 6 },   // 序号
             { wch: 12 },  // 学生姓名
             { wch: 15 },  // 学号
@@ -26380,8 +26422,22 @@ function exportClassDetail(className) {
             { wch: 12 },  // 最近日期
             { wch: 18 }   // 状态等级
         ];
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, `${className}_考勤汇总`);
+        XLSX.utils.book_append_sheet(wb, ws1, '学生汇总');
+        
+        // Sheet2: 通报明细（新增）
+        const ws2 = XLSX.utils.aoa_to_sheet(sheet2Data);
+        ws2['!cols'] = [
+            { wch: 12 },  // 姓名
+            { wch: 15 },  // 学号
+            { wch: 12 },  // 辅导员
+            { wch: 14 },  // 时间
+            { wch: 20 },  // 班级
+            { wch: 20 },  // 课程名称
+            { wch: 18 }   // 通报情况
+        ];
+        XLSX.utils.book_append_sheet(wb, ws2, '通报明细');
+        
+        // 导出文件
         const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const blob = new Blob([wbout], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
@@ -26390,7 +26446,7 @@ function exportClassDetail(className) {
         a.download = `${className}_${periodText}考勤汇总.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
-        showToast('导出成功，已按学生汇总', 'success');
+        showToast(`导出成功！汇总 ${totalStudents} 人，通报 ${sortedDetails.length} 条`, 'success');
     } else {
         showToast('Excel库未加载，请刷新页面重试', 'error');
     }
