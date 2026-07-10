@@ -27442,8 +27442,507 @@ console.log('✅ 所有增强功能加载完成！');
     }
     
     window.showSemesterArchive = showSemesterArchive;
-    setTimeout(addArchiveMenu, 500);
+    addArchiveMenu();
     console.log('✅ 学生学期档案模块已加载（点击查看，不自动下载）');
+})();
+</script>
+<script>
+// ============================================================
+// 学期设置 + 考勤周/月筛选（最终版）
+// ============================================================
+(function() {
+    'use strict';
+
+    // ---------- 学期存储 ----------
+    const SEMESTER_KEY = 'customSemesterConfig';
+
+    const DEFAULT_SEMESTER = {
+        name: '2025-2026学年第二学期',
+        start: '2026-03-01',
+        end: '2026-07-15'
+    };
+
+    function getSemester() {
+        try {
+            const raw = localStorage.getItem(SEMESTER_KEY);
+            if (raw) {
+                const data = JSON.parse(raw);
+                if (data.start && data.end) return data;
+            }
+        } catch (e) {}
+        return { ...DEFAULT_SEMESTER };
+    }
+
+    function saveSemester(data) {
+        localStorage.setItem(SEMESTER_KEY, JSON.stringify(data));
+    }
+
+    // ---------- 工具函数 ----------
+    function generateWeeks(semester) {
+        const start = new Date(semester.start);
+        const end = new Date(semester.end);
+        const weeks = [];
+        let current = new Date(start);
+        let weekIndex = 1;
+
+        const dayOfWeek = current.getDay();
+        const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        current.setDate(current.getDate() - diffToMonday);
+
+        while (current <= end) {
+            const weekStart = new Date(current);
+            const weekEnd = new Date(current);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            if (weekEnd > end) {
+                weekEnd.setTime(end.getTime());
+            }
+            const startStr = (weekStart.getMonth() + 1) + '-' + String(weekStart.getDate()).padStart(2, '0');
+            const endStr = (weekEnd.getMonth() + 1) + '-' + String(weekEnd.getDate()).padStart(2, '0');
+            weeks.push({
+                index: weekIndex,
+                start: weekStart.toISOString().slice(0, 10),
+                end: weekEnd.toISOString().slice(0, 10),
+                label: '第' + weekIndex + '周 (' + startStr + ' - ' + endStr + ')',
+                shortLabel: '第' + weekIndex + '周'
+            });
+            current.setDate(current.getDate() + 7);
+            weekIndex++;
+        }
+        return weeks;
+    }
+
+    function generateMonths(semester) {
+        const start = new Date(semester.start);
+        const end = new Date(semester.end);
+        const months = [];
+        const current = new Date(start);
+        current.setDate(1);
+
+        while (current <= end) {
+            const year = current.getFullYear();
+            const month = current.getMonth() + 1;
+            const monthStart = new Date(year, month - 1, 1);
+            const monthEnd = new Date(year, month, 0);
+            const endDate = monthEnd > end ? end : monthEnd;
+            months.push({
+                value: year + '-' + String(month).padStart(2, '0'),
+                label: year + '年' + month + '月',
+                start: monthStart.toISOString().slice(0, 10),
+                end: endDate.toISOString().slice(0, 10)
+            });
+            current.setMonth(current.getMonth() + 1);
+        }
+        return months;
+    }
+
+    function getCurrentWeekIndex(semesterStart) {
+        const start = new Date(semesterStart);
+        const now = new Date();
+        const diff = (now - start) / (7 * 24 * 60 * 60 * 1000);
+        return Math.max(1, Math.floor(diff) + 1);
+    }
+
+    // ---------- 在导航栏添加「学期设置」菜单 ----------
+    function addSemesterMenu() {
+        var navMenu = document.querySelector('.nav-menu');
+        if (!navMenu) {
+            addSemesterMenu();
+            return;
+        }
+
+        if (document.getElementById('semesterNavItem')) return;
+
+        var menuItem = document.createElement('div');
+        menuItem.id = 'semesterNavItem';
+        menuItem.className = 'nav-item';
+        menuItem.innerHTML = '📅 学期设置';
+        menuItem.onclick = function() {
+            showSemesterModal();
+        };
+        navMenu.appendChild(menuItem);
+        console.log('✅ 学期设置菜单已添加到导航栏');
+    }
+
+    // ---------- 学期设置弹窗 ----------
+    function showSemesterModal() {
+        var semester = getSemester();
+
+        var oldModal = document.getElementById('semesterModal');
+        if (oldModal) oldModal.remove();
+
+        var modalHtml = `
+            <div id="semesterModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;justify-content:center;align-items:center;">
+                <div style="background:white;border-radius:16px;max-width:500px;width:90%;padding:30px;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+                        <h3 style="margin:0;color:#2c3e50;">📅 学期设置</h3>
+                        <button onclick="document.getElementById('semesterModal').remove()" style="background:none;border:none;font-size:24px;cursor:pointer;color:#999;">✕</button>
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">学期名称</label>
+                        <input type="text" id="modalSemesterName" class="form-control" value="${semester.name || ''}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                    </div>
+                    <div style="margin-bottom:15px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">学期开始日期</label>
+                        <input type="date" id="modalSemesterStart" class="form-control" value="${semester.start || ''}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                    </div>
+                    <div style="margin-bottom:20px;">
+                        <label style="display:block;font-size:13px;color:#666;margin-bottom:5px;">学期结束日期</label>
+                        <input type="date" id="modalSemesterEnd" class="form-control" value="${semester.end || ''}" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:6px;">
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <button onclick="saveSemesterFromModal()" style="flex:1;padding:10px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">保存设置</button>
+                        <button onclick="resetSemesterFromModal()" style="padding:10px 20px;background:#95a5a6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">恢复默认</button>
+                    </div>
+                    <div style="margin-top:15px;padding:10px;background:#f8f9fa;border-radius:6px;font-size:12px;color:#666;">
+                        💡 设置学期起止日期后，班级视图将显示"第X周"和"X月"下拉选择
+                    </div>
+                </div>
+            </div>
+        `;
+
+        var modal = document.createElement('div');
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+
+        modal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                this.remove();
+            }
+        });
+    }
+
+    // ---------- 保存学期 ----------
+    window.saveSemesterFromModal = function() {
+        var name = document.getElementById('modalSemesterName').value.trim();
+        var start = document.getElementById('modalSemesterStart').value;
+        var end = document.getElementById('modalSemesterEnd').value;
+
+        if (!name || !start || !end) {
+            alert('请完整填写所有字段！');
+            return;
+        }
+
+        if (new Date(start) >= new Date(end)) {
+            alert('开始日期必须早于结束日期！');
+            return;
+        }
+
+        saveSemester({ name: name, start: start, end: end });
+
+        refreshAllSelectors();
+
+        document.getElementById('semesterModal').remove();
+        showToast('✅ 学期设置已保存：' + name, 'success');
+    };
+
+    window.resetSemesterFromModal = function() {
+        if (!confirm('确定恢复默认学期设置吗？')) return;
+        saveSemester({ ...DEFAULT_SEMESTER });
+        document.getElementById('modalSemesterName').value = DEFAULT_SEMESTER.name;
+        document.getElementById('modalSemesterStart').value = DEFAULT_SEMESTER.start;
+        document.getElementById('modalSemesterEnd').value = DEFAULT_SEMESTER.end;
+        refreshAllSelectors();
+        showToast('✅ 已恢复默认学期设置', 'info');
+    };
+
+    // ---------- 替换「本周/本月/总汇总」为周/月下拉选择器 ----------
+    function replacePeriodButtons() {
+        var statsTab = document.getElementById('attendanceStatsTab');
+        if (!statsTab) {
+            setTimeout(replacePeriodButtons, 500);
+            return;
+        }
+
+        var periodBtns = document.getElementById('classPeriodBtns');
+        if (!periodBtns) {
+            setTimeout(replacePeriodButtons, 500);
+            return;
+        }
+
+        if (document.getElementById('semesterPeriodWrapper')) return;
+
+        var semester = getSemester();
+        var weeks = generateWeeks(semester);
+        var months = generateMonths(semester);
+        var currentWeek = getCurrentWeekIndex(semester.start);
+        var currentMonth = new Date().toISOString().slice(0, 7);
+
+        var weekOptions = '<option value="all">-- 全部周次 --</option>';
+        weeks.forEach(function(w) {
+            var selected = (w.index === currentWeek) ? 'selected' : '';
+            weekOptions += '<option value="week_' + w.index + '" ' + selected + '>' + w.label + '</option>';
+        });
+
+        var monthOptions = '<option value="all">-- 全部月份 --</option>';
+        months.forEach(function(m) {
+            var selected = (m.value === currentMonth) ? 'selected' : '';
+            monthOptions += '<option value="month_' + m.value + '" ' + selected + '>' + m.label + '</option>';
+        });
+
+        var wrapper = document.createElement('div');
+        wrapper.id = 'semesterPeriodWrapper';
+        wrapper.style.cssText = 'display:flex;gap:8px;align-items:center;flex-wrap:wrap;';
+        wrapper.innerHTML = `
+            <span style="font-size:13px;font-weight:bold;color:#2c3e50;">📅 筛选：</span>
+            <select id="semesterWeekSelect" style="padding:5px 12px;border-radius:6px;border:1px solid #ddd;font-size:13px;background:white;cursor:pointer;min-width:180px;">
+                ${weekOptions}
+            </select>
+            <select id="semesterMonthSelect" style="padding:5px 12px;border-radius:6px;border:1px solid #ddd;font-size:13px;background:white;cursor:pointer;min-width:140px;">
+                ${monthOptions}
+            </select>
+            <button id="applySemesterBtn" style="padding:5px 16px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">应用</button>
+            <button id="resetSemesterBtn" style="padding:5px 16px;background:#95a5a6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">重置</button>
+            <span id="currentFilterLabel" style="font-size:12px;color:#27ae60;font-weight:bold;"></span>
+        `;
+
+        periodBtns.innerHTML = '';
+        periodBtns.appendChild(wrapper);
+
+        document.getElementById('applySemesterBtn').addEventListener('click', function() {
+            applySemesterFilter();
+        });
+        document.getElementById('resetSemesterBtn').addEventListener('click', function() {
+            resetSemesterFilter();
+        });
+
+        // 监听视图切换
+        var viewStudentBtn = document.getElementById('viewStudentBtn');
+        var viewClassBtn = document.getElementById('viewClassBtn');
+
+        if (viewStudentBtn) {
+            viewStudentBtn.addEventListener('click', function() {
+                restoreAllData();
+                if (typeof updateStudentAbsenceSummary === 'function') {
+                    updateStudentAbsenceSummary();
+                }
+                var labelEl = document.getElementById('currentFilterLabel');
+                if (labelEl) labelEl.textContent = '';
+            });
+        }
+
+        if (viewClassBtn) {
+            viewClassBtn.addEventListener('click', function() {
+                applySemesterFilter();
+            });
+        }
+
+        console.log('✅ 考勤周期按钮已替换为周/月下拉选择器');
+    }
+
+    // ---------- 恢复全部数据 ----------
+    function restoreAllData() {
+        if (window._originalAttendRecords) {
+            localStorage.setItem('classAttendRecords', JSON.stringify(window._originalAttendRecords));
+        }
+        window._semesterFilter = null;
+    }
+
+    // ---------- 保存原始数据 ----------
+    function saveOriginalData() {
+        if (!window._originalAttendRecords) {
+            window._originalAttendRecords = JSON.parse(localStorage.getItem('classAttendRecords') || '[]');
+        }
+    }
+
+    // ---------- 应用学期筛选 ----------
+    function applySemesterFilter() {
+        var weekSelect = document.getElementById('semesterWeekSelect');
+        var monthSelect = document.getElementById('semesterMonthSelect');
+        var labelEl = document.getElementById('currentFilterLabel');
+
+        if (!weekSelect || !monthSelect) return;
+
+        var weekVal = weekSelect.value;
+        var monthVal = monthSelect.value;
+
+        var semester = getSemester();
+        var dateFrom = null;
+        var dateTo = null;
+        var label = '';
+
+        if (weekVal !== 'all' && weekVal.startsWith('week_')) {
+            var weekIndex = parseInt(weekVal.replace('week_', ''));
+            var weeks = generateWeeks(semester);
+            var week = weeks.filter(function(w) { return w.index === weekIndex; })[0];
+            if (week) {
+                dateFrom = new Date(week.start);
+                dateTo = new Date(week.end);
+                dateTo.setHours(23, 59, 59, 999);
+                label = week.label;
+            }
+        } else if (monthVal !== 'all' && monthVal.startsWith('month_')) {
+            var monthValue = monthVal.replace('month_', '');
+            var months = generateMonths(semester);
+            var month = months.filter(function(m) { return m.value === monthValue; })[0];
+            if (month) {
+                dateFrom = new Date(month.start);
+                dateTo = new Date(month.end);
+                dateTo.setHours(23, 59, 59, 999);
+                label = month.label;
+            }
+        }
+
+        if (dateFrom && dateTo) {
+            window._semesterFilter = {
+                dateFrom: dateFrom,
+                dateTo: dateTo,
+                label: label,
+                startStr: dateFrom.toISOString().slice(0, 10),
+                endStr: dateTo.toISOString().slice(0, 10)
+            };
+
+            if (labelEl) {
+                labelEl.textContent = '📌 当前筛选: ' + label;
+            }
+
+            saveOriginalData();
+
+            var allRecords = window._originalAttendRecords;
+            var filteredRecords = allRecords.filter(function(r) {
+                var recordDate = new Date(r.date);
+                return recordDate >= dateFrom && recordDate <= dateTo;
+            });
+
+            localStorage.setItem('classAttendRecords', JSON.stringify(filteredRecords));
+
+            if (typeof updateStudentAbsenceSummary === 'function') {
+                var searchTerm = document.getElementById('absenceSummarySearch') ? document.getElementById('absenceSummarySearch').value : '';
+                updateStudentAbsenceSummary(searchTerm);
+            }
+
+            showToast('已筛选: ' + label, 'success');
+        } else {
+            restoreAllData();
+            if (labelEl) {
+                labelEl.textContent = '📌 显示全部数据';
+            }
+            if (typeof updateStudentAbsenceSummary === 'function') {
+                updateStudentAbsenceSummary();
+            }
+            showToast('显示全部数据', 'info');
+        }
+    }
+
+    // ---------- 重置学期筛选 ----------
+    function resetSemesterFilter() {
+        var weekSelect = document.getElementById('semesterWeekSelect');
+        var monthSelect = document.getElementById('semesterMonthSelect');
+        var labelEl = document.getElementById('currentFilterLabel');
+
+        if (weekSelect) weekSelect.value = 'all';
+        if (monthSelect) monthSelect.value = 'all';
+
+        restoreAllData();
+
+        if (labelEl) {
+            labelEl.textContent = '📌 已重置';
+            setTimeout(function() {
+                labelEl.textContent = '';
+            }, 1500);
+        }
+
+        if (typeof updateStudentAbsenceSummary === 'function') {
+            updateStudentAbsenceSummary();
+        }
+
+        showToast('已重置筛选', 'info');
+    }
+
+    // ---------- 刷新所有选择器 ----------
+    function refreshAllSelectors() {
+        var semester = getSemester();
+        var weeks = generateWeeks(semester);
+        var months = generateMonths(semester);
+        var currentWeek = getCurrentWeekIndex(semester.start);
+        var currentMonth = new Date().toISOString().slice(0, 7);
+
+        var weekSelect = document.getElementById('semesterWeekSelect');
+        var monthSelect = document.getElementById('semesterMonthSelect');
+
+        if (weekSelect) {
+            var html = '<option value="all">-- 全部周次 --</option>';
+            weeks.forEach(function(w) {
+                var selected = (w.index === currentWeek) ? 'selected' : '';
+                html += '<option value="week_' + w.index + '" ' + selected + '>' + w.label + '</option>';
+            });
+            weekSelect.innerHTML = html;
+        }
+
+        if (monthSelect) {
+            var html2 = '<option value="all">-- 全部月份 --</option>';
+            months.forEach(function(m) {
+                var selected = (m.value === currentMonth) ? 'selected' : '';
+                html2 += '<option value="month_' + m.value + '" ' + selected + '>' + m.label + '</option>';
+            });
+            monthSelect.innerHTML = html2;
+        }
+
+        restoreAllData();
+
+        if (typeof updateStudentAbsenceSummary === 'function') {
+            updateStudentAbsenceSummary();
+        }
+
+        var labelEl = document.getElementById('currentFilterLabel');
+        if (labelEl) {
+            labelEl.textContent = '📌 已更新学期设置';
+            setTimeout(function() {
+                labelEl.textContent = '';
+            }, 2000);
+        }
+    }
+
+    // ---------- Toast消息 ----------
+    function showToast(msg, type) {
+        var existing = document.querySelector('.semester-toast');
+        if (existing) existing.remove();
+
+        var toast = document.createElement('div');
+        toast.className = 'semester-toast';
+        var bgColor = type === 'success' ? '#27ae60' : (type === 'error' ? '#e74c3c' : '#3498db');
+        toast.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:12px 24px;background:' + bgColor + ';color:white;border-radius:8px;z-index:99999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);';
+        toast.textContent = msg;
+        document.body.appendChild(toast);
+
+        setTimeout(function() {
+            toast.style.opacity = '0';
+            toast.style.transition = 'opacity 0.3s';
+            setTimeout(function() { if (toast.parentNode) toast.remove(); }, 300);
+        }, 2500);
+    }
+
+    // ---------- 初始化 ----------
+    function init() {
+        if (!localStorage.getItem(SEMESTER_KEY)) {
+            saveSemester({ ...DEFAULT_SEMESTER });
+        }
+
+        addSemesterMenu();
+        setTimeout(replacePeriodButtons, 800);
+
+        console.log('✅ 学期设置模块已加载');
+        var sem = getSemester();
+        console.log('📅 当前学期:', sem.name || '未设置');
+        console.log('📊 学期周数:', generateWeeks(sem).length, '周');
+        console.log('📊 学期月数:', generateMonths(sem).length, '个月');
+        console.log('💡 学生视图：显示全部数据，不受筛选影响');
+        console.log('💡 班级视图：可选择"第X周"或"X月"筛选数据');
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    window.getSemester = getSemester;
+    window.saveSemesterFromModal = saveSemesterFromModal;
+    window.resetSemesterFromModal = resetSemesterFromModal;
+    window.refreshAllSelectors = refreshAllSelectors;
+    window.applySemesterFilter = applySemesterFilter;
+    window.resetSemesterFilter = resetSemesterFilter;
+
+    console.log('✅ 学期设置 + 考勤周/月筛选功能已加载（最终版）');
 })();
 </script>
 </body>
