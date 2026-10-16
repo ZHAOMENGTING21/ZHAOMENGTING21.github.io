@@ -28469,5 +28469,453 @@ console.log('✅ 所有增强功能加载完成！');
     console.log('✅ 批量谈话生成模块已加载（隐蔽入口版）');
 })();
 </script>
+<script>
+// ==================== 批量导出谈心谈话记录 ====================
+(function() {
+    'use strict';
+    
+    console.log('📄 加载批量导出模块...');
+    
+    // ========== 1. 生成单条记录的完整HTML ==========
+    function generateRecordHtml(record) {
+        function formatDate(dateString) {
+            try {
+                const date = new Date(dateString);
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return year + '年' + month + '月' + day + '日 ' + hours + ':' + minutes;
+            } catch (error) {
+                return dateString;
+            }
+        }
+        
+        function getRiskLevelText(riskLevel) {
+            switch(riskLevel) {
+                case 'red': return '红色预警';
+                case 'yellow': return '黄色关注';
+                case 'green': return '绿色正常';
+                default: return '未分级';
+            }
+        }
+        
+        function riskLevelStyle(riskLevel) {
+            switch(riskLevel) {
+                case 'red': return 'color: #c62828; font-weight: bold;';
+                case 'yellow': return 'color: #f57f17; font-weight: bold;';
+                case 'green': return 'color: #2e7d32; font-weight: bold;';
+                default: return '';
+            }
+        }
+        
+        let schoolTitle = '广东工商职业技术大学';
+        const collegeName = localStorage.getItem('customCollegeName') || '';
+        if (collegeName) {
+            schoolTitle += ' ' + collegeName;
+        }
+        
+        let problemAnalysis = '';
+        let followUpPlan = '';
+        let finalRemark = '';
+        
+        const feedbackText = record.talkFeedback || '';
+        const followUpPlanText = record.followUpPlan || '';
+        const remarkText = record.generalRemark || '';
+        
+        if (feedbackText) {
+            const problemMatch = feedbackText.match(/问题分析[：:]\s*([\s\S]*?)(?=后续跟进计划[：:]|分级建议[：:]|备注[：:]|$)/i);
+            if (problemMatch) {
+                problemAnalysis = problemMatch[1].trim();
+            } else {
+                problemAnalysis = feedbackText;
+            }
+        }
+        
+        if (followUpPlanText) {
+            followUpPlan = followUpPlanText;
+        } else if (feedbackText) {
+            const followUpMatch = feedbackText.match(/后续跟进计划[：:]\s*([\s\S]*?)(?=分级建议[：:]|备注[：:]|$)/i);
+            if (followUpMatch) {
+                followUpPlan = followUpMatch[1].trim();
+            }
+        }
+        
+        if (remarkText) {
+            finalRemark = remarkText;
+        } else if (feedbackText) {
+            const remarkMatch = feedbackText.match(/备注[：:]\s*([\s\S]*?)$/i);
+            if (remarkMatch) {
+                finalRemark = remarkMatch[1].trim();
+            }
+        }
+        
+        const riskLevelText = getRiskLevelText(record.riskLevel);
+        const riskLevelStyleStr = riskLevelStyle(record.riskLevel);
+        
+        return `
+        <div class="doc-content">
+            <div class="doc-header">
+                <h1>${schoolTitle}</h1>
+                <h1>辅导员谈心谈话记录表</h1>
+            </div>
+            
+            <table class="print-table">
+                <tr>
+                    <th width="21%">谈话对象</th>
+                    <td width="30%">${record.studentName || ''}</td>
+                    <th width="21%">班级/宿舍</th>
+                    <td width="30%">${record.className || ''} / ${record.dormitory || ''}</td>
+                </tr>
+                <tr>
+                    <th width="21%">谈话时间</th>
+                    <td width="30%">${formatDate(record.talkTime)}</td>
+                    <th width="21%">谈话地点</th>
+                    <td width="30%">${record.talkLocation || ''}</td>
+                </tr>
+                <tr>
+                    <th width="21%">谈话主题</th>
+                    <td colspan="3" width="85%">${record.topics ? record.topics.join('、') : ''}</td>
+                </tr>
+                <tr>
+                    <th rowspan="3" width="15%">谈<br>话<br>要<br>点</th>
+                    <td colspan="3" width="85%">
+                        <strong>学生背景：</strong><br>
+                        ${(record.studentBackground || '').replace(/\n/g, '<br>')}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" width="85%">
+                        <strong>谈话目的：</strong><br>
+                        ${(record.talkPurpose || '').replace(/\n/g, '<br>')}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" width="85%">
+                        <strong>学生自述：</strong><br>
+                        ${(record.studentStatement || '').replace(/\n/g, '<br>')}
+                    </td>
+                </tr>
+                <tr>
+                    <th width="21%">学生签名</th>
+                    <td width="30%">${record.studentSignature || ''}</td>
+                    <th width="21%">辅导员签名</th>
+                    <td width="30%">${record.counselorSignature || ''}</td>
+                </tr>
+                <tr>
+                    <th rowspan="3" width="15%">谈<br>话<br>反<br>馈</th>
+                    <td colspan="3">
+                        <strong>问题分析：</strong><br>
+                        ${problemAnalysis ? problemAnalysis.replace(/\n/g, '<br>') : '无'}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" width="85%">
+                        <strong>后续跟进计划：</strong><br>
+                        ${followUpPlan ? followUpPlan.replace(/\n/g, '<br>') : '无'}
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan="3" width="85%">
+                        <strong>分级建议：</strong> 
+                        <span style="${riskLevelStyleStr}">${riskLevelText}</span><br>
+                        <strong>备注：</strong> ${finalRemark || '无'}
+                    </td>
+                </tr>
+            </table>
+            
+            <div class="doc-footer">
+                <p>记录时间：${formatDate(record.createTime)}</p>
+                <p>辅导员：${record.counselorSignature || '辅导员'}</p>
+            </div>
+        </div>
+        `;
+    }
+    
+    // ========== 2. 生成完整的Word文档HTML ==========
+    function generateFullDocHtml(records, title) {
+        let recordsHtml = '';
+        records.forEach(function(record) {
+            recordsHtml += '<div style="page-break-after: always; padding: 20px 0;">';
+            recordsHtml += generateRecordHtml(record);
+            recordsHtml += '</div>';
+        });
+        
+        return `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>${title || '谈心谈话记录'}</title>
+    <style>
+        @page { size: A4; margin: 2cm; }
+        body {
+            font-family: "宋体", "SimSun", serif;
+            margin: 0; padding: 0;
+            font-size: 12pt;
+            line-height: 1.5;
+        }
+        .doc-content { page-break-after: always; }
+        .doc-content:last-child { page-break-after: auto; }
+        .print-table {
+            width: 100%;
+            border-collapse: collapse;
+            border: 2px solid #000;
+            margin: 20px 0;
+            font-size: 12pt;
+            font-family: "宋体", "SimSun", serif;
+            table-layout: fixed;
+        }
+        .print-table th, .print-table td {
+            border: 1px solid #000;
+            padding: 8px 12px;
+            vertical-align: middle;
+            word-wrap: break-word;
+        }
+        .print-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+            text-align: center;
+            vertical-align: middle;
+        }
+        .doc-header {
+            text-align: center;
+            margin-bottom: 15px;
+            font-family: "黑体", "SimHei", sans-serif;
+        }
+        .doc-header h1 {
+            font-size: 22pt;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        .doc-footer {
+            margin-top: 30px;
+            text-align: right;
+            font-size: 11pt;
+            color: #333;
+        }
+        .doc-footer p { margin: 3px 0; }
+    </style>
+</head>
+<body>
+    ${recordsHtml}
+</body>
+</html>`;
+    }
+    
+    // ========== 3. 批量导出Word ==========
+    function batchExportWord(records) {
+        if (!records || records.length === 0) {
+            alert('没有可导出的记录！');
+            return;
+        }
+        
+        if (!confirm('确定要导出选中的 ' + records.length + ' 条记录吗？\n\n将生成一个包含所有记录的Word文档。')) {
+            return;
+        }
+        
+        var progressDiv = document.createElement('div');
+        progressDiv.id = 'batchExportProgress';
+        progressDiv.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:30px 50px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,0.2);z-index:99999;text-align:center;';
+        progressDiv.innerHTML = '<div style="font-size:16px;margin-bottom:15px;">正在生成Word文档...</div>' +
+            '<div style="width:200px;height:6px;background:#e0e0e0;border-radius:3px;overflow:hidden;">' +
+            '<div id="batchExportProgressBar" style="width:0%;height:100%;background:#27ae60;transition:width 0.3s;"></div></div>' +
+            '<div id="batchExportProgressText" style="margin-top:10px;font-size:13px;color:#666;">0%</div>';
+        document.body.appendChild(progressDiv);
+        
+        var currentIndex = 0;
+        var totalRecords = records.length;
+        var allHtml = [];
+        
+        function processBatch() {
+            var batchSize = 5;
+            var endIndex = Math.min(currentIndex + batchSize, totalRecords);
+            
+            for (var i = currentIndex; i < endIndex; i++) {
+                allHtml.push(generateRecordHtml(records[i]));
+            }
+            
+            currentIndex = endIndex;
+            var percent = Math.round((currentIndex / totalRecords) * 100);
+            
+            var progressBar = document.getElementById('batchExportProgressBar');
+            var progressText = document.getElementById('batchExportProgressText');
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressText) progressText.textContent = percent + '% (' + currentIndex + '/' + totalRecords + ')';
+            
+            if (currentIndex < totalRecords) {
+                setTimeout(processBatch, 50);
+            } else {
+                var fullHtml = generateFullDocHtml(records, '谈心谈话记录汇总');
+                
+                var blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                var now = new Date();
+                var dateStr = now.getFullYear() + String(now.getMonth()+1).padStart(2,'0') + String(now.getDate()).padStart(2,'0');
+                a.download = '谈心谈话记录汇总_' + dateStr + '.doc';
+                document.body.appendChild(a);
+                a.click();
+                setTimeout(function() {
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                if (progressDiv && progressDiv.parentNode) {
+                    progressDiv.parentNode.removeChild(progressDiv);
+                }
+                
+                setTimeout(function() {
+                    alert('✅ 成功导出 ' + totalRecords + ' 条谈话记录！');
+                }, 300);
+            }
+        }
+        
+        processBatch();
+    }
+    
+    // ========== 4. 添加按钮 ==========
+    function addBatchActionButtons() {
+        var historyTab = document.getElementById('historyTab');
+        if (!historyTab) {
+            setTimeout(addBatchActionButtons, 500);
+            return;
+        }
+        
+        if (document.getElementById('batchExportPrintBar')) return;
+        
+        var batchArea = historyTab.querySelector('div[style*="background: #f8f9fa; padding: 20px; border-radius: 6px; margin-bottom: 20px;"]');
+        if (!batchArea) {
+            setTimeout(addBatchActionButtons, 500);
+            return;
+        }
+        
+        var btnContainer = document.createElement('div');
+        btnContainer.id = 'batchExportPrintBar';
+        btnContainer.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:15px;padding-top:15px;border-top:1px dashed #ddd;';
+        
+        btnContainer.innerHTML = `
+            <button class="btn" style="background:#27ae60;color:white;padding:10px 20px;font-size:14px;" onclick="window.batchExportSelectedRecords()">
+                📥 批量导出Word（选中记录）
+            </button>
+            <button class="btn" style="background:#3498db;color:white;padding:10px 20px;font-size:14px;" onclick="window.batchExportAllRecords()">
+                📦 导出全部记录
+            </button>
+        `;
+        
+        var batchDeleteBtn = batchArea.querySelector('#batchDeleteTalkBtn');
+        if (batchDeleteBtn && batchDeleteBtn.parentNode) {
+            batchDeleteBtn.parentNode.appendChild(btnContainer);
+        } else {
+            batchArea.appendChild(btnContainer);
+        }
+        
+        console.log('✅ 批量导出按钮已添加');
+    }
+    
+    // ========== 5. 获取选中的记录 ==========
+    function getSelectedRecords() {
+        var checkboxes = document.querySelectorAll('.talk-checkbox:checked');
+        if (checkboxes.length === 0) {
+            return [];
+        }
+        
+        var talkRecords = JSON.parse(localStorage.getItem('talkRecords') || '[]');
+        var selectedIds = [];
+        checkboxes.forEach(function(cb) {
+            selectedIds.push(parseInt(cb.value));
+        });
+        
+        return talkRecords.filter(function(record) {
+            return selectedIds.indexOf(record.id) !== -1;
+        });
+    }
+    
+    // ========== 6. 全局函数 ==========
+    window.batchExportSelectedRecords = function() {
+        var records = getSelectedRecords();
+        if (records.length === 0) {
+            alert('请先勾选要导出的谈话记录！');
+            return;
+        }
+        batchExportWord(records);
+    };
+    
+    window.batchExportAllRecords = function() {
+        var talkRecords = JSON.parse(localStorage.getItem('talkRecords') || '[]');
+        if (talkRecords.length === 0) {
+            alert('没有可导出的谈话记录！');
+            return;
+        }
+        if (!confirm('确定要导出全部 ' + talkRecords.length + ' 条记录吗？')) {
+            return;
+        }
+        batchExportWord(talkRecords);
+    };
+    
+    // 单个导出
+    window.exportSingleRecord = function(recordId) {
+        var talkRecords = JSON.parse(localStorage.getItem('talkRecords') || '[]');
+        var record = talkRecords.filter(function(r) { return r.id === recordId; })[0];
+        if (record) {
+            var html = generateFullDocHtml([record], record.studentName + '_谈话记录');
+            var blob = new Blob(['\ufeff', html], { type: 'application/msword' });
+            var url = URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = record.studentName + '_' + record.className + '_谈心谈话记录.doc';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(function() {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+            if (typeof showMessage === 'function') {
+                showMessage('Word文档导出成功！', 'success');
+            }
+        }
+    };
+    
+    // ========== 7. 初始化 ==========
+    function init() {
+        addBatchActionButtons();
+        
+        var originalSwitchTab = window.switchTab;
+        if (originalSwitchTab) {
+            window.switchTab = function(tabName) {
+                originalSwitchTab(tabName);
+                if (tabName === 'history') {
+                    setTimeout(addBatchActionButtons, 300);
+                }
+            };
+        }
+        
+        var observer = new MutationObserver(function() {
+            var historyTab = document.getElementById('historyTab');
+            if (historyTab && historyTab.style.display === 'block' && !document.getElementById('batchExportPrintBar')) {
+                addBatchActionButtons();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+    
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        setTimeout(init, 500);
+    }
+    
+    var origShowMain = window.showMainSystem;
+    if (origShowMain) {
+        window.showMainSystem = function() {
+            origShowMain();
+            setTimeout(addBatchActionButtons, 500);
+        };
+    }
+    
+    console.log('✅ 批量导出模块已加载');
+})();
+</script>
 </body>
 </html>
