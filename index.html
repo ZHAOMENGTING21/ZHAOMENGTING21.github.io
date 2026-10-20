@@ -28917,5 +28917,831 @@ console.log('✅ 所有增强功能加载完成！');
     console.log('✅ 批量导出模块已加载');
 })();
 </script>
+<script>
+/* ============================================================
+   常态化谈话记录表 模板适配 - 终章版
+   ============================================================ */
+(function () {
+    'use strict';
+
+    // ==================== 1. 替换表单 (新建谈话记录) ====================
+    function injectFormFields() {
+        var form = document.getElementById('talkForm');
+        if (!form) return;
+
+        var bgGroup = document.getElementById('studentBackground')?.closest('.form-group');
+        if (bgGroup) bgGroup.style.display = 'none';
+        var bgEl = document.getElementById('studentBackground');
+        if (bgEl) bgEl.removeAttribute('required');
+
+        var pointsGroup = document.getElementById('talkPoints')?.closest('.form-group');
+        if (pointsGroup) pointsGroup.style.display = 'none';
+
+        var followUpGroup = document.getElementById('followUpPlan')?.closest('.form-group');
+        if (followUpGroup) followUpGroup.style.display = 'none';
+
+        // 修改核心输入框标题 (去掉了"提前列点")
+        var purposeLabel = document.querySelector('label[for="talkPurpose"]') || document.getElementById('talkPurpose')?.previousElementSibling;
+        if (purposeLabel) purposeLabel.innerHTML = '谈话内容 *';
+
+        var statementLabel = document.querySelector('label[for="studentStatement"]') || document.getElementById('studentStatement')?.previousElementSibling;
+        if (statementLabel) statementLabel.innerHTML = '学生反馈/处理意见 *';
+
+        var feedbackLabel = document.querySelector('label[for="talkFeedback"]') || document.getElementById('talkFeedback')?.previousElementSibling;
+        if (feedbackLabel) feedbackLabel.innerHTML = '分析问题/处理意见/后续计划';
+
+        // 新增专门用于模板的字段容器
+        if (document.getElementById('extraTemplateFields')) return;
+        var wrap = document.createElement('div');
+        wrap.id = 'extraTemplateFields';
+        wrap.className = 'form-grid';
+        wrap.style.marginTop = '10px';
+        
+        wrap.innerHTML = `
+            <div class="form-group">
+                <label class="form-label">性别</label>
+                <select id="tplGender" class="form-control">
+                    <option value="">请选择</option>
+                    <option value="男">男</option>
+                    <option value="女">女</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">民族</label>
+                <input type="text" id="tplNation" class="form-control" placeholder="如：汉族">
+            </div>
+            <div class="form-group">
+                <label class="form-label">学生联系方式</label>
+                <input type="text" id="tplStudentPhone" class="form-control" placeholder="学生手机号">
+            </div>
+            <div class="form-group">
+                <label class="form-label">政治面貌</label>
+                <select id="tplPolitical" class="form-control">
+                    <option value="">请选择</option>
+                    <option value="中共党员">中共党员</option>
+                    <option value="中共预备党员">中共预备党员</option>
+                    <option value="发展对象">发展对象</option>
+                    <option value="入党积极分子">入党积极分子</option>
+                    <option value="共青团员">共青团员</option>
+                    <option value="群众">群众</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">谈话方式</label>
+                <select id="tplTalkMethod" class="form-control">
+                    <option value="面谈">面谈</option>
+                    <option value="电话">电话</option>
+                    <option value="视频">视频</option>
+                    <option value="微信/QQ">微信/QQ</option>
+                    <option value="其他">其他</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">是否转介</label>
+                <select id="tplReferral" class="form-control">
+                    <option value="">无</option>
+                    <option value="学院">学院</option>
+                    <option value="心理咨询中心">心理咨询中心</option>
+                    <option value="学生工作处">学生工作处</option>
+                </select>
+            </div>
+        `;
+        
+        var panel = document.getElementById('studentInfoPanel');
+        if (panel && panel.parentNode) {
+            panel.parentNode.insertBefore(wrap, panel.nextSibling);
+        } else {
+            form.insertBefore(wrap, form.firstChild);
+        }
+
+        var origSelectStudent = window.selectStudent;
+        if (typeof origSelectStudent === 'function') {
+            window.selectStudent = function (student) {
+                origSelectStudent(student);
+                try {
+                    if (student) {
+                        var g = document.getElementById('tplGender');
+                        var n = document.getElementById('tplNation');
+                        var p = document.getElementById('tplStudentPhone');
+                        var pol = document.getElementById('tplPolitical');
+                        if (g && student.gender) g.value = student.gender;
+                        if (n && student.nation) n.value = student.nation;
+                        if (p) p.value = student.phone || student.contactPhone || '';
+                        if (pol && student.politicalStatus) pol.value = student.politicalStatus;
+                    }
+                } catch (e) {}
+            };
+        }
+    }
+
+    // ==================== 2. 保存时把新字段带进记录 ====================
+    function patchSave() {
+        var origSave = window.saveTalkRecord;
+        if (typeof origSave !== 'function' || origSave._tplPatched) return;
+        window.saveTalkRecord = function () {
+            try {
+                window.__tplExtra = {
+                    gender: (document.getElementById('tplGender') || {}).value || '',
+                    nation: (document.getElementById('tplNation') || {}).value || '',
+                    studentPhone: (document.getElementById('tplStudentPhone') || {}).value || '',
+                    politicalStatus: (document.getElementById('tplPolitical') || {}).value || '',
+                    talkMethod: (document.getElementById('tplTalkMethod') || {}).value || '面谈',
+                    referral: (document.getElementById('tplReferral') || {}).value || ''
+                };
+            } catch (e) {}
+            origSave();
+            try {
+                var extra = window.__tplExtra;
+                if (!extra) return;
+                var records = JSON.parse(localStorage.getItem('talkRecords') || '[]');
+                if (!records.length) return;
+                var last = records[records.length - 1];
+                Object.assign(last, extra);
+                localStorage.setItem('talkRecords', JSON.stringify(records));
+                window.__tplExtra = null;
+                if (typeof loadTalkRecords === 'function') loadTalkRecords();
+            } catch (e) {}
+        };
+        window.saveTalkRecord._tplPatched = true;
+    }
+
+    // ==================== 3. 覆盖生成模板 HTML ====================
+    window.generateDocHtml = function (record) {
+        function fmt(d) {
+            try {
+                var dt = new Date(d);
+                return dt.getFullYear() + '年' +
+                    String(dt.getMonth() + 1).padStart(2, '0') + '月' +
+                    String(dt.getDate()).padStart(2, '0') + '日 ' +
+                    String(dt.getHours()).padStart(2, '0') + ':' +
+                    String(dt.getMinutes()).padStart(2, '0');
+            } catch (e) { return d || ''; }
+        }
+        function esc(s) {
+            if (s === undefined || s === null) return '';
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/\n/g, '<br>');
+        }
+        
+        var stu = null;
+        try {
+            var all = JSON.parse(localStorage.getItem('students') || '[]');
+            stu = all.find(function (s) { return s.studentId === record.studentId; }) || null;
+        } catch (e) {}
+        var gender = record.gender || (stu && stu.gender) || '';
+        var nation = record.nation || (stu && stu.nation) || '';
+        var phone = record.studentPhone || (stu && (stu.phone || stu.contactPhone)) || '';
+        var political = record.politicalStatus || (stu && stu.politicalStatus) || '';
+        var className = record.className || (stu && stu.className) || '';
+        var dormitory = record.dormitory || (stu && stu.dormitory) || '';
+
+        // 匹配系统学院，默认财经政法学院
+        var collegeName = localStorage.getItem('customCollegeName') || '财经政法';
+        if (collegeName.indexOf('学院') === -1) collegeName += '学院';
+        var schoolTitle = collegeName;
+
+        var allTopics = record.topics || [];
+        function getTopicChk(topicName) {
+            var isChecked = allTopics.some(function(t) { return t.indexOf(topicName) !== -1; });
+            return isChecked ? '☑' : '□';
+        }
+        var otherTopic = '';
+        allTopics.forEach(function(t) {
+            if (t.indexOf('其他') !== -1 || ['适应性','人际关系','情感','学业','就业','情绪/健康','家庭','警示教育'].indexOf(t) === -1) {
+                if (t.indexOf('其他：') === 0) otherTopic += t.replace('其他：', '') + ' ';
+                else if (t.indexOf('其他') !== -1) otherTopic += t.replace('其他', '') + ' ';
+                else otherTopic += t + ' ';
+            }
+        });
+
+        let feedbackContent = record.talkFeedback || '';
+        let followUp = record.followUpPlan || '';
+        if (followUp && feedbackContent.indexOf(followUp) === -1) {
+            feedbackContent = feedbackContent ? feedbackContent + '<br><br>' + followUp : followUp;
+        }
+
+        return `
+        <div class="doc-content">
+            <div class="doc-header">
+                <h1>${esc(schoolTitle)}学生常态化谈话记录表</h1>
+                <h2 style="font-size:12pt;font-weight:normal;color:#333;margin:5px 0;"></h2>
+            </div>
+            <table class="print-table">
+                <colgroup>
+                    <col style="width:10%"><col style="width:14%"><col style="width:26%">
+                    <col style="width:14%"><col style="width:36%">
+                </colgroup>
+                
+                <tr style="height:35px;">
+                    <th rowspan="4">学生<br>基本<br>情况</th>
+                    <th>姓名</th><td>${esc(record.studentName || '')}</td>
+                    <th>性别</th><td>${esc(gender)}</td>
+                </tr>
+                <tr style="height:35px;">
+                    <th>学号</th><td>${esc(record.studentId || '')}</td>
+                    <th>民族</th><td>${esc(nation)}</td>
+                </tr>
+                <tr style="height:35px;">
+                    <th>班级</th><td>${esc(className)}</td>
+                    <th>宿舍</th><td>${esc(dormitory)}</td>
+                </tr>
+                <tr style="height:35px;">
+                    <th>学生联系<br>方式</th><td>${esc(phone)}</td>
+                    <th>政治面貌</th><td>${esc(political)}</td>
+                </tr>
+
+                <tr style="height:45px;">
+                    <th rowspan="2">谈话<br>基本<br>情况</th>
+                    <th>谈话时间<br>与地点</th>
+                    <td style="vertical-align:middle;">${esc(fmt(record.talkTime))}<br>${esc(record.talkLocation || '')}</td>
+                    <th>谈话方式与<br>地点</th>
+                    <td>${esc(record.talkMethod || '面谈')}</td>
+                </tr>
+                <tr style="height:60px;">
+                    <th>谈话主题</th>
+                    <td colspan="3" style="text-align:left; vertical-align:middle; line-height:1.5;">
+                        ${getTopicChk('适应性')}适应性 ${getTopicChk('人际关系')}人际关系 ${getTopicChk('情感')}情感 ${getTopicChk('学业')}学业 ${getTopicChk('就业')}就业<br>
+                        ${getTopicChk('情绪/健康')}情绪/健康 ${getTopicChk('家庭')}家庭 ${getTopicChk('警示教育')}警示教育 其他：${esc(otherTopic.trim())}
+                    </td>
+                </tr>
+
+                <tr style="height:120px;">
+                    <th>谈话<br>要点</th>
+                    <td colspan="4" style="text-align:left; vertical-align:top; padding:10px; line-height:1.6;">
+                        <div style="margin-bottom:10px;">1. 谈话内容</div>
+                        <div style="margin-bottom:10px; min-height:20px;">${esc(record.talkPurpose || '')}</div>
+                        
+                        <div style="margin-bottom:10px;">2. 学生反馈/处理意见</div>
+                        <div style="min-height:20px;">${esc(record.studentStatement || '')}</div>
+                    </td>
+                </tr>
+
+                <tr style="height:40px;">
+                    <th>签字<br>确认</th>
+                    <th style="vertical-align:middle;">辅导员<br>签字</th>
+                    <td style="vertical-align:middle;">${esc(record.counselorSignature || '')}</td>
+                    <th style="vertical-align:middle;">学生签字</th>
+                    <td style="vertical-align:middle;">${esc(record.studentSignature || '')}</td>
+                </tr>
+
+                <tr style="height:60px;">
+                    <th>谈话<br>反馈</th>
+                    <td colspan="4" style="text-align:left; vertical-align:top; padding:10px; line-height:1.6;">
+                        <div style="margin-bottom:10px;">分析问题/处理意见/后续计划...</div>
+                        <div>${feedbackContent || '—'}</div>
+                    </td>
+                </tr>
+
+                <tr style="height:35px;">
+                    <th>分级<br>建议</th>
+                    <td colspan="4" style="text-align:left; vertical-align:middle;">
+                        ${record.riskLevel === 'red' ? '☑红' : '□红'} &nbsp;&nbsp;
+                        ${record.riskLevel === 'yellow' ? '☑黄' : '□黄'} &nbsp;&nbsp;
+                        □橙 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                        ${record.riskLevel === 'green' ? '☑绿' : '□绿'} &nbsp;&nbsp;
+                        <span style="margin-left:30px;color:#333;font-weight:bold;">
+                            当前：${record.riskLevel === 'red' ? '红' : (record.riskLevel === 'yellow' ? '黄' : '绿')}
+                        </span>
+                    </td>
+                </tr>
+
+                <tr style="height:35px;">
+                    <th>是否<br>转介</th>
+                    <td colspan="4" style="text-align:left; vertical-align:middle;">
+                        ${record.referral === '学院' ? '☑' : '□'}学院 &nbsp;&nbsp;&nbsp;&nbsp;
+                        ${record.referral === '心理咨询中心' ? '☑' : '□'}心理咨询中心 &nbsp;&nbsp;&nbsp;&nbsp;
+                        ${record.referral === '学生工作处' ? '☑' : '□'}学生工作处
+                    </td>
+                </tr>
+
+                <tr style="height:40px;">
+                    <th>备注</th>
+                    <td colspan="4" style="text-align:left; vertical-align:middle; padding:10px;">
+                        ${esc(record.generalRemark || '') || '—'}
+                    </td>
+                </tr>
+            </table>
+        </div>`;
+    };
+
+    // ==================== 4. 导出Word ====================
+    function patchExportToWord() {
+        var origExport = window.exportToWord;
+        if (typeof origExport !== 'function' || origExport._tplPatched) return;
+        
+        window.exportToWord = function () {
+            try {
+                var content = document.getElementById('docPreview').innerHTML;
+                var previewContent = document.getElementById('docPreview').innerHTML;
+                
+                var studentNameMatch = previewContent.match(/姓名<\/th>\s*<td[^>]*>([^<]+)</);
+                var classNameMatch = previewContent.match(/班级<\/th>\s*<td[^>]*>([^<]+)/);
+                
+                let studentName = '未知学生';
+                let className = '未知班级';
+                if (studentNameMatch && studentNameMatch[1]) studentName = studentNameMatch[1].trim();
+                if (classNameMatch && classNameMatch[1]) className = classNameMatch[1].split('/')[0].trim();
+                
+                const now = new Date();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const fileName = `${studentName}_${className}_谈话记录_${month}${day}.doc`;
+
+                const fullHtml = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <meta charset="UTF-8">
+                        <title>谈心谈话记录表</title>
+                        <style>
+                            body {
+                                font-family: "宋体", "SimSun", serif;
+                                margin: 2cm;
+                                font-size: 12pt;
+                            }
+                            .print-table {
+                                width: 100%;
+                                border-collapse: collapse;
+                                border: 2px solid #000;
+                                margin: 20px 0;
+                                page-break-inside: auto;
+                            }
+                            .print-table tr {
+                                page-break-inside: avoid;
+                                page-break-after: auto;
+                            }
+                            .print-table th, .print-table td {
+                                border: 1px solid #000;
+                                padding: 4px 6px;
+                                vertical-align: middle;
+                                page-break-inside: avoid;
+                            }
+                            .print-table th {
+                                background-color: #f0f0f0;
+                                font-weight: bold;
+                                text-align: center;
+                                font-size: 11pt;
+                            }
+                            .doc-header {
+                                text-align: center;
+                                margin-bottom: 10px;
+                                font-family: "黑体", "SimHei", sans-serif;
+                            }
+                            .doc-header h1 {
+                                font-size: 20pt;
+                                margin-bottom: 5px;
+                            }
+                            .doc-header h2 {
+                                font-size: 12pt;
+                                margin-bottom: 10px;
+                                color: #333;
+                            }
+                            @page {
+                                size: A4;
+                                margin: 2cm;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        ${content}
+                    </body>
+                    </html>
+                `;
+                
+                const blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
+                if (typeof saveAs === 'function') {
+                    saveAs(blob, fileName);
+                } else {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }
+                
+                if (typeof showMessage === 'function') showMessage('Word文档导出成功！', 'success');
+                if (typeof closePreviewModal === 'function') closePreviewModal();
+                
+            } catch (error) {
+                console.error('导出Word文档时出错：', error);
+                if (typeof showMessage === 'function') showMessage('导出失败：' + error.message, 'error');
+            }
+        };
+        window.exportToWord._tplPatched = true;
+    }
+
+    // ==================== 5. 初始化 ====================
+    function init() {
+        injectFormFields();
+        patchSave();
+        patchExportToWord();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { setTimeout(init, 800); });
+    } else {
+        setTimeout(init, 800);
+    }
+
+    var origSwitch = window.switchTab;
+    if (typeof origSwitch === 'function') {
+        window.switchTab = function (tab) {
+            origSwitch(tab);
+            if (tab === 'record' || tab === 'history') setTimeout(init, 200);
+        };
+    }
+    var origShowMain = window.showMainSystem;
+    if (typeof origShowMain === 'function') {
+        window.showMainSystem = function () {
+            origShowMain();
+            setTimeout(init, 600);
+        };
+    }
+
+    console.log('✅ 常态化谈话记录表 模板已启用（终极统一版）');
+})();
+</script>
+<script>
+/* ============================================================
+   统一版：批量谈话生成（彻底隔绝旧版覆盖）
+   ============================================================ */
+(function() {
+    'use strict';
+
+    // ---------- 1. 覆盖批量生成函数 ----------
+    window.showBatchTalkModal = function() {
+        var students = JSON.parse(localStorage.getItem('students') || '[]');
+        if (students.length === 0) {
+            alert('暂无学生数据，请先添加学生！');
+            return;
+        }
+
+        var oldModal = document.getElementById('batchTalkModal');
+        if (oldModal) oldModal.remove();
+
+        var classMap = {};
+        students.forEach(function(s) {
+            if (!classMap[s.className]) classMap[s.className] = [];
+            classMap[s.className].push(s);
+        });
+
+        var classOptions = '<option value="">-- 全部班级 --</option>';
+        Object.keys(classMap).sort().forEach(function(c) {
+            classOptions += '<option value="' + c + '">' + c + ' (' + classMap[c].length + '人)</option>';
+        });
+
+        var modalHtml = `
+            <div id="batchTalkModal" style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;justify-content:center;align-items:center;">
+                <div style="background:white;border-radius:16px;max-width:1000px;width:95%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <!-- 头部 -->
+                    <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:20px 25px;border-radius:16px 16px 0 0;display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <h2 style="margin:0;font-size:20px;">⚡ 批量生成谈话记录</h2>
+                            <p style="margin:5px 0 0;opacity:0.9;font-size:13px;">选择学生 → 填写统一内容 → 一键生成并导出</p>
+                        </div>
+                        <button onclick="document.getElementById('batchTalkModal').remove()" style="background:rgba(255,255,255,0.2);border:none;color:white;font-size:20px;width:36px;height:36px;border-radius:50%;cursor:pointer;">✕</button>
+                    </div>
+
+                    <!-- 步骤1：选择学生 -->
+                    <div style="padding:20px 25px;border-bottom:1px solid #eee;">
+                        <h3 style="margin:0 0 15px;font-size:15px;color:#2c3e50;">📋 第一步：选择学生</h3>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px;">
+                            <select id="batchTalkClassFilter" style="padding:8px 15px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                ${classOptions}
+                            </select>
+                            <button onclick="batchTalkSelectAll()" style="padding:8px 16px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">全选</button>
+                            <button onclick="batchTalkSelectNone()" style="padding:8px 16px;background:#95a5a6;color:white;border:none;border-radius:6px;cursor:pointer;font-size:13px;">取消全选</button>
+                            <span id="batchTalkSelectedCount" style="padding:8px 16px;background:#e8f5e9;border-radius:6px;font-size:13px;color:#2e7d32;font-weight:bold;">已选 0 人</span>
+                        </div>
+                        <div id="batchTalkStudentList" style="max-height:250px;overflow-y:auto;border:1px solid #eee;border-radius:8px;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;">
+                            <!-- 学生列表动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 步骤2：填写模板（与新建高度一致） -->
+                    <div style="padding:20px 25px;border-bottom:1px solid #eee;">
+                        <h3 style="margin:0 0 15px;font-size:15px;color:#2c3e50;">📝 第二步：填写统一模板内容</h3>
+                        
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;">
+                            <div>
+                                <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">谈话时间 *</label>
+                                <input type="datetime-local" id="batchTalkTime" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                            </div>
+                            <div>
+                                <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">谈话地点 *</label>
+                                <input type="text" id="batchTalkLocation" value="辅导员办公室" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                            </div>
+                        </div>
+
+                        <div style="margin-top:15px;">
+                            <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">谈话主题（多选）</label>
+                            <div id="batchTalkTopics" style="display:flex;flex-wrap:wrap;gap:10px;">
+                                ${['适应性','人际关系','情感','学业','就业','情绪/健康','家庭','警示教育','迟到','挂科','晚归'].map(function(t) {
+                                    return '<label style="display:flex;align-items:center;gap:4px;font-size:13px;cursor:pointer;"><input type="checkbox" class="batch-topic" value="' + t + '"> ' + t + '</label>';
+                                }).join('')}
+                            </div>
+                        </div>
+
+                        <div style="margin-top:15px;">
+                            <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">1. 谈话内容 *</label>
+                            <textarea id="batchTalkPurpose" rows="2" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;" placeholder="填写谈话内容..."></textarea>
+                        </div>
+
+                        <div style="margin-top:15px;">
+                            <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">2. 学生反馈/处理意见 *</label>
+                            <textarea id="batchTalkStatement" rows="2" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;" placeholder="学生反馈内容..."></textarea>
+                        </div>
+
+                        <div style="margin-top:15px;">
+                            <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">分析问题/处理意见/后续计划</label>
+                            <textarea id="batchTalkFeedback" rows="2" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;resize:vertical;" placeholder="后续计划..."></textarea>
+                        </div>
+
+                        <div style="margin-top:15px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px;">
+                            <div>
+                                <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">谈话方式</label>
+                                <select id="batchTalkMethod" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                    <option value="面谈">面谈</option>
+                                    <option value="电话">电话</option>
+                                    <option value="视频">视频</option>
+                                    <option value="微信/QQ">微信/QQ</option>
+                                    <option value="其他">其他</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">分级建议</label>
+                                <select id="batchTalkRiskLevel" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                    <option value="green">绿色正常</option>
+                                    <option value="yellow">黄色关注</option>
+                                    <option value="red">红色预警</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="font-size:13px;color:#666;display:block;margin-bottom:5px;">是否转介</label>
+                                <select id="batchTalkReferral" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:13px;">
+                                    <option value="">无</option>
+                                    <option value="学院">学院</option>
+                                    <option value="心理咨询中心">心理咨询中心</option>
+                                    <option value="学生工作处">学生工作处</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 步骤3：生成 -->
+                    <div style="padding:20px 25px;background:#f8f9fa;border-radius:0 0 16px 16px;display:flex;justify-content:flex-end;gap:15px;">
+                        <button onclick="batchTalkGenerate()" style="padding:10px 25px;background:#3498db;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">⚡ 仅保存记录</button>
+                        <button onclick="batchTalkGenerateAndExport()" style="padding:10px 25px;background:#27ae60;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:bold;">📥 保存并导出Word</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        var modal = document.createElement('div');
+        modal.innerHTML = modalHtml;
+        document.body.appendChild(modal);
+
+        var now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        document.getElementById('batchTalkTime').value = now.toISOString().slice(0, 16);
+
+        renderBatchTalkStudents(students);
+
+        document.getElementById('batchTalkClassFilter').addEventListener('change', function() {
+            var cls = this.value;
+            var filtered = cls ? students.filter(function(s) { return s.className === cls; }) : students;
+            renderBatchTalkStudents(filtered);
+        });
+    };
+
+    function renderBatchTalkStudents(list) {
+        var container = document.getElementById('batchTalkStudentList');
+        if (!container) return;
+
+        if (list.length === 0) {
+            container.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:20px;color:#999;">暂无学生</div>';
+            return;
+        }
+
+        container.innerHTML = list.map(function(s) {
+            return '<label style="display:flex;align-items:center;gap:6px;padding:8px;background:white;border-radius:6px;border:1px solid #eee;cursor:pointer;font-size:13px;">' +
+                '<input type="checkbox" class="batch-student-cb" value="' + s.studentId + '" data-name="' + s.name + '" data-class="' + s.className + '" data-dorm="' + (s.dormitory || '') + '">' +
+                '<span><strong>' + s.name + '</strong><br><span style="font-size:11px;color:#999;">' + s.className + '</span></span>' +
+                '</label>';
+        }).join('');
+
+        container.querySelectorAll('.batch-student-cb').forEach(function(cb) {
+            cb.addEventListener('change', updateBatchTalkCount);
+        });
+        updateBatchTalkCount();
+    }
+
+    function updateBatchTalkCount() {
+        var count = document.querySelectorAll('.batch-student-cb:checked').length;
+        var el = document.getElementById('batchTalkSelectedCount');
+        if (el) el.textContent = '已选 ' + count + ' 人';
+    }
+
+    window.batchTalkSelectAll = function() {
+        document.querySelectorAll('.batch-student-cb').forEach(function(cb) { cb.checked = true; });
+        updateBatchTalkCount();
+    };
+
+    window.batchTalkSelectNone = function() {
+        document.querySelectorAll('.batch-student-cb').forEach(function(cb) { cb.checked = false; });
+        updateBatchTalkCount();
+    };
+
+    // ---------- 2. 保存逻辑 ----------
+    function collectBatchTalkData() {
+        var selected = document.querySelectorAll('.batch-student-cb:checked');
+        if (selected.length === 0) {
+            alert('请至少选择一名学生！');
+            return null;
+        }
+
+        var topics = [];
+        document.querySelectorAll('.batch-topic:checked').forEach(function(cb) {
+            topics.push(cb.value);
+        });
+        if (topics.length === 0) {
+            alert('请至少选择一个谈话主题！');
+            return null;
+        }
+
+        var talkTime = document.getElementById('batchTalkTime').value;
+        if (!talkTime) {
+            alert('请填写谈话时间！');
+            return null;
+        }
+
+        var students = [];
+        selected.forEach(function(cb) {
+            students.push({
+                studentId: cb.value,
+                name: cb.getAttribute('data-name'),
+                className: cb.getAttribute('data-class'),
+                dormitory: cb.getAttribute('data-dorm')
+            });
+        });
+
+        return {
+            students: students,
+            talkTime: talkTime.replace('T', ' '),
+            talkLocation: document.getElementById('batchTalkLocation').value || '辅导员办公室',
+            talkMethod: document.getElementById('batchTalkMethod').value || '面谈',
+            topics: topics,
+            talkPurpose: document.getElementById('batchTalkPurpose').value || '',
+            studentStatement: document.getElementById('batchTalkStatement').value || '',
+            talkFeedback: document.getElementById('batchTalkFeedback').value || '',
+            riskLevel: document.getElementById('batchTalkRiskLevel').value,
+            referral: document.getElementById('batchTalkReferral').value,
+            generalRemark: ''
+        };
+    }
+
+    window.batchTalkGenerate = function() {
+        var data = collectBatchTalkData();
+        if (!data) return;
+
+        var records = JSON.parse(localStorage.getItem('talkRecords') || '[]');
+        var counselorName = '辅导员';
+        try {
+            var u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            counselorName = u.fullname || '辅导员';
+        } catch(e) {}
+
+        var count = 0;
+        data.students.forEach(function(s, idx) {
+            var record = {
+                id: Date.now() + idx,
+                studentId: s.studentId,
+                studentName: s.name,
+                className: s.className,
+                dormitory: s.dormitory,
+                talkTime: data.talkTime,
+                talkLocation: data.talkLocation,
+                talkMethod: data.talkMethod,
+                topics: data.topics.slice(),
+                talkPurpose: data.talkPurpose,
+                studentStatement: data.studentStatement,
+                talkFeedback: data.talkFeedback,
+                riskLevel: data.riskLevel,
+                referral: data.referral,
+                generalRemark: data.generalRemark,
+                studentSignature: s.name,
+                counselorSignature: counselorName,
+                createTime: new Date().toISOString(),
+                updateTime: new Date().toISOString()
+            };
+            records.push(record);
+            count++;
+        });
+
+        localStorage.setItem('talkRecords', JSON.stringify(records));
+        if (typeof loadTalkRecords === 'function') loadTalkRecords();
+        alert('✅ 成功生成 ' + count + ' 条谈话记录！');
+    };
+
+    // ---------- 3. 强制统一导出 ----------
+    window.batchTalkGenerateAndExport = function() {
+        var data = collectBatchTalkData();
+        if (!data) return;
+
+        window.batchTalkGenerate();
+
+        var counselorName = '辅导员';
+        try {
+            var u = JSON.parse(localStorage.getItem('currentUser') || '{}');
+            counselorName = u.fullname || '辅导员';
+        } catch(e) {}
+
+        if (typeof window.generateDocHtml !== 'function') {
+            alert('导出模块未加载，请刷新页面后重试');
+            return;
+        }
+
+        data.students.forEach(function(s, idx) {
+            var record = {
+                studentName: s.name,
+                className: s.className,
+                dormitory: s.dormitory,
+                studentId: s.studentId,
+                talkTime: data.talkTime,
+                talkLocation: data.talkLocation,
+                talkMethod: data.talkMethod,
+                topics: data.topics,
+                talkPurpose: data.talkPurpose,
+                studentStatement: data.studentStatement,
+                talkFeedback: data.talkFeedback,
+                riskLevel: data.riskLevel,
+                referral: data.referral,
+                generalRemark: data.generalRemark,
+                studentSignature: s.name,
+                counselorSignature: counselorName,
+                createTime: new Date().toISOString()
+            };
+
+            setTimeout(function() {
+                try {
+                    var content = window.generateDocHtml(record);
+                    var fullHtml = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>常态化谈话记录表</title>' +
+                        '<style>body{font-family:"宋体",serif;margin:2cm;font-size:12pt;}' +
+                        '.print-table{width:100%;border-collapse:collapse;border:2px solid #000;margin:20px 0;}' +
+                        '.print-table th,.print-table td{border:1px solid #000;padding:4px 6px;vertical-align:middle;}' +
+                        '.print-table th{background:#f0f0f0;font-weight:bold;text-align:center;}' +
+                        '.doc-header{text-align:center;margin-bottom:10px;font-family:"黑体",sans-serif;}' +
+                        '.doc-header h1{font-size:20pt;margin-bottom:5px;}' +
+                        '.doc-header h2{font-size:12pt;margin-bottom:10px;color:#333;}' +
+                        '.print-table tr{page-break-inside:avoid;}' +
+                        '@page{size:A4;margin:2cm;}</style></head><body>' + content + '</body></html>';
+
+                    var blob = new Blob(['\ufeff', fullHtml], { type: 'application/msword' });
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = s.name + '_' + s.className + '_谈话记录.doc';
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(function() {
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                    }, 100);
+                } catch(e) {
+                    console.error('导出失败:', s.name, e);
+                }
+            }, idx * 500);
+        });
+
+        alert('✅ 已生成 ' + data.students.length + ' 条记录，正在逐个下载Word文档...\n\n注意：浏览器可能会询问是否允许多文件下载，请点击"允许"。');
+    };
+
+    // ---------- 4. 动态替换页面上的按钮绑定（防止原版死灰复燃） ----------
+    function overrideBatchTalkButton() {
+        // 找到表单底部原本的隐蔽入口按钮
+        var oldBtn = document.getElementById('hiddenBatchTalkBtn');
+        if (oldBtn) {
+            // 移除旧监听
+            var newBtn = oldBtn.cloneNode(true);
+            oldBtn.parentNode.replaceChild(newBtn, oldBtn);
+            // 绑定新逻辑
+            newBtn.onclick = function() {
+                window.showBatchTalkModal();
+            };
+        }
+    }
+
+    // 每隔一秒检查一次按钮是否被旧代码重新生成，并强制接管
+    setInterval(overrideBatchTalkButton, 1000);
+    // 立即执行一次
+    setTimeout(overrideBatchTalkButton, 500);
+    setTimeout(overrideBatchTalkButton, 1500);
+
+    console.log('✅ 批量谈话生成模块已强制覆盖（与新建模板完全统一）');
+})();
+</script>
 </body>
 </html>
